@@ -86,3 +86,30 @@ def create_pretty_table(data: List[List[Any]], headers: List[str], key: str = No
 
     # Afficher le tableau avec Streamlit
     st.dataframe(df, use_container_width=True, key=key)
+
+
+def get_geo_zone_display_name(zone_code: str) -> str:
+    """
+    Convertit un code de zone géographique en nom d'affichage plus lisible
+
+    Cette fonction permet d'harmoniser l'affichage des zones géographiques
+    dans toute l'application.
+
+    Args:
+        zone_code: Code de la zone géographique
+
+    Returns:
+        Nom d'affichage de la zone
+    """
+    display_names = {
+        "amerique_nord": "Amérique du Nord",
+        "europe_zone_euro": "Europe zone euro",
+        "europe_hors_zone_euro": "Europe hors zone euro",
+        "japon": "Japon",
+        "chine": "Chine",
+        "inde": "Inde",
+        "asie_developpee": "Asie développée",
+        "autres_emergents": "Autres émergents",
+        "global_non_classe": "Global/Non classé"
+    }
+    return display_names.get(zone_code, zone_code.capitalize())

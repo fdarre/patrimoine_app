@@ -11,7 +11,8 @@ from sqlalchemy import func  # Importation correcte de func
 
 from database.models import Bank, Account, Asset, HistoryPoint
 from services.visualization_service import VisualizationService
-from utils.constants import ASSET_CATEGORIES, GEO_ZONES
+from utils.constants import ASSET_CATEGORIES, GEO_ZONES, GEO_ZONES_DESCRIPTIONS
+from utils.visualizations import get_geo_zone_display_name
 
 def show_analysis(db: Session, user_id: str):
     """
@@ -159,6 +160,22 @@ def show_analysis(db: Session, user_id: str):
                     # Créer la visualisation par zone géographique
                     st.subheader("Répartition géographique")
 
+                    # Ajouter la section d'aide
+                    with st.expander("Aide: Pays inclus dans chaque zone géographique"):
+                        st.markdown("""
+                        | Zone géographique | Pays inclus typiques |
+                        | ----------------- | -------------------- |
+                        | Amérique du Nord | États-Unis, Canada |
+                        | Europe zone euro | Allemagne, France, Espagne, Italie, Pays-Bas, etc. |
+                        | Europe hors zone euro | Royaume-Uni, Suisse, Suède, Norvège, Danemark |
+                        | Japon | Japon |
+                        | Chine | Chine, Hong Kong |
+                        | Inde | Inde |
+                        | Asie développée | Corée du Sud, Australie, Singapour, Nouvelle-Zélande |
+                        | Autres émergents | Brésil, Mexique, Indonésie, Afrique du Sud, Égypte, Turquie, Pologne, Vietnam, Nigeria, Argentine, Chili, Pérou, Colombie, etc. |
+                        | Global/Non classé | Pour cas exceptionnels non ventilés |
+                        """)
+
                     # Calculer les valeurs par zone géographique
                     geo_values = VisualizationService.calculate_geo_values(
                         db,
@@ -168,19 +185,19 @@ def show_analysis(db: Session, user_id: str):
                         geo_zones=GEO_ZONES
                     )
 
-                    # Filtrer les zones avec des valeurs > 0
-                    geo_values = {k.capitalize(): v for k, v in geo_values.items() if v > 0}
+                    # Filtrer les zones avec des valeurs > 0 et utiliser des noms affichables
+                    geo_values_display = {get_geo_zone_display_name(k): v for k, v in geo_values.items() if v > 0}
 
-                    if geo_values:
+                    if geo_values_display:
                         # Créer le graphique en camembert
-                        fig = VisualizationService.create_pie_chart(geo_values)
+                        fig = VisualizationService.create_pie_chart(geo_values_display)
                         if fig:
                             st.pyplot(fig)
 
                         # Afficher un tableau avec les valeurs
                         st.subheader("Détail par zone géographique")
                         data = []
-                        for zone, value in sorted(geo_values.items(), key=lambda x: x[1], reverse=True):
+                        for zone, value in sorted(geo_values_display.items(), key=lambda x: x[1], reverse=True):
                             data.append([
                                 zone,
                                 f"{value:,.2f} €".replace(",", " "),

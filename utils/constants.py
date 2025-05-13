@@ -19,7 +19,30 @@ PRODUCT_TYPES = ["etf", "sicav", "action", "obligation", "scpi", "reits",
 ASSET_CATEGORIES = ["actions", "obligations", "immobilier", "crypto", "metaux", "cash", "autre"]
 
 # Zones géographiques
-GEO_ZONES = ["us", "europe", "uk", "japan", "china", "india", "emerging", "developed", "monde", "autre"]
+GEO_ZONES = [
+    "amerique_nord", 
+    "europe_zone_euro", 
+    "europe_hors_zone_euro",
+    "japon", 
+    "chine", 
+    "inde",
+    "asie_developpee", 
+    "autres_emergents", 
+    "global_non_classe"
+]
+
+# Description des zones géographiques
+GEO_ZONES_DESCRIPTIONS = {
+    "amerique_nord": "États-Unis, Canada",
+    "europe_zone_euro": "Allemagne, France, Espagne, Italie, Pays-Bas, etc.",
+    "europe_hors_zone_euro": "Royaume-Uni, Suisse, Suède, Norvège, Danemark",
+    "japon": "Japon",
+    "chine": "Chine, Hong Kong",
+    "inde": "Inde",
+    "asie_developpee": "Corée du Sud, Australie, Singapour, Nouvelle-Zélande",
+    "autres_emergents": "Brésil, Mexique, Indonésie, Afrique du Sud, Égypte, Turquie, Pologne, Vietnam, Nigeria, Argentine, Chili, Pérou, Colombie, etc.",
+    "global_non_classe": "Pour cas exceptionnels non ventilés"
+}
 
 # Devises
 CURRENCIES = ["EUR", "USD", "GBP", "JPY", "CHF"]

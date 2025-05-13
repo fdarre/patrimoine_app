@@ -415,17 +415,25 @@ def show_asset_management(db: Session, user_id: str):
                         geo_zones = {}
                         geo_total = 0
 
+                        # Remplacez la section qui gère les onglets de répartition géographique par ce code :
+
                         # Créer des onglets pour faciliter la saisie
-                        geo_zone_tabs = st.tabs(["Principales", "Secondaires", "Autres"])
+                        geo_zone_tabs = st.tabs(["Marchés développés", "Marchés émergents", "Global"])
 
                         with geo_zone_tabs[0]:
-                            # Zones principales
-                            main_zones = ["us", "europe", "japan", "emerging"]
+                            # Marchés développés principaux
+                            main_zones = ["amerique_nord", "europe_zone_euro", "europe_hors_zone_euro", "japon"]
                             cols = st.columns(2)
                             for j, zone in enumerate(main_zones):
                                 with cols[j % 2]:
+                                    zone_display = {
+                                        "amerique_nord": "Amérique du Nord",
+                                        "europe_zone_euro": "Europe zone euro",
+                                        "europe_hors_zone_euro": "Europe hors zone euro",
+                                        "japon": "Japon"
+                                    }
                                     pct = st.slider(
-                                        f"{zone.capitalize()} (%)",
+                                        f"{zone_display.get(zone, zone.capitalize())} (%)",
                                         min_value=0.0,
                                         max_value=100.0,
                                         value=float(default_geo.get(zone, 0.0)),
@@ -437,13 +445,19 @@ def show_asset_management(db: Session, user_id: str):
                                         geo_total += pct
 
                         with geo_zone_tabs[1]:
-                            # Zones secondaires
-                            secondary_zones = ["uk", "china", "india", "developed"]
+                            # Marchés émergents et Asie
+                            secondary_zones = ["chine", "inde", "asie_developpee", "autres_emergents"]
                             cols = st.columns(2)
                             for j, zone in enumerate(secondary_zones):
                                 with cols[j % 2]:
+                                    zone_display = {
+                                        "chine": "Chine",
+                                        "inde": "Inde",
+                                        "asie_developpee": "Asie développée",
+                                        "autres_emergents": "Autres émergents"
+                                    }
                                     pct = st.slider(
-                                        f"{zone.capitalize()} (%)",
+                                        f"{zone_display.get(zone, zone.capitalize())} (%)",
                                         min_value=0.0,
                                         max_value=100.0,
                                         value=float(default_geo.get(zone, 0.0)),
@@ -455,13 +469,14 @@ def show_asset_management(db: Session, user_id: str):
                                         geo_total += pct
 
                         with geo_zone_tabs[2]:
-                            # Autres zones
-                            other_zones = ["monde", "autre"]
+                            # Global
+                            other_zones = ["global_non_classe"]
                             cols = st.columns(2)
                             for j, zone in enumerate(other_zones):
                                 with cols[j % 2]:
+                                    zone_display = {"global_non_classe": "Global/Non classé"}
                                     pct = st.slider(
-                                        f"{zone.capitalize()} (%)",
+                                        f"{zone_display.get(zone, zone.capitalize())} (%)",
                                         min_value=0.0,
                                         max_value=100.0,
                                         value=float(default_geo.get(zone, 0.0)),

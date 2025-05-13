@@ -3,6 +3,7 @@ Fonctions de calcul pour les analyses patrimoniales
 """
 
 from typing import Dict, List, Optional, Any
+from sqlalchemy import func  # Importation correcte de func
 from models.asset import Asset
 
 
@@ -17,19 +18,38 @@ def get_default_geo_zones(category: str) -> Dict[str, float]:
         Dictionnaire des répartitions géographiques par défaut
     """
     if category == "actions":
-        return {"us": 60, "europe": 20, "japan": 10, "emerging": 5, "autre": 5}
+        return {
+            "amerique_nord": 45,
+            "europe_zone_euro": 15,
+            "europe_hors_zone_euro": 10,
+            "japon": 5,
+            "chine": 10,
+            "inde": 5,
+            "asie_developpee": 5,
+            "autres_emergents": 5
+        }
     elif category == "obligations":
-        return {"europe": 80, "us": 20}
+        return {
+            "amerique_nord": 40,
+            "europe_zone_euro": 30,
+            "europe_hors_zone_euro": 15,
+            "japon": 5,
+            "autres_emergents": 10
+        }
     elif category == "immobilier":
-        return {"europe": 100}
+        return {
+            "europe_zone_euro": 60,
+            "europe_hors_zone_euro": 20,
+            "amerique_nord": 20
+        }
     elif category == "crypto":
-        return {"monde": 100}
+        return {"global_non_classe": 100}
     elif category == "metaux":
-        return {"monde": 100}
+        return {"global_non_classe": 100}
     elif category == "cash":
-        return {"europe": 100}
+        return {"europe_zone_euro": 100}
     else:
-        return {"europe": 100}
+        return {"global_non_classe": 100}
 
 
 def calculate_category_values(
@@ -216,3 +236,38 @@ def is_circular_reference(
             return True
 
     return False
+
+
+def migrate_geo_zones(old_zones_dict):
+    """
+    Migre les anciennes zones géographiques vers les nouvelles
+
+    Args:
+        old_zones_dict: Dictionnaire des anciennes zones {zone: pourcentage}
+
+    Returns:
+        Dictionnaire mis à jour avec les nouvelles zones
+    """
+    migration_map = {
+        "us": "amerique_nord",
+        "europe": "europe_zone_euro",
+        "uk": "europe_hors_zone_euro",
+        "japan": "japon",
+        "china": "chine",
+        "india": "inde",
+        "developed": "asie_developpee",
+        "emerging": "autres_emergents",
+        "monde": "global_non_classe",
+        "autre": "global_non_classe"
+    }
+
+    new_zones = {}
+    for old_zone, value in old_zones_dict.items():
+        if old_zone in migration_map:
+            new_zone = migration_map[old_zone]
+            new_zones[new_zone] = new_zones.get(new_zone, 0) + value
+        else:
+            # Si la zone n'est pas reconnue, la mettre dans "global_non_classe"
+            new_zones["global_non_classe"] = new_zones.get("global_non_classe", 0) + value
+
+    return new_zones
