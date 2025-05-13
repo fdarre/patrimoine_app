@@ -6,6 +6,7 @@ import os
 import json
 from typing import Dict, List, Tuple, Any
 from datetime import datetime
+import traceback  # Ajouté pour le débogage
 
 from utils.constants import DATA_DIR, BANKS_FILE, ACCOUNTS_FILE, ASSETS_FILE, HISTORY_FILE
 from models.asset import Asset
@@ -29,35 +30,62 @@ class DataService:
         """
         DataService.initialize_data_dir()
 
+        banks = {}
+        accounts = {}
+        assets = []
+        history = []
+
         # Chargement des banques
-        if os.path.exists(BANKS_FILE):
-            with open(BANKS_FILE, "r", encoding="utf-8") as f:
-                banks = json.load(f)
-        else:
-            banks = {}
+        try:
+            if os.path.exists(BANKS_FILE):
+                print(f"Chargement du fichier de banques: {BANKS_FILE}")
+                with open(BANKS_FILE, "r", encoding="utf-8") as f:
+                    banks = json.load(f)
+                print(f"Banques chargées: {banks}")
+            else:
+                print(f"ATTENTION: Le fichier de banques {BANKS_FILE} n'existe pas")
+        except Exception as e:
+            print(f"ERREUR lors du chargement des banques: {str(e)}")
+            print(traceback.format_exc())
 
         # Chargement des comptes
-        if os.path.exists(ACCOUNTS_FILE):
-            with open(ACCOUNTS_FILE, "r", encoding="utf-8") as f:
-                accounts = json.load(f)
-        else:
-            accounts = {}
+        try:
+            if os.path.exists(ACCOUNTS_FILE):
+                print(f"Chargement du fichier de comptes: {ACCOUNTS_FILE}")
+                with open(ACCOUNTS_FILE, "r", encoding="utf-8") as f:
+                    accounts = json.load(f)
+                print(f"Comptes chargés: {accounts}")
+            else:
+                print(f"ATTENTION: Le fichier de comptes {ACCOUNTS_FILE} n'existe pas")
+        except Exception as e:
+            print(f"ERREUR lors du chargement des comptes: {str(e)}")
+            print(traceback.format_exc())
 
         # Chargement des actifs
-        if os.path.exists(ASSETS_FILE):
-            with open(ASSETS_FILE, "r", encoding="utf-8") as f:
-                assets_data = json.load(f)
-                # Convertir les dictionnaires en objets Asset
-                assets = [Asset.from_dict(asset_data) for asset_data in assets_data]
-        else:
-            assets = []
+        try:
+            if os.path.exists(ASSETS_FILE):
+                print(f"Chargement du fichier d'actifs: {ASSETS_FILE}")
+                with open(ASSETS_FILE, "r", encoding="utf-8") as f:
+                    assets_data = json.load(f)
+                    # Convertir les dictionnaires en objets Asset
+                    assets = [Asset.from_dict(asset_data) for asset_data in assets_data]
+                print(f"Nombre d'actifs chargés: {len(assets)}")
+            else:
+                print(f"ATTENTION: Le fichier d'actifs {ASSETS_FILE} n'existe pas")
+        except Exception as e:
+            print(f"ERREUR lors du chargement des actifs: {str(e)}")
+            print(traceback.format_exc())
 
         # Chargement de l'historique
-        if os.path.exists(HISTORY_FILE):
-            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-                history = json.load(f)
-        else:
-            history = []
+        try:
+            if os.path.exists(HISTORY_FILE):
+                with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                    history = json.load(f)
+            else:
+                print(f"ATTENTION: Le fichier d'historique {HISTORY_FILE} n'existe pas")
+        except Exception as e:
+            print(f"ERREUR lors du chargement de l'historique: {str(e)}")
+            print(traceback.format_exc())
 
         return banks, accounts, assets, history
 

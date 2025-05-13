@@ -5,7 +5,7 @@ Point d'entrée principal de l'application de gestion patrimoniale
 import streamlit as st
 import os
 
-from utils.constants import CUSTOM_CSS
+from utils.constants import CUSTOM_CSS, DATA_DIR
 from services.data_service import DataService
 from ui.dashboard import show_dashboard
 from ui.banks_accounts import show_banks_accounts
@@ -30,8 +30,24 @@ def main():
     # Titre principal
     st.title("Application de Gestion Patrimoniale", anchor=False)
 
+    # Débogage - Vérifier l'existence des fichiers de données
+    data_files = {
+        "banks.json": os.path.exists(os.path.join(DATA_DIR, "banks.json")),
+        "accounts.json": os.path.exists(os.path.join(DATA_DIR, "accounts.json")),
+        "assets.json": os.path.exists(os.path.join(DATA_DIR, "assets.json")),
+        "history.json": os.path.exists(os.path.join(DATA_DIR, "history.json"))
+    }
+    print(f"État des fichiers de données: {data_files}")
+    print(f"Chemin de travail: {os.getcwd()}")
+    try:
+        print(f"Contenu du répertoire data: {os.listdir(DATA_DIR)}")
+    except Exception as e:
+        print(f"Erreur lors de la lecture du répertoire data: {str(e)}")
+
     # Chargement des données
+    print("Début du chargement des données...")
     banks, accounts, assets, history = DataService.load_data()
+    print(f"Données chargées: banks={len(banks)}, accounts={len(accounts)}, assets={len(assets)}")
 
     # Navigation dans la barre latérale
     st.sidebar.title("Navigation")
