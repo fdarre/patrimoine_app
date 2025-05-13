@@ -9,7 +9,6 @@ import uuid
 import json
 
 from database.models import Asset, Account, Bank, User
-from sqlalchemy import String
 
 class AssetService:
     """Service pour la gestion des actifs avec SQLAlchemy"""
@@ -215,7 +214,7 @@ class AssetService:
 
         # Vérifier si l'actif est un composant d'autres actifs
         assets_with_component = db.query(Asset).filter(
-            Asset.composants.cast(String).contains("%asset_id%")
+            Asset.composants.contains([{"asset_id": asset_id}])
         ).first()
 
         if assets_with_component:
@@ -242,7 +241,7 @@ class AssetService:
         """
         # Rechercher les actifs qui contiennent cet ID dans leurs composants
         assets_with_component = db.query(Asset).filter(
-            Asset.composants.cast(String).contains("%asset_id%")
+            Asset.composants.contains([{"asset_id": asset_id}])
         ).first()
 
         return assets_with_component is not None

@@ -4,6 +4,7 @@ Interface du dashboard principal
 
 import streamlit as st
 import pandas as pd
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database.models import Bank, Account, Asset, HistoryPoint
@@ -29,7 +30,7 @@ def show_dashboard(db: Session, user_id: str):
         st.markdown('<div class="metric-card">', unsafe_allow_html=True)
         # Calculer la valeur totale directement à partir des actifs de la base de données
         total_value = db.query(Asset).filter(Asset.owner_id == user_id).with_entities(
-            db.func.sum(Asset.valeur_actuelle)
+            func.sum(Asset.valeur_actuelle)
         ).scalar() or 0.0
         st.metric("Valeur totale du patrimoine", f"{total_value:,.2f} €".replace(",", " "))
         st.markdown('</div>', unsafe_allow_html=True)

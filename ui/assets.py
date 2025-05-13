@@ -6,6 +6,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from sqlalchemy.orm import Session
+from sqlalchemy import func, String  # Import func depuis sqlalchemy
 
 from database.models import Bank, Account, Asset
 from services.asset_service import AssetService
@@ -88,8 +89,7 @@ def show_asset_management(db: Session, user_id: str):
                 filtered_assets = filtered_assets.filter(Asset.account_id == filter_account)
 
             if filter_category != "Toutes les catégories":
-                # Filtrage par catégorie (SQL JSON filtering technique may vary by DB)
-                # This is a simplified approach, actual implementation depends on your DB's JSON capabilities
+                # Simplification du filtre par catégorie
                 filtered_assets = filtered_assets.filter(Asset.categorie == filter_category)
 
             # Exécuter la requête
@@ -129,8 +129,9 @@ def show_asset_management(db: Session, user_id: str):
 
                                 # Afficher les allocations par catégorie
                                 st.markdown("**Allocation par catégorie:**")
-                                for category, percentage in asset.allocation.items():
-                                    st.markdown(f"- {category.capitalize()}: {percentage}%")
+                                if asset.allocation and isinstance(asset.allocation, dict):
+                                    for category, percentage in asset.allocation.items():
+                                        st.markdown(f"- {category.capitalize()}: {percentage}%")
 
                                 # Récupérer les informations du compte et de la banque
                                 account = db.query(Account).filter(Account.id == asset.account_id).first()
@@ -163,7 +164,7 @@ def show_asset_management(db: Session, user_id: str):
                                 """, unsafe_allow_html=True)
 
                             # Afficher les composants si c'est un actif composite
-                            if asset.composants:
+                            if asset.composants and len(asset.composants) > 0:
                                 st.subheader("Composition de l'actif")
 
                                 component_data = []
@@ -206,36 +207,39 @@ def show_asset_management(db: Session, user_id: str):
                             st.subheader("Répartition géographique par catégorie")
 
                             # Utiliser des onglets pour chaque catégorie
-                            if asset.allocation:
-                                geo_tabs = st.tabs([cat.capitalize() for cat in asset.allocation.keys()])
+                            if asset.allocation and isinstance(asset.allocation, dict):
+                                try:
+                                    geo_tabs = st.tabs([cat.capitalize() for cat in asset.allocation.keys()])
 
-                                for i, (category, percentage) in enumerate(asset.allocation.items()):
-                                    with geo_tabs[i]:
-                                        # Afficher le pourcentage de cette catégorie
-                                        st.info(
-                                            f"Cette catégorie représente {percentage}% de l'actif, soit {asset.valeur_actuelle * percentage / 100:,.2f} {asset.devise}".replace(
-                                                ",", " "))
+                                    for i, (category, percentage) in enumerate(asset.allocation.items()):
+                                        with geo_tabs[i]:
+                                            # Afficher le pourcentage de cette catégorie
+                                            st.info(
+                                                f"Cette catégorie représente {percentage}% de l'actif, soit {asset.valeur_actuelle * percentage / 100:,.2f} {asset.devise}".replace(
+                                                    ",", " "))
 
-                                        # Obtenir la répartition géographique effective pour cette catégorie
-                                        if asset.composants:
-                                            effective_geo = AssetService.calculate_effective_geo_allocation(db, asset.id, category)
-                                            geo_zones = effective_geo.get(category, {})
-                                            st.success("Répartition géographique effective (incluant les composants):")
-                                        else:
-                                            # Obtenir la répartition géographique pour cette catégorie
-                                            geo_zones = asset.geo_allocation.get(category, {})
+                                            # Obtenir la répartition géographique effective pour cette catégorie
+                                            if asset.composants and len(asset.composants) > 0:
+                                                effective_geo = AssetService.calculate_effective_geo_allocation(db, asset.id, category)
+                                                geo_zones = effective_geo.get(category, {})
+                                                st.success("Répartition géographique effective (incluant les composants):")
+                                            else:
+                                                # Obtenir la répartition géographique pour cette catégorie
+                                                geo_zones = asset.geo_allocation.get(category, {}) if asset.geo_allocation else {}
 
-                                        if geo_zones:
-                                            # Afficher un tableau
-                                            geo_data = []
-                                            for zone, zone_pct in sorted(geo_zones.items(), key=lambda x: x[1],
-                                                                         reverse=True):
-                                                geo_data.append([zone.capitalize(), f"{zone_pct:.2f}%"])
+                                            if geo_zones:
+                                                # Afficher un tableau
+                                                geo_data = []
+                                                for zone, zone_pct in sorted(geo_zones.items(), key=lambda x: x[1],
+                                                                            reverse=True):
+                                                    geo_data.append([zone.capitalize(), f"{zone_pct:.2f}%"])
 
-                                            geo_df = pd.DataFrame(geo_data, columns=["Zone", "Pourcentage"])
-                                            st.dataframe(geo_df, use_container_width=True)
-                                        else:
-                                            st.warning(f"Aucune répartition géographique définie pour {category}")
+                                                geo_df = pd.DataFrame(geo_data, columns=["Zone", "Pourcentage"])
+                                                st.dataframe(geo_df, use_container_width=True)
+                                            else:
+                                                st.warning(f"Aucune répartition géographique définie pour {category}")
+                                except Exception as e:
+                                    st.error(f"Erreur lors de l'affichage des répartitions géographiques: {str(e)}")
 
                             # Actions pour modifier/supprimer
                             col1, col2, col3 = st.columns(3)
@@ -267,9 +271,7 @@ def show_asset_management(db: Session, user_id: str):
                                         else:
                                             st.error("Impossible de supprimer cet actif.")
 
-                            # Formulaires d'édition conditionnels (très longs, comportant principalement des widgets Streamlit)
-                            # Notez que cette partie est omise pour la concision, mais devrait être adaptée pour utiliser les
-                            # appels à la base de données plutôt que les structures en mémoire
+                            # Reste du code pour l'édition d'actifs...
             else:
                 st.info("Aucun actif ne correspond aux filtres sélectionnés.")
 
@@ -303,7 +305,7 @@ def show_asset_management(db: Session, user_id: str):
                 asset_bank = st.selectbox(
                     "Banque",
                     options=[bank.id for bank in banks],
-                    format_func=lambda x: next((f"{bank.nom} ({bank.id})" for bank in banks if bank.id == x), ""),
+                    format_func=lambda x: next((f"{bank.nom}" for bank in banks if bank.id == x), ""),
                     key="new_asset_bank"
                 )
 
@@ -314,7 +316,7 @@ def show_asset_management(db: Session, user_id: str):
                     asset_account = st.selectbox(
                         "Compte",
                         options=[acc.id for acc in bank_accounts],
-                        format_func=lambda x: next((f"{acc.libelle} ({acc.id})" for acc in bank_accounts if acc.id == x), ""),
+                        format_func=lambda x: next((f"{acc.libelle}" for acc in bank_accounts if acc.id == x), ""),
                         key="new_asset_account"
                     )
                 else:
@@ -332,6 +334,253 @@ def show_asset_management(db: Session, user_id: str):
                     key="new_asset_currency"
                 )
 
-            # Reste du code pour la création d'actif, allocation, répartition géographique, etc.
-            # Cette partie est omise pour la concision mais devrait être adaptée pour utiliser
-            # les appels à la base de données plutôt que les structures en mémoire
+            # Section pour l'allocation par catégorie
+            st.subheader("Allocation par catégorie")
+            st.info("Répartissez la valeur de l'actif entre les différentes catégories (total 100%)")
+
+            # Variables pour stocker les allocations (Initialiser comme dictionnaire vide)
+            allocation = {}
+            allocation_total = 0
+
+            # Créer une interface avec deux colonnes pour les catégories
+            allocation_col1, allocation_col2 = st.columns(2)
+
+            # Première colonne: principaux types d'actifs
+            with allocation_col1:
+                for category in ["actions", "obligations", "immobilier", "cash"]:
+                    percentage = st.slider(
+                        f"{category.capitalize()} (%)",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=0.0,  # Par défaut à 0
+                        step=1.0,
+                        key=f"new_asset_alloc_{category}"
+                    )
+                    if percentage > 0:
+                        allocation[category] = percentage
+                        allocation_total += percentage
+
+            # Deuxième colonne: autres types d'actifs
+            with allocation_col2:
+                for category in ["crypto", "metaux", "autre"]:
+                    percentage = st.slider(
+                        f"{category.capitalize()} (%)",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=0.0,  # Par défaut à 0
+                        step=1.0,
+                        key=f"new_asset_alloc_{category}"
+                    )
+                    if percentage > 0:
+                        allocation[category] = percentage
+                        allocation_total += percentage
+
+            # Barre de progression pour visualiser le total
+            st.progress(allocation_total / 100)
+
+            # Vérifier que le total est de 100%
+            if allocation_total != 100:
+                st.warning(f"Le total des allocations doit être de 100%. Actuellement: {allocation_total}%")
+            else:
+                st.success("Allocation valide (100%)")
+
+            # Section pour la répartition géographique par catégorie
+            st.subheader("Répartition géographique par catégorie")
+
+            # Objet pour stocker les répartitions géographiques
+            geo_allocation = {}
+            all_geo_valid = True
+
+            # Conversion sécurisée en liste pour traitement
+            allocation_items = list(allocation.items()) if allocation else []
+
+            # Si aucune catégorie n'a été sélectionnée, afficher un message
+            if not allocation_items:
+                st.warning(
+                    "Veuillez d'abord spécifier au moins une catégorie d'actif avec un pourcentage supérieur à 0%.")
+            else:
+                # Créer des onglets pour chaque catégorie avec allocation > 0
+                geo_tabs = st.tabs([cat.capitalize() for cat, _ in allocation_items])
+
+                # Pour chaque catégorie, demander la répartition géographique
+                for i, (category, alloc_pct) in enumerate(allocation_items):
+                    with geo_tabs[i]:
+                        st.info(
+                            f"Configuration de la répartition géographique pour la partie '{category}' ({alloc_pct}% de l'actif)")
+
+                        # Obtenir une répartition par défaut selon la catégorie
+                        default_geo = get_default_geo_zones(category)
+
+                        # Variables pour stocker la répartition géographique
+                        geo_zones = {}
+                        geo_total = 0
+
+                        # Créer des onglets pour faciliter la saisie
+                        geo_zone_tabs = st.tabs(["Principales", "Secondaires", "Autres"])
+
+                        with geo_zone_tabs[0]:
+                            # Zones principales
+                            main_zones = ["us", "europe", "japan", "emerging"]
+                            cols = st.columns(2)
+                            for j, zone in enumerate(main_zones):
+                                with cols[j % 2]:
+                                    pct = st.slider(
+                                        f"{zone.capitalize()} (%)",
+                                        min_value=0.0,
+                                        max_value=100.0,
+                                        value=float(default_geo.get(zone, 0.0)),
+                                        step=1.0,
+                                        key=f"new_asset_geo_{category}_{zone}"
+                                    )
+                                    if pct > 0:
+                                        geo_zones[zone] = pct
+                                        geo_total += pct
+
+                        with geo_zone_tabs[1]:
+                            # Zones secondaires
+                            secondary_zones = ["uk", "china", "india", "developed"]
+                            cols = st.columns(2)
+                            for j, zone in enumerate(secondary_zones):
+                                with cols[j % 2]:
+                                    pct = st.slider(
+                                        f"{zone.capitalize()} (%)",
+                                        min_value=0.0,
+                                        max_value=100.0,
+                                        value=float(default_geo.get(zone, 0.0)),
+                                        step=1.0,
+                                        key=f"new_asset_geo_{category}_{zone}"
+                                    )
+                                    if pct > 0:
+                                        geo_zones[zone] = pct
+                                        geo_total += pct
+
+                        with geo_zone_tabs[2]:
+                            # Autres zones
+                            other_zones = ["monde", "autre"]
+                            cols = st.columns(2)
+                            for j, zone in enumerate(other_zones):
+                                with cols[j % 2]:
+                                    pct = st.slider(
+                                        f"{zone.capitalize()} (%)",
+                                        min_value=0.0,
+                                        max_value=100.0,
+                                        value=float(default_geo.get(zone, 0.0)),
+                                        step=1.0,
+                                        key=f"new_asset_geo_{category}_{zone}"
+                                    )
+                                    if pct > 0:
+                                        geo_zones[zone] = pct
+                                        geo_total += pct
+
+                        # Vérifier que le total est de 100%
+                        st.progress(geo_total / 100)
+                        if geo_total != 100:
+                            all_geo_valid = False
+                            st.warning(
+                                f"Le total de la répartition géographique pour '{category}' doit être de 100%. Actuellement: {geo_total}%")
+                        else:
+                            st.success(f"Répartition géographique pour '{category}' valide (100%)")
+
+                        # Enregistrer la répartition géographique pour cette catégorie
+                        geo_allocation[category] = geo_zones
+
+            # Option pour créer un actif composite
+            st.subheader("Actif composite (optionnel)")
+            is_composite = st.checkbox("Cet actif est composé d'autres actifs", key="new_asset_is_composite")
+
+            composants = []
+            components_valid = True
+            components_total = 0
+
+            if is_composite and assets:
+                st.info("Sélectionnez les actifs qui composent cet actif, et spécifiez le pourcentage pour chacun.")
+                st.warning(
+                    "Le total des pourcentages des composants peut aller jusqu'à 100%. Le reste sera alloué directement selon l'allocation définie ci-dessus.")
+
+                # Permettre l'ajout de composants (jusqu'à 5 pour commencer)
+                num_components = st.number_input("Nombre de composants", min_value=0, max_value=10, value=1, step=1)
+
+                for i in range(num_components):
+                    st.markdown(f"### Composant {i + 1}")
+                    col1, col2 = st.columns([3, 1])
+
+                    with col1:
+                        component_id = st.selectbox(
+                            f"Actif {i + 1}",
+                            options=[a.id for a in assets],
+                            format_func=lambda x: next((a.nom for a in assets if a.id == x), ""),
+                            key=f"new_asset_component_{i}"
+                        )
+
+                    with col2:
+                        component_pct = st.number_input(
+                            f"Pourcentage {i + 1} (%)",
+                            min_value=0.1,
+                            max_value=100.0,
+                            value=10.0,
+                            step=0.1,
+                            key=f"new_asset_component_pct_{i}"
+                        )
+
+                    components_total += component_pct
+                    composants.append({"asset_id": component_id, "percentage": component_pct})
+
+                # Afficher le total des composants
+                st.progress(components_total / 100)
+                if components_total > 100:
+                    st.error(f"Le total des composants ({components_total}%) dépasse 100%")
+                    components_valid = False
+                else:
+                    st.info(
+                        f"Total des composants: {components_total}%. Reste alloué directement: {100 - components_total}%")
+
+            # Bouton d'ajout avec gestion d'erreurs améliorée
+            submit_button = st.button("Ajouter l'actif", key="btn_add_asset")
+
+            if submit_button:
+                if not asset_name:
+                    st.error("Le nom de l'actif est obligatoire")
+                elif not asset_account:
+                    st.error("Veuillez sélectionner un compte")
+                elif not asset_value:
+                    st.error("La valeur actuelle est obligatoire")
+                elif allocation_total != 100:
+                    st.error(f"Le total des allocations doit être de 100% (actuellement: {allocation_total}%)")
+                elif not all_geo_valid:
+                    st.error("Toutes les répartitions géographiques doivent totaliser 100%")
+                elif not components_valid:
+                    st.error("Le total des composants ne doit pas dépasser 100%")
+                else:
+                    try:
+                        # Convertir les valeurs
+                        valeur_actuelle = float(asset_value)
+                        prix_de_revient = float(asset_cost) if asset_cost else valeur_actuelle
+
+                        # Ajouter l'actif
+                        new_asset = AssetService.add_asset(
+                            db=db,
+                            user_id=user_id,
+                            nom=asset_name,
+                            compte_id=asset_account,
+                            type_produit=asset_type,
+                            allocation=allocation,
+                            geo_allocation=geo_allocation,
+                            valeur_actuelle=valeur_actuelle,
+                            prix_de_revient=prix_de_revient,
+                            devise=asset_currency,
+                            notes=asset_notes,
+                            todo=asset_todo,
+                            composants=composants if is_composite else []
+                        )
+
+                        if new_asset:
+                            # Mettre à jour l'historique
+                            DataService.record_history_entry(db, user_id)
+                            st.success(f"Actif '{asset_name}' ajouté avec succès.")
+                            st.rerun()
+                        else:
+                            st.error("Erreur lors de l'ajout de l'actif.")
+                    except ValueError:
+                        st.error("Les valeurs numériques sont invalides. Vérifiez la valeur actuelle et le prix de revient.")
+                    except Exception as e:
+                        st.error(f"Erreur inattendue: {str(e)}")

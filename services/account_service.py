@@ -1,3 +1,4 @@
+from sqlalchemy import func
 """
 Service de gestion des comptes avec SQLAlchemy
 """
@@ -184,7 +185,7 @@ class AccountService:
         for account, bank in query.all():
             # Calculer la valeur totale des actifs dans ce compte
             total_value = db.query(Asset).filter(Asset.account_id == account.id).with_entities(
-                db.func.sum(Asset.valeur_actuelle)
+                func.sum(Asset.valeur_actuelle)
             ).scalar() or 0.0
 
             data.append([

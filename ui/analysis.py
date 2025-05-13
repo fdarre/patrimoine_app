@@ -1,3 +1,4 @@
+from sqlalchemy import func
 """
 Interface d'analyse et visualisations
 """
@@ -99,7 +100,7 @@ def show_analysis(db: Session, user_id: str):
             # Calculer la valeur totale filtrée et non filtrée
             total_filtered = sum(asset.valeur_actuelle for asset in filtered_assets)
             total_all = db.query(Asset).filter(Asset.owner_id == user_id).with_entities(
-                db.func.sum(Asset.valeur_actuelle)
+                func.sum(Asset.valeur_actuelle)
             ).scalar() or 0.0
             percentage = (total_filtered / total_all * 100) if total_all > 0 else 0
 

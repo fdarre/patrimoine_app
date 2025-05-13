@@ -501,7 +501,7 @@ def show_asset_management(
                                 st.subheader("Gérer les composants de l'actif")
 
                                 # Afficher les composants actuels
-                                if asset.composants and len(asset.composants) > 0:
+                                if asset.composants:
                                     st.markdown("### Composants actuels")
 
                                     for i, component in enumerate(asset.composants):
