@@ -1,17 +1,16 @@
 """
-Service pour les visualisations
+Service pour les visualisations avec SQLAlchemy
 """
-
 import matplotlib.pyplot as plt
 import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
+from sqlalchemy.orm import Session
 
-from models.asset import Asset
-
+from database.models import Asset, HistoryPoint, Bank, Account
 
 class VisualizationService:
-    """Service pour les visualisations et graphiques"""
+    """Service pour les visualisations et graphiques avec SQLAlchemy"""
 
     @staticmethod
     def create_pie_chart(data_dict: Dict[str, float], title: str = "", figsize: Tuple[int, int] = (10, 6)):
@@ -158,29 +157,40 @@ class VisualizationService:
 
     @staticmethod
     def create_time_series_chart(
-            history_data: List[Dict[str, Any]],
+            db: Session,
             title: str = "Évolution du patrimoine",
+            days: Optional[int] = None,
             figsize: Tuple[int, int] = (12, 6)
     ):
         """
         Crée un graphique d'évolution temporelle à partir des données d'historique
 
         Args:
-            history_data: Liste des points d'historique
+            db: Session de base de données
             title: Titre du graphique
+            days: Nombre de jours à afficher (None pour tout l'historique)
             figsize: Taille du graphique (largeur, hauteur)
 
         Returns:
             Figure matplotlib ou None si moins de 2 points d'historique
         """
+        # Récupérer l'historique
+        query = db.query(HistoryPoint).order_by(HistoryPoint.date)
+
+        if days:
+            # Récupérer uniquement les N derniers points
+            query = query.order_by(HistoryPoint.date.desc()).limit(days)
+
+        history_data = query.all()
+
         if not history_data or len(history_data) < 2:
             return None
 
         fig, ax = plt.subplots(figsize=figsize)
 
         # Extraire les dates et les valeurs totales
-        dates = [entry["date"] for entry in history_data]
-        values = [entry["total"] for entry in history_data]
+        dates = [entry.date for entry in history_data]
+        values = [entry.total for entry in history_data]
 
         # Convertir les dates au format datetime pour le graphique
         x = [datetime.strptime(date, "%Y-%m-%d") for date in dates]
@@ -216,3 +226,142 @@ class VisualizationService:
         plt.tight_layout()
 
         return fig
+
+    @staticmethod
+    def calculate_category_values(
+            db: Session,
+            user_id: str,
+            account_id: Optional[str] = None,
+            asset_categories: List[str] = None
+    ) -> Dict[str, float]:
+        """
+        Calcule la répartition par catégorie en tenant compte des allocations mixtes
+        et des actifs composites
+
+        Args:
+            db: Session de base de données
+            user_id: ID de l'utilisateur
+            account_id: ID du compte (optionnel)
+            asset_categories: Liste des catégories à considérer
+
+        Returns:
+            Dictionnaire avec les valeurs par catégorie
+        """
+        from services.asset_service import AssetService
+
+        if asset_categories is None:
+            from utils.constants import ASSET_CATEGORIES
+            asset_categories = ASSET_CATEGORIES
+
+        # Initialiser le dictionnaire des valeurs par catégorie
+        category_values = {cat: 0.0 for cat in asset_categories}
+
+        # Récupérer les actifs
+        query = db.query(Asset).filter(Asset.owner_id == user_id)
+        if account_id:
+            query = query.filter(Asset.account_id == account_id)
+
+        assets = query.all()
+
+        # Calculer les valeurs par catégorie
+        for asset in assets:
+            if not asset.composants:
+                # Pour les actifs directs (non composites)
+                for category, percentage in asset.allocation.items():
+                    # Calculer la valeur allouée à cette catégorie
+                    allocated_value = asset.valeur_actuelle * percentage / 100
+                    category_values[category] += allocated_value
+            else:
+                # Pour les actifs composites
+                # Calculer l'allocation effective
+                effective_allocation = AssetService.calculate_effective_allocation(db, asset.id)
+
+                for category, percentage in effective_allocation.items():
+                    allocated_value = asset.valeur_actuelle * percentage / 100
+                    category_values[category] += allocated_value
+
+        return category_values
+
+    @staticmethod
+    def calculate_geo_values(
+            db: Session,
+            user_id: str,
+            account_id: Optional[str] = None,
+            category: Optional[str] = None,
+            geo_zones: List[str] = None
+    ) -> Dict[str, float]:
+        """
+        Calcule la répartition géographique en tenant compte des allocations mixtes
+        et des actifs composites
+
+        Args:
+            db: Session de base de données
+            user_id: ID de l'utilisateur
+            account_id: ID du compte (optionnel)
+            category: Catégorie spécifique à analyser (optionnel)
+            geo_zones: Liste des zones géographiques à considérer
+
+        Returns:
+            Dictionnaire avec les valeurs par zone géographique
+        """
+        from services.asset_service import AssetService
+
+        if geo_zones is None:
+            from utils.constants import GEO_ZONES
+            geo_zones = GEO_ZONES
+
+        # Initialiser le dictionnaire des valeurs par zone géographique
+        geo_values = {zone: 0.0 for zone in geo_zones}
+
+        # Récupérer les actifs
+        query = db.query(Asset).filter(Asset.owner_id == user_id)
+        if account_id:
+            query = query.filter(Asset.account_id == account_id)
+
+        assets = query.all()
+
+        # Calculer les valeurs par zone géographique
+        for asset in assets:
+            # Si une catégorie est spécifiée, ne considérer que cette partie de l'actif
+            if category:
+                if category not in asset.allocation:
+                    continue
+
+                # Pour les actifs non composites
+                if not asset.composants:
+                    # Valeur allouée à cette catégorie
+                    category_value = asset.valeur_actuelle * asset.allocation[category] / 100
+
+                    # Répartition géographique pour cette catégorie
+                    geo_zones_dict = asset.geo_allocation.get(category, {})
+
+                    for zone, percentage in geo_zones_dict.items():
+                        geo_values[zone] += category_value * percentage / 100
+                else:
+                    # Pour les actifs composites, calculer la répartition effective
+                    effective_geo = AssetService.calculate_effective_geo_allocation(db, asset.id, category)
+                    category_value = asset.valeur_actuelle * asset.allocation.get(category, 0) / 100
+
+                    for zone, percentage in effective_geo.get(category, {}).items():
+                        geo_values[zone] += category_value * percentage / 100
+            else:
+                # Pour tous les actifs, ventiler selon les allocations et répartitions géographiques
+                if not asset.composants:
+                    for cat, allocation_pct in asset.allocation.items():
+                        category_value = asset.valeur_actuelle * allocation_pct / 100
+
+                        # Utiliser la répartition géographique spécifique à cette catégorie si disponible
+                        geo_zones_dict = asset.geo_allocation.get(cat, {})
+
+                        for zone, percentage in geo_zones_dict.items():
+                            geo_values[zone] += category_value * percentage / 100
+                else:
+                    # Pour les actifs composites, calculer la répartition effective pour chaque catégorie
+                    for cat, allocation_pct in asset.allocation.items():
+                        effective_geo = AssetService.calculate_effective_geo_allocation(db, asset.id, cat)
+                        category_value = asset.valeur_actuelle * allocation_pct / 100
+
+                        for zone, percentage in effective_geo.get(cat, {}).items():
+                            geo_values[zone] += category_value * percentage / 100
+
+        return geo_values

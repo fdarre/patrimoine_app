@@ -4,50 +4,49 @@ Interface du dashboard principal
 
 import streamlit as st
 import pandas as pd
-from typing import Dict, List, Any
+from sqlalchemy.orm import Session
 
-from models.asset import Asset
+from database.models import Bank, Account, Asset, HistoryPoint
 from services.visualization_service import VisualizationService
-from utils.calculations import calculate_category_values, calculate_geo_values, calculate_total_patrimony
 
-
-def show_dashboard(
-        banks: Dict[str, Dict[str, Any]],
-        accounts: Dict[str, Dict[str, Any]],
-        assets: List[Asset],
-        history: List[Dict[str, Any]]
-):
+def show_dashboard(db: Session, user_id: str):
     """
     Affiche le dashboard principal
 
     Args:
-        banks: Dictionnaire des banques
-        accounts: Dictionnaire des comptes
-        assets: Liste des actifs
-        history: Liste des points d'historique
+        db: Session de base de données
+        user_id: ID de l'utilisateur
     """
     st.header("Dashboard", anchor=False)
+
+    # Récupérer les données de l'utilisateur
+    assets = db.query(Asset).filter(Asset.owner_id == user_id).all()
 
     # Métriques principales
     col1, col2, col3 = st.columns(3)
 
     with col1:
         st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        total_value = calculate_total_patrimony(assets)
+        # Calculer la valeur totale directement à partir des actifs de la base de données
+        total_value = db.query(Asset).filter(Asset.owner_id == user_id).with_entities(
+            db.func.sum(Asset.valeur_actuelle)
+        ).scalar() or 0.0
         st.metric("Valeur totale du patrimoine", f"{total_value:,.2f} €".replace(",", " "))
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
         st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric("Nombre d'actifs", len(assets))
+        asset_count = db.query(Asset).filter(Asset.owner_id == user_id).count()
+        st.metric("Nombre d'actifs", asset_count)
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col3:
         st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric("Nombre de comptes", len(accounts))
+        account_count = db.query(Account).join(Bank).filter(Bank.owner_id == user_id).count()
+        st.metric("Nombre de comptes", account_count)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # Graphiques principaux
+    # Graphiques principaux (si des actifs existent)
     if assets:
         col1, col2 = st.columns(2)
 
@@ -55,8 +54,8 @@ def show_dashboard(
             # Répartition par catégorie
             st.subheader("Répartition par catégorie d'actif")
 
-            # Calculer les valeurs par catégorie (en tenant compte des fonds mixtes)
-            category_values = calculate_category_values(assets, accounts)
+            # Utiliser le service de visualisation mis à jour pour SQLAlchemy
+            category_values = VisualizationService.calculate_category_values(db, user_id)
 
             # Convertir les catégories en format capitalisé pour l'affichage
             category_values_display = {k.capitalize(): v for k, v in category_values.items() if v > 0}
@@ -70,8 +69,8 @@ def show_dashboard(
             # Répartition géographique
             st.subheader("Répartition géographique")
 
-            # Calculer les valeurs par zone géographique (en tenant compte des fonds mixtes)
-            geo_values = calculate_geo_values(assets, accounts)
+            # Utiliser le service de visualisation mis à jour pour SQLAlchemy
+            geo_values = VisualizationService.calculate_geo_values(db, user_id)
 
             # Convertir les zones en format capitalisé pour l'affichage
             geo_values_display = {k.capitalize(): v for k, v in geo_values.items() if v > 0}
@@ -82,9 +81,10 @@ def show_dashboard(
                     st.pyplot(fig)
 
         # Évolution historique si disponible
-        if len(history) > 1:
+        history_points = db.query(HistoryPoint).order_by(HistoryPoint.date).all()
+        if len(history_points) > 1:
             st.subheader("Évolution du patrimoine")
-            fig = VisualizationService.create_time_series_chart(history)
+            fig = VisualizationService.create_time_series_chart(db)
             if fig:
                 st.pyplot(fig)
         else:
@@ -92,13 +92,17 @@ def show_dashboard(
 
         # Top 5 des actifs
         st.subheader("Top 5 des actifs")
-        top_assets = sorted(assets, key=lambda x: x.valeur_actuelle, reverse=True)[:5]
+        top_assets = db.query(Asset).filter(Asset.owner_id == user_id).order_by(
+            Asset.valeur_actuelle.desc()
+        ).limit(5).all()
 
         if top_assets:
             data = []
             for asset in top_assets:
-                account = accounts[asset.compte_id]
-                bank = banks[account["banque_id"]]
+                # Récupérer le compte et la banque associés
+                account = db.query(Account).filter(Account.id == asset.account_id).first()
+                bank = db.query(Bank).filter(Bank.id == account.bank_id).first() if account else None
+
                 pv = asset.valeur_actuelle - asset.prix_de_revient
                 pv_percent = (pv / asset.prix_de_revient) * 100 if asset.prix_de_revient > 0 else 0
                 pv_class = "positive" if pv >= 0 else "negative"
@@ -111,21 +115,21 @@ def show_dashboard(
                     f"{asset.valeur_actuelle:,.2f} {asset.devise}".replace(",", " "),
                     f'<span class="{pv_class}">{pv:,.2f} {asset.devise} ({pv_percent:.2f}%)</span>'.replace(",", " "),
                     allocation_display,
-                    f"{account['libelle']} ({bank['nom']})"
+                    f"{account.libelle} ({bank.nom})" if account and bank else "N/A"
                 ])
 
             df = pd.DataFrame(data, columns=["Nom", "Valeur", "Plus-value", "Allocation", "Compte"])
             st.markdown(df.to_html(escape=False, index=False), unsafe_allow_html=True)
 
         # Tâches à faire
-        todos = [asset for asset in assets if asset.todo]
+        todos = db.query(Asset).filter(Asset.owner_id == user_id).filter(Asset.todo != "").all()
         if todos:
             st.subheader("Tâches à faire")
             for asset in todos:
-                account = accounts[asset.compte_id]
+                account = db.query(Account).filter(Account.id == asset.account_id).first()
                 st.markdown(f"""
                 <div class="todo-card">
-                <strong>{asset.nom}</strong> ({account['libelle']}): {asset.todo}
+                <strong>{asset.nom}</strong> ({account.libelle if account else "N/A"}): {asset.todo}
                 </div>
                 """, unsafe_allow_html=True)
     else:

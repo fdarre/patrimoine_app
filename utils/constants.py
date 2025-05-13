@@ -3,6 +3,10 @@ Constantes utilisées dans l'application de gestion patrimoniale
 """
 
 import os
+from dotenv import load_dotenv
+
+# Charger les variables d'environnement
+load_dotenv()
 
 # Types de comptes (enveloppes fiscales)
 ACCOUNT_TYPES = ["courant", "livret", "pea", "titre", "assurance_vie", "autre"]
@@ -22,10 +26,14 @@ CURRENCIES = ["EUR", "USD", "GBP", "JPY", "CHF"]
 
 # Chemins des fichiers
 DATA_DIR = "data"
-BANKS_FILE = os.path.join(DATA_DIR, "banks.json")
-ACCOUNTS_FILE = os.path.join(DATA_DIR, "accounts.json")
-ASSETS_FILE = os.path.join(DATA_DIR, "assets.json")
-HISTORY_FILE = os.path.join(DATA_DIR, "history.json")
+
+# Clé secrète pour JWT et chiffrement
+SECRET_KEY = os.getenv("SECRET_KEY", "replace_with_a_strong_secret_key")
+JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 heures
+
+# Nombre maximum d'utilisateurs
+MAX_USERS = int(os.getenv("MAX_USERS", "5"))
 
 # Styles CSS
 CUSTOM_CSS = """

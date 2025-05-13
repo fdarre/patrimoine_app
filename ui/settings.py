@@ -7,115 +7,157 @@ import pandas as pd
 import json
 import os
 from datetime import datetime
-from typing import Dict, List, Any
+from sqlalchemy.orm import Session
 
-from models.asset import Asset
-from services.data_service import DataService
+from database.models import User, Bank, Account, Asset, HistoryPoint
+from database.db_config import engine
+from services.backup_service import BackupService
+from utils.constants import DATA_DIR, MAX_USERS
 
-
-def show_settings(
-        banks: Dict[str, Dict[str, Any]],
-        accounts: Dict[str, Dict[str, Any]],
-        assets: List[Asset],
-        history: List[Dict[str, Any]]
-):
+def show_settings(db: Session, user_id: str):
     """
     Affiche l'interface des paramètres
 
     Args:
-        banks: Dictionnaire des banques
-        accounts: Dictionnaire des comptes
-        assets: Liste des actifs
-        history: Liste des points d'historique
+        db: Session de base de données
+        user_id: ID de l'utilisateur
     """
     st.header("Paramètres", anchor=False)
 
-    tab1, tab2 = st.tabs(["Sauvegarde", "À propos"])
+    tab1, tab2, tab3 = st.tabs(["Sauvegarde", "Utilisateurs", "À propos"])
 
     with tab1:
         st.subheader("Sauvegarde et restauration")
 
         st.markdown("""
-        Vos données sont automatiquement enregistrées dans des fichiers JSON dans le répertoire 'data' :
-        - `banks.json` : Banques
-        - `accounts.json` : Comptes
-        - `assets.json` : Actifs
-        - `history.json` : Historique des valeurs
+        Vos données sont automatiquement enregistrées dans une base de données chiffrée 
+        dans le répertoire 'data'. Vous pouvez créer une sauvegarde chiffrée 
+        supplémentaire à tout moment.
         """)
 
         col1, col2 = st.columns(2)
 
         with col1:
-            st.write("Exporter les données")
+            st.write("Créer une sauvegarde chiffrée")
 
-            # Fournir un bouton de téléchargement pour la sauvegarde
-            backup_data = {
-                "banks": banks,
-                "accounts": accounts,
-                "assets": [asset.to_dict() for asset in assets],
-                "history": history
-            }
-
-            st.download_button(
-                "Télécharger la sauvegarde",
-                data=json.dumps(backup_data, indent=2, ensure_ascii=False),
-                file_name=f"patrimoine_backup_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
-                mime="application/json",
-                key="download_backup"
-            )
-
-            # Option pour enregistrer un point d'historique maintenant
-            if st.button("Enregistrer un point d'historique maintenant"):
-                history = DataService.record_history_entry(assets, history)
-                DataService.save_data(banks, accounts, assets, history)
-                st.success("Point d'historique enregistré avec succès.")
+            if st.button("Créer une sauvegarde maintenant"):
+                with st.spinner("Création de la sauvegarde en cours..."):
+                    db_path = os.path.join(DATA_DIR, "patrimoine.db")
+                    backup_path = BackupService.create_backup(db_path)
+                    st.success(f"Sauvegarde créée avec succès: {os.path.basename(backup_path)}")
+                    # Téléchargement de la sauvegarde
+                    with open(backup_path, "rb") as f:
+                        st.download_button(
+                            "Télécharger la sauvegarde",
+                            data=f.read(),
+                            file_name=os.path.basename(backup_path),
+                            mime="application/octet-stream"
+                        )
 
         with col2:
-            st.write("Importer une sauvegarde")
+            st.write("Restaurer une sauvegarde")
 
-            uploaded_file = st.file_uploader("Importer une sauvegarde", type=["json"], key="restore_file")
+            uploaded_file = st.file_uploader("Importer une sauvegarde", type=["enc"])
 
             if uploaded_file is not None:
                 try:
-                    data = json.loads(uploaded_file.getvalue().decode("utf-8"))
+                    # Sauvegarder le fichier uploadé
+                    temp_path = os.path.join(DATA_DIR, "temp_backup.enc")
+                    with open(temp_path, "wb") as f:
+                        f.write(uploaded_file.getvalue())
 
-                    if st.button("Restaurer les données", key="restore_data"):
-                        required_keys = ["banks", "accounts", "assets"]
-                        if all(k in data for k in required_keys):
-                            # Mise à jour des variables globales
-                            new_banks = data["banks"]
-                            new_accounts = data["accounts"]
+                    if st.button("Restaurer la sauvegarde"):
+                        with st.spinner("Restauration en cours..."):
+                            # Déconnecter la base de données actuelle
+                            db.close()  # Fermer la session actuelle
+                            engine.dispose()  # Fermer toutes les connexions du pool
 
-                            # Convertir les dictionnaires d'actifs en objets Asset
-                            new_assets = [Asset.from_dict(asset_data) for asset_data in data["assets"]]
+                            # Restaurer la sauvegarde
+                            db_path = os.path.join(DATA_DIR, "patrimoine.db")
+                            success = BackupService.restore_backup(temp_path, db_path)
 
-                            # Gérer l'historique (optionnel)
-                            new_history = data.get("history", [])
-                            if not new_history:
-                                # Créer un nouvel historique si non présent
-                                new_history = DataService.record_history_entry(new_assets, [])
-
-                            # Sauvegarder les nouvelles données
-                            DataService.save_data(new_banks, new_accounts, new_assets, new_history)
-
-                            st.success("Données restaurées avec succès. Veuillez rafraîchir la page.")
-                            # Pas de rerun ici, car nous voulons permettre à l'utilisateur de lire le message
-                        else:
-                            st.error(
-                                f"Format de fichier invalide. Clés manquantes: {set(required_keys) - set(data.keys())}")
+                            if success:
+                                st.success("Sauvegarde restaurée avec succès. Veuillez rafraîchir la page.")
+                            else:
+                                st.error("Erreur lors de la restauration de la sauvegarde.")
                 except Exception as e:
                     st.error(f"Erreur lors de la restauration: {str(e)}")
 
     with tab2:
+        st.subheader("Gestion des utilisateurs")
+
+        # Récupérer l'utilisateur actuel
+        current_user = db.query(User).filter(User.id == user_id).first()
+
+        # Vérifier si l'utilisateur est admin (le premier utilisateur est admin)
+        is_admin = current_user.username == "admin"
+
+        if is_admin:
+            # Récupérer tous les utilisateurs
+            users = db.query(User).all()
+
+            st.write(f"Nombre d'utilisateurs: {len(users)} (maximum: {MAX_USERS})")
+
+            for user in users:
+                st.markdown(f"""
+                **Utilisateur:** {user.username}  
+                **Email:** {user.email}  
+                **Actif:** {"✓" if user.is_active else "✗"}  
+                **Créé le:** {user.created_at}
+                """)
+
+                # Ne pas permettre de désactiver l'admin
+                if user.username != "admin":
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        if user.is_active:
+                            if st.button(f"Désactiver {user.username}", key=f"disable_{user.id}"):
+                                # Désactiver l'utilisateur
+                                user.is_active = False
+                                db.commit()
+                                st.success(f"Utilisateur {user.username} désactivé")
+                                st.rerun()
+                        else:
+                            if st.button(f"Activer {user.username}", key=f"enable_{user.id}"):
+                                # Activer l'utilisateur
+                                user.is_active = True
+                                db.commit()
+                                st.success(f"Utilisateur {user.username} activé")
+                                st.rerun()
+
+                    with col2:
+                        if st.button(f"Supprimer {user.username}", key=f"delete_{user.id}"):
+                            # Vérifier si l'utilisateur a des données
+                            has_data = (
+                                db.query(Bank).filter(Bank.owner_id == user.id).first() is not None or
+                                db.query(Asset).filter(Asset.owner_id == user.id).first() is not None
+                            )
+
+                            if has_data:
+                                st.error(f"Impossible de supprimer {user.username} car il possède des données")
+                            else:
+                                db.delete(user)
+                                db.commit()
+                                st.success(f"Utilisateur {user.username} supprimé")
+                                st.rerun()
+
+                st.markdown("---")
+        else:
+            st.info("Vous devez être administrateur pour gérer les utilisateurs.")
+
+    with tab3:
         st.subheader("À propos de l'application")
 
         st.markdown("""
-        ### Gestion Patrimoniale v2.0
+        ### Gestion Patrimoniale v3.0
 
         Cette application vous permet de gérer votre patrimoine financier et immobilier
         en centralisant toutes vos informations au même endroit.
 
         **Fonctionnalités principales:**
+        - Authentification sécurisée des utilisateurs (maximum 5)
+        - Base de données SQLite chiffrée au niveau des champs
         - Gestion des banques et comptes
         - Suivi des actifs financiers avec allocation par catégorie
         - Gestion des actifs composites
@@ -123,14 +165,16 @@ def show_settings(
         - Analyses et visualisations détaillées
         - Suivi des tâches
         - Historique d'évolution
+        - Sauvegardes chiffrées
 
-        **Nouvelles fonctionnalités v2.0:**
-        - Architecture restructurée pour une meilleure maintenance
-        - Support des actifs composites
-        - Calcul de l'allocation effective tenant compte des composants
-        - Interface améliorée pour la gestion des actifs composites
+        **Nouvelles fonctionnalités v3.0:**
+        - Authentification multi-utilisateurs
+        - Base de données sécurisée
+        - Sauvegardes et restaurations chiffrées
+        - Isolation des données par utilisateur
 
-        **Données**:
-        Toutes vos données sont stockées localement dans des fichiers JSON dans le répertoire 'data/'
-        et ne sont jamais envoyées à un serveur externe.
+        **Sécurité**:
+        Toutes vos données sensibles sont chiffrées dans la base de données.
+        Les mots de passe sont hachés et ne sont jamais stockés en clair.
+        Les sauvegardes sont également chiffrées pour plus de sécurité.
         """)
