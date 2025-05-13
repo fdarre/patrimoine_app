@@ -6,6 +6,7 @@ import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 from sqlalchemy.orm import Session
+from sqlalchemy import func  # Importation correcte de func
 
 from database.models import Asset, HistoryPoint, Bank, Account
 
@@ -265,7 +266,11 @@ class VisualizationService:
 
         # Calculer les valeurs par catégorie
         for asset in assets:
-            if not asset.composants:
+            # Vérifier que allocation est un dictionnaire et pas None
+            if not asset.allocation or not isinstance(asset.allocation, dict):
+                continue
+
+            if not asset.composants or len(asset.composants) == 0:
                 # Pour les actifs directs (non composites)
                 for category, percentage in asset.allocation.items():
                     # Calculer la valeur allouée à cette catégorie
@@ -322,18 +327,22 @@ class VisualizationService:
 
         # Calculer les valeurs par zone géographique
         for asset in assets:
+            # Vérifier que allocation est un dictionnaire et pas None
+            if not asset.allocation or not isinstance(asset.allocation, dict):
+                continue
+
             # Si une catégorie est spécifiée, ne considérer que cette partie de l'actif
             if category:
                 if category not in asset.allocation:
                     continue
 
                 # Pour les actifs non composites
-                if not asset.composants:
+                if not asset.composants or len(asset.composants) == 0:
                     # Valeur allouée à cette catégorie
                     category_value = asset.valeur_actuelle * asset.allocation[category] / 100
 
                     # Répartition géographique pour cette catégorie
-                    geo_zones_dict = asset.geo_allocation.get(category, {})
+                    geo_zones_dict = asset.geo_allocation.get(category, {}) if asset.geo_allocation else {}
 
                     for zone, percentage in geo_zones_dict.items():
                         geo_values[zone] += category_value * percentage / 100
@@ -346,12 +355,12 @@ class VisualizationService:
                         geo_values[zone] += category_value * percentage / 100
             else:
                 # Pour tous les actifs, ventiler selon les allocations et répartitions géographiques
-                if not asset.composants:
+                if not asset.composants or len(asset.composants) == 0:
                     for cat, allocation_pct in asset.allocation.items():
                         category_value = asset.valeur_actuelle * allocation_pct / 100
 
                         # Utiliser la répartition géographique spécifique à cette catégorie si disponible
-                        geo_zones_dict = asset.geo_allocation.get(cat, {})
+                        geo_zones_dict = asset.geo_allocation.get(cat, {}) if asset.geo_allocation else {}
 
                         for zone, percentage in geo_zones_dict.items():
                             geo_values[zone] += category_value * percentage / 100
