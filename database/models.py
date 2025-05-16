@@ -44,15 +44,14 @@ class Asset(Base):
     nom = Column(EncryptedString)  # Chiffré
     type_produit = Column(String)  # Non sensible, pas besoin de chiffrer
     categorie = Column(String)  # Non sensible, pas besoin de chiffrer
-    allocation = Column(EncryptedJSON)  # Chiffré
-    geo_allocation = Column(EncryptedJSON)  # Chiffré
+    allocation = Column(EncryptedJSON)  # Chiffré - dict {categorie: pourcentage}
+    geo_allocation = Column(EncryptedJSON)  # Chiffré - dict {categorie: {zone: pourcentage}}
     valeur_actuelle = Column(Float)  # Sensible mais besoin de faire des calculs
     prix_de_revient = Column(Float)  # Sensible mais besoin de faire des calculs
     devise = Column(String, default="EUR")  # Non sensible
     date_maj = Column(String)  # Non sensible
     notes = Column(EncryptedString, nullable=True)  # Chiffré
     todo = Column(EncryptedString, nullable=True)  # Chiffré
-    composants = Column(EncryptedJSON, nullable=True)  # Chiffré
     isin = Column(String, nullable=True)  # Code ISIN
     ounces = Column(Float, nullable=True)  # Nombre d'onces pour les métaux précieux
     exchange_rate = Column(Float, default=1.0)  # Taux de change par rapport à l'EUR

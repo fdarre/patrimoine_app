@@ -75,7 +75,6 @@ class AssetService:
             devise: str = "EUR",
             notes: str = "",
             todo: str = "",
-            composants: Optional[List[Dict[str, Any]]] = None,
             isin: Optional[str] = None,
             ounces: Optional[float] = None
     ) -> Optional[Asset]:
@@ -95,7 +94,6 @@ class AssetService:
             devise: Devise
             notes: Notes
             todo: Tâche(s) à faire
-            composants: Liste des composants (pour actifs composites)
             isin: Code ISIN (optionnel)
             ounces: Nombre d'onces pour les métaux précieux (optionnel)
 
@@ -124,7 +122,6 @@ class AssetService:
             date_maj=datetime.now().strftime("%Y-%m-%d"),
             notes=notes,
             todo=todo,
-            composants=composants if composants else [],
             isin=isin,
             ounces=ounces,
             exchange_rate=1.0 if devise == "EUR" else None,
@@ -152,7 +149,6 @@ class AssetService:
             devise: str = "EUR",
             notes: str = "",
             todo: str = "",
-            composants: Optional[List[Dict[str, Any]]] = None,
             isin: Optional[str] = None,
             ounces: Optional[float] = None
     ) -> Optional[Asset]:
@@ -172,7 +168,6 @@ class AssetService:
             devise: Nouvelle devise
             notes: Nouvelles notes
             todo: Nouvelle(s) tâche(s)
-            composants: Nouveaux composants
             isin: Code ISIN (optionnel)
             ounces: Nombre d'onces pour les métaux précieux (optionnel)
 
@@ -203,9 +198,6 @@ class AssetService:
         asset.isin = isin
         asset.ounces = ounces
 
-        if composants is not None:
-            asset.composants = composants
-
         # Valider les modifications
         db.commit()
         db.refresh(asset)
@@ -229,39 +221,11 @@ class AssetService:
         if not asset:
             return False
 
-        # Vérifier si l'actif est un composant d'autres actifs
-        assets_with_component = db.query(Asset).filter(
-            Asset.composants.cast(String).contains("%asset_id%")
-        ).first()
-
-        if assets_with_component:
-            # Ne pas supprimer un actif utilisé comme composant
-            return False
-
         # Supprimer l'actif
         db.delete(asset)
         db.commit()
 
         return True
-
-    @staticmethod
-    def is_used_as_component(db: Session, asset_id: str) -> bool:
-        """
-        Vérifie si un actif est utilisé comme composant dans d'autres actifs
-
-        Args:
-            db: Session de base de données
-            asset_id: ID de l'actif à vérifier
-
-        Returns:
-            True si l'actif est utilisé comme composant, False sinon
-        """
-        # Rechercher les actifs qui contiennent cet ID dans leurs composants
-        assets_with_component = db.query(Asset).filter(
-            Asset.composants.cast(String).contains("%asset_id%")
-        ).first()
-
-        return assets_with_component is not None
 
     @staticmethod
     def get_assets_dataframe(
@@ -322,10 +286,6 @@ class AssetService:
             # Créer une représentation des allocations (ex: "Actions 60% / Obligations 40%")
             allocation_str = " / ".join(f"{cat.capitalize()} {pct}%" for cat, pct in asset.allocation.items())
 
-            # Indicateur d'actif composite
-            is_composite = len(asset.composants) > 0
-            composite_indicator = "✓" if is_composite else ""
-
             data.append([
                 asset.id,
                 asset.nom,
@@ -335,131 +295,11 @@ class AssetService:
                 formatted_value,
                 f'<span class="{pv_class}">{formatted_pv}</span>',
                 bank.nom,
-                account.libelle,
-                composite_indicator
+                account.libelle
             ])
 
         return pd.DataFrame(data, columns=["ID", "Nom", "Catégorie", "Allocation", "Type", "Valeur",
-                                          "Plus-value", "Banque", "Compte", "Composite"])
-
-    @staticmethod
-    def calculate_effective_allocation(db: Session, asset_id: str) -> Dict[str, float]:
-        """
-        Calcule l'allocation effective d'un actif composite en tenant compte de ses composants
-
-        Args:
-            db: Session de base de données
-            asset_id: ID de l'actif à analyser
-
-        Returns:
-            Dictionnaire avec les allocations effectives par catégorie
-        """
-        # Récupérer l'actif
-        asset = db.query(Asset).filter(Asset.id == asset_id).first()
-        if not asset or not asset.composants:
-            return asset.allocation if asset else {}
-
-        # Initialiser avec l'allocation directe
-        effective_allocation = {cat: 0.0 for cat in asset.allocation.keys()}
-
-        # Calculer le pourcentage direct
-        direct_percentage = 100 - sum(comp.get("percentage", 0) for comp in asset.composants)
-
-        # Ajouter l'allocation directe
-        for category, percentage in asset.allocation.items():
-            effective_allocation[category] += (percentage * direct_percentage / 100)
-
-        # Ajouter les allocations des composants
-        for component in asset.composants:
-            component_id = component.get("asset_id")
-            component_percentage = component.get("percentage", 0)
-
-            # Récupérer l'actif composant
-            component_asset = db.query(Asset).filter(Asset.id == component_id).first()
-            if not component_asset:
-                continue
-
-            # Calculer l'allocation effective du composant (récursion)
-            component_allocation = AssetService.calculate_effective_allocation(db, component_id)
-
-            # Ajouter à l'allocation effective
-            for category, percentage in component_allocation.items():
-                if category not in effective_allocation:
-                    effective_allocation[category] = 0.0
-                effective_allocation[category] += (percentage * component_percentage / 100)
-
-        return effective_allocation
-
-    @staticmethod
-    def calculate_effective_geo_allocation(
-            db: Session,
-            asset_id: str,
-            category: Optional[str] = None
-    ) -> Dict[str, Dict[str, float]]:
-        """
-        Calcule la répartition géographique effective d'un actif composite
-
-        Args:
-            db: Session de base de données
-            asset_id: ID de l'actif à analyser
-            category: Catégorie spécifique à calculer (optionnel)
-
-        Returns:
-            Dictionnaire avec les répartitions géographiques effectives par catégorie
-        """
-        # Récupérer l'actif
-        asset = db.query(Asset).filter(Asset.id == asset_id).first()
-        if not asset or not asset.composants:
-            if category and asset:
-                return {category: asset.geo_allocation.get(category, {})}
-            return asset.geo_allocation if asset else {}
-
-        # Initialiser avec les catégories d'allocation de l'actif
-        effective_geo = {}
-        categories = [category] if category else asset.allocation.keys()
-
-        for cat in categories:
-            if cat not in effective_geo:
-                effective_geo[cat] = {zone: 0.0 for zone in asset.geo_allocation.get(cat, {}).keys()}
-
-        # D'abord, ajouter la répartition directe de l'actif principal
-        direct_percentage = 100 - sum(comp.get("percentage", 0) for comp in asset.composants)
-
-        for cat in categories:
-            cat_percentage = asset.allocation.get(cat, 0) * direct_percentage / 100
-            if cat_percentage > 0:
-                for zone, zone_pct in asset.geo_allocation.get(cat, {}).items():
-                    if zone not in effective_geo[cat]:
-                        effective_geo[cat][zone] = 0.0
-                    effective_geo[cat][zone] += (zone_pct * cat_percentage / 100)
-
-        # Ensuite, ajouter les répartitions des composants
-        for component in asset.composants:
-            component_id = component.get("asset_id")
-            component_percentage = component.get("percentage", 0)
-
-            # Récupérer l'actif composant
-            component_asset = db.query(Asset).filter(Asset.id == component_id).first()
-            if not component_asset:
-                continue
-
-            # Calculer la répartition géographique effective du composant (récursion)
-            component_geo = AssetService.calculate_effective_geo_allocation(db, component_id)
-
-            for cat in categories:
-                if cat not in component_asset.allocation:
-                    continue
-
-                cat_component_percentage = component_asset.allocation.get(cat, 0) * component_percentage / 100
-
-                for zone, zone_pct in component_geo.get(cat, {}).items():
-                    if cat not in effective_geo:
-                        effective_geo[cat] = {}
-                    if zone not in effective_geo[cat]:
-                        effective_geo[cat][zone] = 0.0
-                    effective_geo[cat][zone] += (zone_pct * cat_component_percentage / 100)
-
-        return effective_geo
+                                          "Plus-value", "Banque", "Compte"])
 
     @staticmethod
     def sync_currency_rates(db: Session, asset_id: Optional[str] = None) -> int:
@@ -695,85 +535,6 @@ class AssetService:
 
             # Mettre à jour la valeur en EUR
             asset.value_eur = asset.valeur_actuelle / new_rate
-
-            # Sauvegarder les modifications
-            db.commit()
-
-            return True
-        except Exception:
-            db.rollback()
-            return False
-
-    @staticmethod
-    def add_component(db: Session, asset_id: str, component_id: str, percentage: float) -> bool:
-        """
-        Ajoute un composant à un actif
-
-        Args:
-            db: Session de base de données
-            asset_id: ID de l'actif principal
-            component_id: ID de l'actif à ajouter comme composant
-            percentage: Pourcentage du composant
-
-        Returns:
-            True si l'ajout a réussi, False sinon
-        """
-        asset = db.query(Asset).filter(Asset.id == asset_id).first()
-        if not asset:
-            return False
-
-        # Vérifier si le composant existe
-        component = db.query(Asset).filter(Asset.id == component_id).first()
-        if not component:
-            return False
-
-        try:
-            # Vérifier si le composant existe déjà dans la liste
-            if asset.composants is None:
-                asset.composants = []
-
-            # Vérifier si le composant existe déjà
-            for comp in asset.composants:
-                if comp.get("asset_id") == component_id:
-                    # Mettre à jour le pourcentage
-                    comp["percentage"] = percentage
-                    db.commit()
-                    return True
-
-            # Ajouter le nouveau composant
-            asset.composants.append({
-                "asset_id": component_id,
-                "percentage": percentage
-            })
-
-            # Sauvegarder les modifications
-            db.commit()
-
-            return True
-        except Exception:
-            db.rollback()
-            return False
-
-    @staticmethod
-    def remove_component(db: Session, asset_id: str, component_id: str) -> bool:
-        """
-        Supprime un composant d'un actif
-
-        Args:
-            db: Session de base de données
-            asset_id: ID de l'actif principal
-            component_id: ID du composant à supprimer
-
-        Returns:
-            True si la suppression a réussi, False sinon
-        """
-        asset = db.query(Asset).filter(Asset.id == asset_id).first()
-        if not asset or not asset.composants:
-            return False
-
-        try:
-            # Filtrer les composants pour exclure celui à supprimer
-            asset.composants = [comp for comp in asset.composants if comp.get("asset_id") != component_id]
 
             # Sauvegarder les modifications
             db.commit()

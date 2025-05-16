@@ -236,8 +236,7 @@ class VisualizationService:
             asset_categories: List[str] = None
     ) -> Dict[str, float]:
         """
-        Calcule la répartition par catégorie en tenant compte des allocations mixtes
-        et des actifs composites
+        Calcule la répartition par catégorie
 
         Args:
             db: Session de base de données
@@ -248,8 +247,6 @@ class VisualizationService:
         Returns:
             Dictionnaire avec les valeurs par catégorie
         """
-        from services.asset_service import AssetService
-
         if asset_categories is None:
             from utils.constants import ASSET_CATEGORIES
             asset_categories = ASSET_CATEGORIES
@@ -270,20 +267,11 @@ class VisualizationService:
             if not asset.allocation or not isinstance(asset.allocation, dict):
                 continue
 
-            if not asset.composants or len(asset.composants) == 0:
-                # Pour les actifs directs (non composites)
-                for category, percentage in asset.allocation.items():
-                    # Calculer la valeur allouée à cette catégorie
-                    allocated_value = asset.valeur_actuelle * percentage / 100
-                    category_values[category] += allocated_value
-            else:
-                # Pour les actifs composites
-                # Calculer l'allocation effective
-                effective_allocation = AssetService.calculate_effective_allocation(db, asset.id)
-
-                for category, percentage in effective_allocation.items():
-                    allocated_value = asset.valeur_actuelle * percentage / 100
-                    category_values[category] += allocated_value
+            # Pour chaque catégorie, calculer la valeur allouée
+            for category, percentage in asset.allocation.items():
+                # Calculer la valeur allouée à cette catégorie
+                allocated_value = asset.valeur_actuelle * percentage / 100
+                category_values[category] += allocated_value
 
         return category_values
 
@@ -296,8 +284,7 @@ class VisualizationService:
             geo_zones: List[str] = None
     ) -> Dict[str, float]:
         """
-        Calcule la répartition géographique en tenant compte des allocations mixtes
-        et des actifs composites
+        Calcule la répartition géographique
 
         Args:
             db: Session de base de données
@@ -309,8 +296,6 @@ class VisualizationService:
         Returns:
             Dictionnaire avec les valeurs par zone géographique
         """
-        from services.asset_service import AssetService
-
         if geo_zones is None:
             from utils.constants import GEO_ZONES
             geo_zones = GEO_ZONES
@@ -336,41 +321,23 @@ class VisualizationService:
                 if category not in asset.allocation:
                     continue
 
-                # Pour les actifs non composites
-                if not asset.composants or len(asset.composants) == 0:
-                    # Valeur allouée à cette catégorie
-                    category_value = asset.valeur_actuelle * asset.allocation[category] / 100
+                # Valeur allouée à cette catégorie
+                category_value = asset.valeur_actuelle * asset.allocation[category] / 100
 
-                    # Répartition géographique pour cette catégorie
-                    geo_zones_dict = asset.geo_allocation.get(category, {}) if asset.geo_allocation else {}
+                # Répartition géographique pour cette catégorie
+                geo_zones_dict = asset.geo_allocation.get(category, {}) if asset.geo_allocation else {}
+
+                for zone, percentage in geo_zones_dict.items():
+                    geo_values[zone] += category_value * percentage / 100
+            else:
+                # Pour tous les actifs, ventiler selon les allocations et répartitions géographiques
+                for cat, allocation_pct in asset.allocation.items():
+                    category_value = asset.valeur_actuelle * allocation_pct / 100
+
+                    # Utiliser la répartition géographique spécifique à cette catégorie si disponible
+                    geo_zones_dict = asset.geo_allocation.get(cat, {}) if asset.geo_allocation else {}
 
                     for zone, percentage in geo_zones_dict.items():
                         geo_values[zone] += category_value * percentage / 100
-                else:
-                    # Pour les actifs composites, calculer la répartition effective
-                    effective_geo = AssetService.calculate_effective_geo_allocation(db, asset.id, category)
-                    category_value = asset.valeur_actuelle * asset.allocation.get(category, 0) / 100
-
-                    for zone, percentage in effective_geo.get(category, {}).items():
-                        geo_values[zone] += category_value * percentage / 100
-            else:
-                # Pour tous les actifs, ventiler selon les allocations et répartitions géographiques
-                if not asset.composants or len(asset.composants) == 0:
-                    for cat, allocation_pct in asset.allocation.items():
-                        category_value = asset.valeur_actuelle * allocation_pct / 100
-
-                        # Utiliser la répartition géographique spécifique à cette catégorie si disponible
-                        geo_zones_dict = asset.geo_allocation.get(cat, {}) if asset.geo_allocation else {}
-
-                        for zone, percentage in geo_zones_dict.items():
-                            geo_values[zone] += category_value * percentage / 100
-                else:
-                    # Pour les actifs composites, calculer la répartition effective pour chaque catégorie
-                    for cat, allocation_pct in asset.allocation.items():
-                        effective_geo = AssetService.calculate_effective_geo_allocation(db, asset.id, cat)
-                        category_value = asset.valeur_actuelle * allocation_pct / 100
-
-                        for zone, percentage in effective_geo.get(cat, {}).items():
-                            geo_values[zone] += category_value * percentage / 100
 
         return geo_values

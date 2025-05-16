@@ -1,5 +1,5 @@
 """
-Interface de gestion des actifs, incluant les actifs composites
+Interface de gestion des actifs
 """
 
 import streamlit as st
@@ -12,7 +12,7 @@ from database.models import Bank, Account, Asset
 from services.asset_service import AssetService
 from services.data_service import DataService
 from utils.constants import ACCOUNT_TYPES, PRODUCT_TYPES, ASSET_CATEGORIES, GEO_ZONES, CURRENCIES
-from utils.calculations import get_default_geo_zones, is_circular_reference
+from utils.calculations import get_default_geo_zones
 
 def show_asset_management(db: Session, user_id: str):
     """
@@ -122,7 +122,7 @@ def show_asset_management(db: Session, user_id: str):
                     if asset:
                         with st.expander("Détails de l'actif", expanded=True):
                             # Utiliser des onglets à l'intérieur de l'expander pour éviter les expanders imbriqués
-                            detail_tabs = st.tabs(["Informations", "Valorisation", "Composants"])
+                            detail_tabs = st.tabs(["Informations", "Valorisation"])
 
                             with detail_tabs[0]:
                                 col1, col2 = st.columns(2)
@@ -236,7 +236,6 @@ def show_asset_management(db: Session, user_id: str):
                                                 devise=asset.devise,
                                                 notes=asset.notes,
                                                 todo=asset.todo,
-                                                composants=asset.composants,
                                                 isin=new_isin,
                                                 ounces=asset.ounces
                                             )
@@ -282,7 +281,6 @@ def show_asset_management(db: Session, user_id: str):
                                                 devise=asset.devise,
                                                 notes=asset.notes,
                                                 todo=asset.todo,
-                                                composants=asset.composants,
                                                 isin=asset.isin,
                                                 ounces=new_ounces
                                             )
@@ -331,162 +329,7 @@ def show_asset_management(db: Session, user_id: str):
                                         else:
                                             st.error("Erreur lors de la synchronisation du taux de change")
 
-                            with detail_tabs[2]:
-                                # Afficher les composants si c'est un actif composite
-                                if asset.composants and len(asset.composants) > 0:
-                                    st.subheader("Composition de l'actif")
-
-                                    component_data = []
-                                    for component in asset.composants:
-                                        component_asset = AssetService.find_asset_by_id(db, component["asset_id"])
-                                        if component_asset:
-                                            component_data.append({
-                                                "ID": component_asset.id,
-                                                "Nom": component_asset.nom,
-                                                "Pourcentage": f"{component['percentage']}%",
-                                                "Valeur": f"{component_asset.valeur_actuelle * component['percentage'] / 100:,.2f} {component_asset.devise}".replace(
-                                                    ",", " "),
-                                                "Catégorie": component_asset.categorie.capitalize(),
-                                                "Type": component_asset.type_produit
-                                            })
-
-                                    if component_data:
-                                        component_df = pd.DataFrame(component_data)
-                                        st.markdown(
-                                            '<div class="composite-header">Actif composite composé des éléments suivants:</div>',
-                                            unsafe_allow_html=True)
-                                        st.dataframe(component_df.drop(columns=["ID"]) if "ID" in component_df.columns else component_df)
-
-                                        # Afficher le pourcentage restant directement alloué
-                                        components_total = sum(comp.get("percentage", 0) for comp in asset.composants)
-                                        direct_percentage = 100 - components_total
-                                        if direct_percentage > 0:
-                                            st.info(
-                                                f"{direct_percentage:.2f}% de l'actif est alloué directement selon l'allocation définie.")
-
-                                        # Si l'actif a des composants, afficher l'allocation effective calculée
-                                        st.subheader("Allocation effective (incluant les composants)")
-                                        effective_allocation = AssetService.calculate_effective_allocation(db, asset.id)
-                                        for category, percentage in sorted(effective_allocation.items(), key=lambda x: x[1],
-                                                                          reverse=True):
-                                            if percentage > 0:
-                                                st.markdown(f"- {category.capitalize()}: {percentage:.2f}%")
-
-                                    # Gestion des composants
-                                    st.subheader("Gérer les composants")
-
-                                    # Ajouter un composant
-                                    st.markdown("### Ajouter un composant")
-
-                                    # Filtrer les actifs qui peuvent être des composants (éviter les références circulaires)
-                                    potential_components = []
-                                    for potential_asset in assets:
-                                        # Ne pas inclure l'actif lui-même
-                                        if potential_asset.id == asset.id:
-                                            continue
-                                        # Vérifier qu'il n'y a pas de référence circulaire
-                                        if not is_circular_reference(db, asset.id, potential_asset.id):
-                                            potential_components.append(potential_asset)
-
-                                    if potential_components:
-                                        col1, col2 = st.columns([3, 1])
-
-                                        with col1:
-                                            new_component_id = st.selectbox(
-                                                "Actif à ajouter",
-                                                options=[comp.id for comp in potential_components],
-                                                format_func=lambda x: next((a.nom for a in potential_components if a.id == x), "")
-                                            )
-
-                                        with col2:
-                                            new_component_pct = st.number_input(
-                                                "Pourcentage",
-                                                min_value=0.1,
-                                                max_value=100.0,
-                                                value=10.0,
-                                                step=0.1
-                                            )
-
-                                        if st.button("Ajouter le composant"):
-                                            # Vérifier que le pourcentage total ne dépasse pas 100%
-                                            components_total = sum(comp.get("percentage", 0) for comp in asset.composants)
-                                            if components_total + new_component_pct > 100:
-                                                st.error(f"Le total des pourcentages ({components_total + new_component_pct}%) dépasse 100%")
-                                            else:
-                                                if AssetService.add_component(db, asset.id, new_component_id, new_component_pct):
-                                                    st.success("Composant ajouté avec succès")
-                                                    st.rerun()
-                                                else:
-                                                    st.error("Erreur lors de l'ajout du composant")
-                                    else:
-                                        st.warning("Pas d'actifs disponibles comme composants.")
-
-                                    # Supprimer des composants
-                                    if asset.composants:
-                                        st.markdown("### Supprimer des composants")
-
-                                        for i, component in enumerate(asset.composants):
-                                            component_asset = AssetService.find_asset_by_id(db, component["asset_id"])
-                                            if component_asset:
-                                                col1, col2 = st.columns([4, 1])
-                                                with col1:
-                                                    st.text(f"{component_asset.nom} - {component['percentage']}%")
-                                                with col2:
-                                                    if st.button("Supprimer", key=f"remove_comp_{i}"):
-                                                        if AssetService.remove_component(db, asset.id, component["asset_id"]):
-                                                            st.success("Composant supprimé avec succès")
-                                                            st.rerun()
-                                                        else:
-                                                            st.error("Erreur lors de la suppression du composant")
-                                else:
-                                    st.info("Cet actif n'est pas un actif composite.")
-
-                                    # Option pour convertir en actif composite
-                                    st.subheader("Convertir en actif composite")
-
-                                    # Filtrer les actifs qui peuvent être des composants
-                                    potential_components = []
-                                    for potential_asset in assets:
-                                        # Ne pas inclure l'actif lui-même
-                                        if potential_asset.id == asset.id:
-                                            continue
-                                        # Pas de vérification de référence circulaire nécessaire pour un nouvel actif composite
-                                        potential_components.append(potential_asset)
-
-                                    if potential_components:
-                                        col1, col2 = st.columns([3, 1])
-
-                                        with col1:
-                                            new_component_id = st.selectbox(
-                                                "Premier composant",
-                                                options=[comp.id for comp in potential_components],
-                                                format_func=lambda x: next((a.nom for a in potential_components if a.id == x), "")
-                                            )
-
-                                        with col2:
-                                            new_component_pct = st.number_input(
-                                                "Pourcentage",
-                                                min_value=0.1,
-                                                max_value=100.0,
-                                                value=50.0,
-                                                step=0.1
-                                            )
-
-                                        if st.button("Convertir en actif composite"):
-                                            # Vérifier que le pourcentage ne dépasse pas 100%
-                                            if new_component_pct > 100:
-                                                st.error("Le pourcentage ne peut pas dépasser 100%")
-                                            else:
-                                                if AssetService.add_component(db, asset.id, new_component_id, new_component_pct):
-                                                    st.success("Actif converti en actif composite")
-                                                    st.rerun()
-                                                else:
-                                                    st.error("Erreur lors de la conversion en actif composite")
-                                    else:
-                                        st.warning("Pas d'actifs disponibles comme composants.")
-
                             # Afficher la répartition géographique par catégorie
-                            # Déplacé dans un nouvel onglet pour éviter les expanders imbriqués
                             st.subheader("Répartition géographique par catégorie")
 
                             # Utiliser des onglets pour chaque catégorie
@@ -501,14 +344,8 @@ def show_asset_management(db: Session, user_id: str):
                                                 f"Cette catégorie représente {percentage}% de l'actif, soit {asset.valeur_actuelle * percentage / 100:,.2f} {asset.devise}".replace(
                                                     ",", " "))
 
-                                            # Obtenir la répartition géographique effective pour cette catégorie
-                                            if asset.composants and len(asset.composants) > 0:
-                                                effective_geo = AssetService.calculate_effective_geo_allocation(db, asset.id, category)
-                                                geo_zones = effective_geo.get(category, {})
-                                                st.success("Répartition géographique effective (incluant les composants):")
-                                            else:
-                                                # Obtenir la répartition géographique pour cette catégorie
-                                                geo_zones = asset.geo_allocation.get(category, {}) if asset.geo_allocation else {}
+                                            # Obtenir la répartition géographique pour cette catégorie
+                                            geo_zones = asset.geo_allocation.get(category, {}) if asset.geo_allocation else {}
 
                                             if geo_zones:
                                                 # Afficher un tableau
@@ -525,34 +362,21 @@ def show_asset_management(db: Session, user_id: str):
                                     st.error(f"Erreur lors de l'affichage des répartitions géographiques: {str(e)}")
 
                             # Actions pour modifier/supprimer
-                            col1, col2, col3 = st.columns(3)
+                            col1, col2 = st.columns(2)
 
                             with col1:
                                 if st.button("Modifier cet actif", key=f"btn_edit_asset_{selected_asset_id}"):
                                     st.session_state[f'edit_asset_{selected_asset_id}'] = True
-                                    st.session_state[f'edit_components_{selected_asset_id}'] = False
 
                             with col2:
-                                if st.button("Gérer les composants", key=f"btn_components_{selected_asset_id}"):
-                                    st.session_state[f'edit_asset_{selected_asset_id}'] = False
-                                    st.session_state[f'edit_components_{selected_asset_id}'] = True
-
-                            with col3:
-                                # Vérifier si l'actif est utilisé comme composant
-                                is_used = AssetService.is_used_as_component(db, selected_asset_id)
-
-                                if is_used:
-                                    st.warning(
-                                        "Cet actif est utilisé comme composant dans d'autres actifs et ne peut pas être supprimé.")
-                                else:
-                                    if st.button("Supprimer cet actif", key=f"btn_delete_asset_{selected_asset_id}"):
-                                        if AssetService.delete_asset(db, selected_asset_id):
-                                            # Mettre à jour l'historique
-                                            DataService.record_history_entry(db, user_id)
-                                            st.success("Actif supprimé avec succès.")
-                                            st.rerun()
-                                        else:
-                                            st.error("Impossible de supprimer cet actif.")
+                                if st.button("Supprimer cet actif", key=f"btn_delete_asset_{selected_asset_id}"):
+                                    if AssetService.delete_asset(db, selected_asset_id):
+                                        # Mettre à jour l'historique
+                                        DataService.record_history_entry(db, user_id)
+                                        st.success("Actif supprimé avec succès.")
+                                        st.rerun()
+                                    else:
+                                        st.error("Impossible de supprimer cet actif.")
 
                             # Formulaire d'édition conditionnel
                             if f'edit_asset_{selected_asset_id}' in st.session_state and st.session_state[
@@ -958,8 +782,6 @@ def show_asset_management(db: Session, user_id: str):
                         geo_zones = {}
                         geo_total = 0
 
-                        # Remplacez la section qui gère les onglets de répartition géographique par ce code :
-
                         # Créer des onglets pour faciliter la saisie
                         geo_zone_tabs = st.tabs(["Marchés développés", "Marchés émergents", "Global"])
 
@@ -1042,57 +864,6 @@ def show_asset_management(db: Session, user_id: str):
                         # Enregistrer la répartition géographique pour cette catégorie
                         geo_allocation[category] = geo_zones
 
-            # Option pour créer un actif composite
-            st.subheader("Actif composite (optionnel)")
-            is_composite = st.checkbox("Cet actif est composé d'autres actifs", key="new_asset_is_composite")
-
-            composants = []
-            components_valid = True
-
-            if is_composite and assets:
-                st.info("Sélectionnez les actifs qui composent cet actif, et spécifiez le pourcentage pour chacun.")
-                st.warning(
-                    "Le total des pourcentages des composants peut aller jusqu'à 100%. Le reste sera alloué directement selon l'allocation définie ci-dessus.")
-
-                # Permettre l'ajout de composants (jusqu'à 5 pour commencer)
-                num_components = st.number_input("Nombre de composants", min_value=0, max_value=10, value=1, step=1)
-
-                components_total = 0
-
-                for i in range(num_components):
-                    st.markdown(f"### Composant {i + 1}")
-                    col1, col2 = st.columns([3, 1])
-
-                    with col1:
-                        component_id = st.selectbox(
-                            f"Actif {i + 1}",
-                            options=[a.id for a in assets],
-                            format_func=lambda x: next((a.nom for a in assets if a.id == x), ""),
-                            key=f"new_asset_component_{i}"
-                        )
-
-                    with col2:
-                        component_pct = st.number_input(
-                            f"Pourcentage {i + 1} (%)",
-                            min_value=0.1,
-                            max_value=100.0,
-                            value=10.0,
-                            step=0.1,
-                            key=f"new_asset_component_pct_{i}"
-                        )
-
-                    components_total += component_pct
-                    composants.append({"asset_id": component_id, "percentage": component_pct})
-
-                # Afficher le total des composants
-                st.progress(components_total / 100)
-                if components_total > 100:
-                    st.error(f"Le total des composants ({components_total}%) dépasse 100%")
-                    components_valid = False
-                else:
-                    st.info(
-                        f"Total des composants: {components_total}%. Reste alloué directement: {100 - components_total}%")
-
             # Bouton d'ajout d'actif
             submit_button = st.button("Ajouter l'actif", key="btn_add_asset")
 
@@ -1107,8 +878,6 @@ def show_asset_management(db: Session, user_id: str):
                     st.error(f"Le total des allocations doit être de 100% (actuellement: {allocation_total}%)")
                 elif not all_geo_valid:
                     st.error("Toutes les répartitions géographiques doivent totaliser 100%")
-                elif not components_valid:
-                    st.error("Le total des composants ne doit pas dépasser 100%")
                 else:
                     try:
                         # Convertir les valeurs
@@ -1129,7 +898,6 @@ def show_asset_management(db: Session, user_id: str):
                             devise=asset_currency,
                             notes=asset_notes,
                             todo=asset_todo,
-                            composants=composants if is_composite else [],
                             isin=asset_isin if asset_isin else None,
                             ounces=asset_ounces if asset_type == "metal" else None
                         )
@@ -1193,7 +961,8 @@ def show_asset_management(db: Session, user_id: str):
         if sync_assets:
             sync_data = []
             for asset in sync_assets:
-                last_price_sync = asset.last_price_sync.strftime("%Y-%m-%d %H:%M") if asset.last_price_sync else "Jamais"
+                last_price_sync = asset.last_price_sync.strftime(
+                    "%Y-%m-%d %H:%M") if asset.last_price_sync else "Jamais"
                 last_rate_sync = asset.last_rate_sync.strftime("%Y-%m-%d %H:%M") if asset.last_rate_sync else "Jamais"
 
                 sync_data.append([
@@ -1205,45 +974,9 @@ def show_asset_management(db: Session, user_id: str):
                     asset.sync_error or "-"
                 ])
 
-            sync_df = pd.DataFrame(sync_data, columns=["Nom", "ISIN", "Devise", "Dernière synchro prix", "Dernière synchro taux", "Erreur"])
+            sync_df = pd.DataFrame(sync_data,
+                                   columns=["Nom", "ISIN", "Devise", "Dernière synchro prix", "Dernière synchro taux",
+                                            "Erreur"])
             st.dataframe(sync_df, use_container_width=True)
         else:
             st.info("Aucun actif disponible")
-
-# Fonction pour vérifier la présence de références circulaires dans la base de données
-def is_circular_reference(db: Session, source_id: str, target_id: str, visited=None) -> bool:
-    """
-    Vérifie si l'ajout d'un actif comme composant créerait une référence circulaire
-
-    Args:
-        db: Session de base de données
-        source_id: ID de l'actif source
-        target_id: ID de l'actif cible
-        visited: Liste des IDs d'actifs déjà visités
-
-    Returns:
-        True si une référence circulaire est détectée, False sinon
-    """
-    if visited is None:
-        visited = []
-
-    if source_id == target_id:
-        return True
-
-    if source_id in visited:
-        return False
-
-    visited.append(source_id)
-
-    # Récupérer l'actif cible
-    target_asset = db.query(Asset).filter(Asset.id == target_id).first()
-    if not target_asset or not target_asset.composants:
-        return False
-
-    # Vérifier récursivement pour chaque composant de la cible
-    for component in target_asset.composants:
-        component_id = component.get("asset_id")
-        if component_id and is_circular_reference(db, source_id, component_id, visited):
-            return True
-
-    return False
