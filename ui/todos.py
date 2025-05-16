@@ -35,8 +35,8 @@ def show_todos(db: Session, user_id: str):
 
             st.markdown(f"""
             <div class="todo-card">
-            <strong>{asset.nom}</strong> ({account.libelle if account else "N/A"} - {bank.nom if bank else "N/A"})
-            <p>{asset.todo}</p>
+            <strong style="color: #333;">{asset.nom}</strong> ({account.libelle if account else "N/A"} - {bank.nom if bank else "N/A"})
+            <p style="color: #444;">{asset.todo}</p>
             </div>
             """, unsafe_allow_html=True)
 

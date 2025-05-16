@@ -61,12 +61,26 @@ MAX_USERS = int(os.getenv("MAX_USERS", "5"))
 # Styles CSS
 CUSTOM_CSS = """
 <style>
+    /* Variables de couleur pour thème sombre */
+    :root {
+        --text-color: #fff;
+        --dark-text-color: #333;
+        --background-color: #1e1e1e;
+        --primary-color: #4e79a7;
+        --secondary-color: #f28e2c;
+        --success-color: #40c057;
+        --danger-color: #fa5252;
+        --light-bg: #343a40;
+        --border-color: #495057;
+    }
+
     .metric-card {
-        background-color: #f8f9fa;
+        background-color: var(--light-bg);
         border-radius: 0.5rem;
         padding: 1rem;
-        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.2);
         margin-bottom: 1rem;
+        color: var(--text-color);
     }
 
     .todo-card {
@@ -75,26 +89,28 @@ CUSTOM_CSS = """
         padding: 1rem;
         margin-bottom: 0.5rem;
         border-radius: 0.25rem;
+        color: var(--dark-text-color) !important;
     }
 
     .component-card {
-        background-color: #e2f0fb;
-        border-left: 4px solid #0d6efd;
+        background-color: #31383e;
+        border-left: 4px solid #4e79a7;
         padding: 1rem;
         margin-bottom: 0.5rem;
         border-radius: 0.25rem;
+        color: var(--text-color);
     }
 
     .positive {
-        color: #28a745;
+        color: var(--success-color);
     }
 
     .negative {
-        color: #dc3545;
+        color: var(--danger-color);
     }
 
     h1, h2, h3 {
-        color: #343a40;
+        color: var(--text-color);
     }
 
     .stButton>button {
@@ -102,22 +118,61 @@ CUSTOM_CSS = """
     }
 
     .allocation-box {
-        background-color: #e9ecef;
+        background-color: var(--light-bg);
         border-radius: 0.5rem;
         padding: 1rem;
         margin-bottom: 1rem;
+        color: var(--text-color);
     }
 
     .allocation-title {
         font-weight: bold;
         margin-bottom: 0.5rem;
+        color: var(--text-color);
     }
 
     .composite-header {
-        background-color: #d1e7dd;
+        background-color: #2c5840;
         padding: 0.5rem;
         border-radius: 0.25rem;
         margin-bottom: 0.5rem;
+        color: var(--text-color);
+    }
+    
+    /* Améliorations pour thème sombre */
+    .dataframe td, .dataframe th {
+        color: var(--text-color);
+    }
+    
+    /* Pour les badges et indicateurs */
+    span {
+        color: inherit;
+    }
+    
+    /* Pour les éléments de type comptes dans le détail */
+    .account-detail {
+        color: var(--text-color) !important;
+        background-color: var(--light-bg);
+    }
+    
+    /* Pour les tableaux sur fond sombre */
+    table {
+        color: var(--text-color);
+    }
+    
+    /* Pour les sélecteurs et entrées */
+    .stSelectbox, .stTextInput, .stTextArea {
+        color: var(--text-color);
+    }
+    
+    /* Renforcer la visibilité des textes */
+    p, div, li, span {
+        color: var(--text-color);
+    }
+    
+    /* Exception pour les cartes todo */
+    .todo-card p, .todo-card div, .todo-card span {
+        color: var(--dark-text-color);
     }
 </style>
 """

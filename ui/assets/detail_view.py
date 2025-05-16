@@ -9,10 +9,11 @@ from sqlalchemy.orm import Session
 from database.models import Asset, Account, Bank
 from services.asset_service import AssetService
 
+
 def display_asset_details(db: Session, asset_id: str):
     """
     Affiche les détails complets d'un actif
-    
+
     Args:
         db: Session de base de données
         asset_id: ID de l'actif à afficher
@@ -65,7 +66,7 @@ def display_asset_details(db: Session, asset_id: str):
         display_asset_allocations(asset)
 
     with detail_tabs[1]:
-        display_asset_valuation(asset)
+        display_asset_valuation(asset, db)
 
     with detail_tabs[2]:
         display_asset_information(asset, account, bank)
@@ -82,10 +83,11 @@ def display_asset_details(db: Session, asset_id: str):
             st.session_state['edit_asset'] = asset.id
             st.rerun()
 
+
 def display_asset_allocations(asset):
     """
     Affiche les allocations par catégorie et répartition géographique d'un actif
-    
+
     Args:
         asset: Actif à afficher
     """
@@ -99,12 +101,13 @@ def display_asset_allocations(asset):
 
         # Créer le graphique
         fig, ax = plt.subplots(figsize=(8, 5))
-        bars = ax.bar(categories, percentages, color=['#4e79a7', '#f28e2c', '#e15759', '#76b7b2', '#59a14f', '#edc949', '#af7aa1'])
+        bars = ax.bar(categories, percentages,
+                      color=['#4e79a7', '#f28e2c', '#e15759', '#76b7b2', '#59a14f', '#edc949', '#af7aa1'])
 
         # Ajouter les pourcentages sur les barres
         for bar in bars:
             height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., height + 1, f'{height:.1f}%',
+            ax.text(bar.get_x() + bar.get_width() / 2., height + 1, f'{height:.1f}%',
                     ha='center', va='bottom', fontsize=10)
 
         ax.set_ylabel('Pourcentage (%)')
@@ -155,12 +158,14 @@ def display_asset_allocations(asset):
                 else:
                     st.info(f"Pas de répartition géographique définie pour {category}")
 
-def display_asset_valuation(asset):
+
+def display_asset_valuation(asset, db: Session):
     """
     Affiche les données de valorisation d'un actif
-    
+
     Args:
         asset: Actif à afficher
+        db: Session de base de données pour les mises à jour
     """
     st.subheader("Données de valorisation")
 
@@ -181,9 +186,9 @@ def display_asset_valuation(asset):
         pv_percent = (pv / asset.prix_de_revient) * 100 if asset.prix_de_revient > 0 else 0
 
         st.metric("Plus-value",
-                 f"{pv:,.2f} {asset.devise}".replace(",", " "),
-                 f"{pv_percent:+.2f}%",
-                 delta_color="normal" if pv >= 0 else "inverse")
+                  f"{pv:,.2f} {asset.devise}".replace(",", " "),
+                  f"{pv_percent:+.2f}%",
+                  delta_color="normal" if pv >= 0 else "inverse")
 
         # Dates importantes
         st.write("**Date de mise à jour:**", asset.date_maj)
@@ -197,9 +202,9 @@ def display_asset_valuation(asset):
     col1, col2 = st.columns(2)
     with col1:
         new_price = st.number_input("Nouveau prix",
-                                  min_value=0.0,
-                                  value=float(asset.valeur_actuelle),
-                                  format="%.2f")
+                                    min_value=0.0,
+                                    value=float(asset.valeur_actuelle),
+                                    format="%.2f")
     with col2:
         if st.button("Mettre à jour", key=f"update_price_{asset.id}"):
             # Code pour la mise à jour du prix
@@ -209,10 +214,11 @@ def display_asset_valuation(asset):
             else:
                 st.error("Erreur lors de la mise à jour du prix")
 
+
 def display_asset_information(asset, account, bank):
     """
     Affiche les informations générales d'un actif
-    
+
     Args:
         asset: Actif à afficher
         account: Compte associé
@@ -239,7 +245,7 @@ def display_asset_information(asset, account, bank):
     if asset.notes:
         st.subheader("Notes")
         st.markdown(f'<div style="background:#f8f9fa;padding:10px;border-radius:5px;">{asset.notes}</div>',
-                   unsafe_allow_html=True)
+                    unsafe_allow_html=True)
 
     if asset.todo:
         st.subheader("Tâches à faire")

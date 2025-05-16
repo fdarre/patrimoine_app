@@ -8,10 +8,11 @@ from sqlalchemy.orm import Session
 
 from database.models import Asset, Account, Bank
 
+
 def display_assets_table(db: Session, assets):
     """
     Affiche les actifs en mode tableau amélioré
-    
+
     Args:
         db: Session de base de données
         assets: Liste des actifs à afficher
@@ -34,18 +35,19 @@ def display_assets_table(db: Session, assets):
         # Mini indicateur de performance
         perf_indicator = f'<span class="{pv_class}-indicator" style="margin-left:5px;padding:0 3px;">{pv_percent:+.1f}%</span>'
 
-        # Créer un badge pour le type de produit
-        product_type_badge = f'<span style="background:#e9ecef;border-radius:3px;padding:1px 5px;font-size:12px;">{asset.type_produit}</span>'
+        # Créer un badge pour le type de produit avec texte blanc sur fond foncé
+        product_type_badge = f'<span style="background:#495057;border-radius:3px;padding:1px 5px;font-size:12px;color:#fff;">{asset.type_produit}</span>'
 
         data.append({
             "ID": asset.id,
-            "Nom": asset.nom,
+            "Nom": f'<span style="color:#fff;">{asset.nom}</span>',
             "Type": product_type_badge,
-            "Valeur": f"{asset.valeur_actuelle:,.2f} {asset.devise}".replace(",", " "),
-            "Performance": f'<span class="{pv_class}">{pv:,.2f} {asset.devise}</span>{perf_indicator}'.replace(",", " "),
+            "Valeur": f'<span style="color:#fff;">{asset.valeur_actuelle:,.2f} {asset.devise}</span>'.replace(",", " "),
+            "Performance": f'<span class="{pv_class}">{pv:,.2f} {asset.devise}</span>{perf_indicator}'.replace(",",
+                                                                                                               " "),
             "Allocation": allocation_html,
-            "Compte": f"{account.libelle} ({bank.nom})" if account and bank else "N/A",
-            "Dernière MAJ": asset.date_maj
+            "Compte": f'<span style="color:#ddd;">{account.libelle} ({bank.nom})</span>' if account and bank else "N/A",
+            "Dernière MAJ": f'<span style="color:#ddd;">{asset.date_maj}</span>'
         })
 
     # Créer le DataFrame
@@ -62,17 +64,20 @@ def display_assets_table(db: Session, assets):
     selected_asset_id = st.selectbox(
         "Sélectionner un actif",
         options=[asset["ID"] for asset in data],
-        format_func=lambda x: next((a["Nom"] for a in data if a["ID"] == x), "")
+        format_func=lambda x: next(
+            (a["Nom"].replace('<span style="color:#fff;">', '').replace('</span>', '') for a in data if a["ID"] == x),
+            "")
     )
 
     if selected_asset_id:
         # On utilise la fonctionnalité session_state pour mémoriser l'actif sélectionné
         st.session_state['view_asset_details'] = selected_asset_id
 
+
 def display_assets_cards(db: Session, assets):
     """
     Affiche les actifs sous forme de cartes
-    
+
     Args:
         db: Session de base de données
         assets: Liste des actifs à afficher
@@ -94,16 +99,16 @@ def display_assets_cards(db: Session, assets):
 
             # Créer la carte avec le type de produit
             st.markdown(f"""
-            <div style="border:1px solid #dee2e6;border-radius:5px;padding:10px;margin-bottom:15px;background-color:#fff;">
+            <div style="border:1px solid #495057;border-radius:5px;padding:10px;margin-bottom:15px;background-color:#343a40;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <h3 style="margin-top:0;font-size:18px;">{asset.nom}</h3>
-                    <span style="background:#e9ecef;border-radius:3px;padding:1px 5px;font-size:12px;">{asset.type_produit}</span>
+                    <h3 style="margin-top:0;font-size:18px;color:#fff;">{asset.nom}</h3>
+                    <span style="background:#495057;border-radius:3px;padding:1px 5px;font-size:12px;color:#fff;">{asset.type_produit}</span>
                 </div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:5px;color:#ddd;">
                     <div><strong>Valeur:</strong> {asset.valeur_actuelle:,.2f} {asset.devise}</div>
                     <div class="{pv_class}">{pv_percent:+.1f}%</div>
                 </div>
-                <div style="margin-bottom:8px;font-size:12px;color:#6c757d;">
+                <div style="margin-bottom:8px;font-size:12px;color:#adb5bd;">
                     {account.libelle} | {bank.nom if bank else "N/A"}
                 </div>
             </div>
@@ -118,10 +123,11 @@ def display_assets_cards(db: Session, assets):
                 if st.button("Modifier", key=f"edit_{asset.id}"):
                     st.session_state['edit_asset'] = asset.id
 
+
 def display_assets_compact(db: Session, assets):
     """
     Affiche les actifs en mode liste compacte
-    
+
     Args:
         db: Session de base de données
         assets: Liste des actifs à afficher
@@ -143,22 +149,22 @@ def display_assets_compact(db: Session, assets):
         portfolio_percent = (asset.valeur_actuelle / total_value * 100) if total_value > 0 else 0
 
         # Créer une barre de progression proportionnelle à la valeur
-        progress_html = f'<div style="background:#f8f9fa;height:4px;width:100%;margin-top:3px;"><div style="background:#4e79a7;height:4px;width:{portfolio_percent}%;"></div></div>'
+        progress_html = f'<div style="background:#495057;height:4px;width:100%;margin-top:3px;"><div style="background:#4e79a7;height:4px;width:{portfolio_percent}%;"></div></div>'
 
         # Créer la ligne compacte
         col1, col2 = st.columns([3, 1])
         with col1:
             st.markdown(f"""
-            <div style="padding:8px 0;border-bottom:1px solid #dee2e6;">
+            <div style="padding:8px 0;border-bottom:1px solid #495057;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                     <div>
-                        <strong>{asset.nom}</strong>
-                        <span style="background:#e9ecef;border-radius:3px;padding:1px 5px;font-size:11px;margin-left:5px;">{asset.type_produit}</span>
+                        <strong style="color:#fff;">{asset.nom}</strong>
+                        <span style="background:#495057;border-radius:3px;padding:1px 5px;font-size:11px;margin-left:5px;color:#fff;">{asset.type_produit}</span>
                     </div>
-                    <div>{asset.valeur_actuelle:,.2f} {asset.devise}</div>
+                    <div style="color:#fff;">{asset.valeur_actuelle:,.2f} {asset.devise}</div>
                 </div>
-                <div style="display:flex;justify-content:space-between;font-size:12px;color:#6c757d;">
-                    <div>{account.libelle} | {bank.nom if bank else "N/A"}</div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;">
+                    <div style="color:#adb5bd;">{account.libelle} | {bank.nom if bank else "N/A"}</div>
                     <div class="{pv_class}">{pv_percent:+.1f}%</div>
                 </div>
                 {progress_html}
@@ -169,13 +175,14 @@ def display_assets_compact(db: Session, assets):
             if st.button("Détails", key=f"compact_details_{asset.id}"):
                 st.session_state['view_asset_details'] = asset.id
 
+
 def create_allocation_html(allocation):
     """
     Crée une représentation HTML des allocations
-    
+
     Args:
         allocation: Dictionnaire d'allocations
-    
+
     Returns:
         Chaîne HTML représentant les allocations
     """
@@ -189,14 +196,15 @@ def create_allocation_html(allocation):
         "cash": "#edc949",
         "autre": "#af7aa1"
     }
-    
+
     allocation_html = ""
     if allocation:
         for cat, pct in sorted(allocation.items(), key=lambda x: x[1], reverse=True)[:3]:
             color = category_colors.get(cat, "#bab0ab")
-            allocation_html += f'<div style="display:inline-block;margin-right:4px;"><span style="background:{color};width:10px;height:10px;display:inline-block;margin-right:2px;"></span>{cat[:3].capitalize()} {pct}%</div>'
-    
+            allocation_html += f'<div style="display:inline-block;margin-right:4px;"><span style="background:{color};width:10px;height:10px;display:inline-block;margin-right:2px;"></span><span style="color:#fff;">{cat[:3].capitalize()} {pct}%</span></div>'
+
     return allocation_html
+
 
 def apply_table_styling():
     """
@@ -207,38 +215,42 @@ def apply_table_styling():
     .dataframe {
         border-collapse: collapse;
         width: 100%;
-        border: 1px solid #ddd;
+        border: 1px solid #444;
         font-size: 14px;
+        background-color: #1e1e1e;
     }
     .dataframe th {
-        background-color: #f8f9fa;
-        color: #495057;
+        background-color: #343a40;
+        color: #fff;
         text-align: left;
         padding: 12px 8px;
-        border-bottom: 2px solid #dee2e6;
+        border-bottom: 2px solid #495057;
     }
     .dataframe td {
-        border-bottom: 1px solid #dee2e6;
+        border-bottom: 1px solid #495057;
         padding: 10px 8px;
+        color: #fff;
     }
     .dataframe tr:hover {
-        background-color: rgba(0,0,0,0.03);
+        background-color: rgba(255,255,255,0.1);
     }
     .positive {
-        color: #28a745;
+        color: #40c057;
         font-weight: bold;
     }
     .negative {
-        color: #dc3545;
+        color: #fa5252;
         font-weight: bold;
     }
     .positive-indicator {
-        background-color: rgba(40, 167, 69, 0.2);
+        background-color: rgba(64, 192, 87, 0.2);
         border-radius: 3px;
+        color: #fff;
     }
     .negative-indicator {
-        background-color: rgba(220, 53, 69, 0.2);
+        background-color: rgba(250, 82, 82, 0.2);
         border-radius: 3px;
+        color: #fff;
     }
     </style>
     """, unsafe_allow_html=True)
