@@ -53,6 +53,13 @@ class Asset(Base):
     notes = Column(EncryptedString, nullable=True)  # Chiffré
     todo = Column(EncryptedString, nullable=True)  # Chiffré
     composants = Column(EncryptedJSON, nullable=True)  # Chiffré
+    isin = Column(String, nullable=True)  # Code ISIN
+    ounces = Column(Float, nullable=True)  # Nombre d'onces pour les métaux précieux
+    exchange_rate = Column(Float, default=1.0)  # Taux de change par rapport à l'EUR
+    value_eur = Column(Float, nullable=True)  # Valeur en EUR
+    last_price_sync = Column(DateTime, nullable=True)  # Date de dernière synchronisation du prix
+    last_rate_sync = Column(DateTime, nullable=True)  # Date de dernière synchronisation du taux de change
+    sync_error = Column(String, nullable=True)  # Message d'erreur de synchronisation
 
 class HistoryPoint(Base):
     __tablename__ = "history"

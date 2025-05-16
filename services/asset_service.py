@@ -7,6 +7,8 @@ import pandas as pd
 from datetime import datetime
 import uuid
 import json
+from services.currency_service import CurrencyService
+from services.price_service import PriceService
 
 from database.models import Asset, Account, Bank, User
 from sqlalchemy import String
@@ -73,7 +75,9 @@ class AssetService:
             devise: str = "EUR",
             notes: str = "",
             todo: str = "",
-            composants: Optional[List[Dict[str, Any]]] = None
+            composants: Optional[List[Dict[str, Any]]] = None,
+            isin: Optional[str] = None,
+            ounces: Optional[float] = None
     ) -> Optional[Asset]:
         """
         Ajoute un nouvel actif
@@ -92,6 +96,8 @@ class AssetService:
             notes: Notes
             todo: Tâche(s) à faire
             composants: Liste des composants (pour actifs composites)
+            isin: Code ISIN (optionnel)
+            ounces: Nombre d'onces pour les métaux précieux (optionnel)
 
         Returns:
             Le nouvel actif créé ou None
@@ -118,7 +124,11 @@ class AssetService:
             date_maj=datetime.now().strftime("%Y-%m-%d"),
             notes=notes,
             todo=todo,
-            composants=composants if composants else []
+            composants=composants if composants else [],
+            isin=isin,
+            ounces=ounces,
+            exchange_rate=1.0 if devise == "EUR" else None,
+            value_eur=valeur_actuelle if devise == "EUR" else None
         )
 
         # Ajouter et valider
@@ -142,7 +152,9 @@ class AssetService:
             devise: str = "EUR",
             notes: str = "",
             todo: str = "",
-            composants: Optional[List[Dict[str, Any]]] = None
+            composants: Optional[List[Dict[str, Any]]] = None,
+            isin: Optional[str] = None,
+            ounces: Optional[float] = None
     ) -> Optional[Asset]:
         """
         Met à jour un actif existant
@@ -161,6 +173,8 @@ class AssetService:
             notes: Nouvelles notes
             todo: Nouvelle(s) tâche(s)
             composants: Nouveaux composants
+            isin: Code ISIN (optionnel)
+            ounces: Nombre d'onces pour les métaux précieux (optionnel)
 
         Returns:
             L'actif mis à jour ou None
@@ -186,6 +200,8 @@ class AssetService:
         asset.date_maj = datetime.now().strftime("%Y-%m-%d")
         asset.notes = notes
         asset.todo = todo
+        asset.isin = isin
+        asset.ounces = ounces
 
         if composants is not None:
             asset.composants = composants
@@ -444,3 +460,325 @@ class AssetService:
                     effective_geo[cat][zone] += (zone_pct * cat_component_percentage / 100)
 
         return effective_geo
+
+    @staticmethod
+    def sync_currency_rates(db: Session, asset_id: Optional[str] = None) -> int:
+        """
+        Synchronise les taux de change pour un actif ou tous les actifs
+
+        Args:
+            db: Session de base de données
+            asset_id: ID de l'actif à synchroniser (tous les actifs si None)
+
+        Returns:
+            Nombre d'actifs mis à jour
+        """
+        # Récupérer les taux de change actuels
+        rates = CurrencyService.get_exchange_rates()
+
+        # Préparer la requête
+        query = db.query(Asset)
+        if asset_id:
+            query = query.filter(Asset.id == asset_id)
+        else:
+            # Exclure les actifs en EUR
+            query = query.filter(Asset.devise != "EUR")
+
+        assets = query.all()
+        updated_count = 0
+
+        for asset in assets:
+            if asset.devise != "EUR":
+                try:
+                    # Récupérer le taux de change
+                    exchange_rate = rates.get(asset.devise)
+
+                    if exchange_rate and exchange_rate > 0:
+                        # Mettre à jour l'actif
+                        asset.exchange_rate = exchange_rate
+                        asset.value_eur = asset.valeur_actuelle / exchange_rate
+                        asset.last_rate_sync = datetime.now()
+                        asset.sync_error = None
+                        updated_count += 1
+                    else:
+                        asset.sync_error = f"Taux de change non disponible pour {asset.devise}"
+                except Exception as e:
+                    asset.sync_error = str(e)
+            else:
+                # Pour les actifs en EUR, le taux est toujours 1
+                asset.exchange_rate = 1.0
+                asset.value_eur = asset.valeur_actuelle
+                asset.last_rate_sync = datetime.now()
+                asset.sync_error = None
+                updated_count += 1
+
+        # Sauvegarder les modifications
+        db.commit()
+
+        return updated_count
+
+    @staticmethod
+    def sync_price_by_isin(db: Session, asset_id: Optional[str] = None) -> int:
+        """
+        Synchronise les prix à partir des codes ISIN pour un actif ou tous les actifs
+
+        Args:
+            db: Session de base de données
+            asset_id: ID de l'actif à synchroniser (tous les actifs si None)
+
+        Returns:
+            Nombre d'actifs mis à jour
+        """
+        # Préparer la requête
+        query = db.query(Asset)
+        if asset_id:
+            query = query.filter(Asset.id == asset_id)
+        else:
+            # Uniquement les actifs avec un ISIN
+            query = query.filter(Asset.isin != None)
+
+        assets = query.all()
+        updated_count = 0
+
+        for asset in assets:
+            if asset.isin:
+                try:
+                    # Récupérer le prix
+                    price = PriceService.get_price_by_isin(asset.isin)
+
+                    if price and price > 0:
+                        # Mettre à jour l'actif
+                        asset.valeur_actuelle = price
+                        asset.last_price_sync = datetime.now()
+                        asset.sync_error = None
+
+                        # Mettre à jour la valeur en EUR
+                        if asset.devise == "EUR":
+                            asset.value_eur = price
+                        elif asset.exchange_rate and asset.exchange_rate > 0:
+                            asset.value_eur = price / asset.exchange_rate
+
+                        updated_count += 1
+                    else:
+                        asset.sync_error = f"Prix non disponible pour ISIN {asset.isin}"
+                except Exception as e:
+                    asset.sync_error = str(e)
+
+        # Sauvegarder les modifications
+        db.commit()
+
+        return updated_count
+
+    @staticmethod
+    def sync_metal_prices(db: Session, asset_id: Optional[str] = None) -> int:
+        """
+        Synchronise les prix des métaux précieux pour un actif ou tous les actifs de type métal
+
+        Args:
+            db: Session de base de données
+            asset_id: ID de l'actif à synchroniser (tous les actifs métal si None)
+
+        Returns:
+            Nombre d'actifs mis à jour
+        """
+        # Préparer la requête
+        query = db.query(Asset)
+        if asset_id:
+            query = query.filter(Asset.id == asset_id)
+        else:
+            # Uniquement les actifs de type métal avec des onces définies
+            query = query.filter(Asset.type_produit == "metal", Asset.ounces != None)
+
+        assets = query.all()
+        updated_count = 0
+
+        for asset in assets:
+            if asset.type_produit == "metal" and asset.ounces:
+                try:
+                    # Déterminer le type de métal (or par défaut)
+                    metal_type = "gold"  # Par défaut
+                    if "silver" in asset.nom.lower():
+                        metal_type = "silver"
+                    elif "platinum" in asset.nom.lower():
+                        metal_type = "platinum"
+                    elif "palladium" in asset.nom.lower():
+                        metal_type = "palladium"
+
+                    # Récupérer le prix par once
+                    price_per_ounce = PriceService.get_metal_price(metal_type)
+
+                    if price_per_ounce and price_per_ounce > 0:
+                        # Calculer la valeur totale
+                        total_value = price_per_ounce * asset.ounces
+
+                        # Mettre à jour l'actif
+                        asset.valeur_actuelle = total_value
+                        asset.last_price_sync = datetime.now()
+                        asset.sync_error = None
+
+                        # Mettre à jour la valeur en EUR
+                        if asset.devise == "EUR":
+                            asset.value_eur = total_value
+                        elif asset.exchange_rate and asset.exchange_rate > 0:
+                            asset.value_eur = total_value / asset.exchange_rate
+
+                        updated_count += 1
+                    else:
+                        asset.sync_error = f"Prix non disponible pour {metal_type}"
+                except Exception as e:
+                    asset.sync_error = str(e)
+
+        # Sauvegarder les modifications
+        db.commit()
+
+        return updated_count
+
+    @staticmethod
+    def update_manual_price(db: Session, asset_id: str, new_price: float) -> bool:
+        """
+        Met à jour manuellement le prix d'un actif
+
+        Args:
+            db: Session de base de données
+            asset_id: ID de l'actif à mettre à jour
+            new_price: Nouveau prix
+
+        Returns:
+            True si la mise à jour a réussi, False sinon
+        """
+        asset = db.query(Asset).filter(Asset.id == asset_id).first()
+        if not asset:
+            return False
+
+        try:
+            # Mettre à jour le prix
+            asset.valeur_actuelle = new_price
+            asset.last_price_sync = datetime.now()
+            asset.sync_error = None
+
+            # Mettre à jour la valeur en EUR
+            if asset.devise == "EUR":
+                asset.value_eur = new_price
+            elif asset.exchange_rate and asset.exchange_rate > 0:
+                asset.value_eur = new_price / asset.exchange_rate
+
+            # Sauvegarder les modifications
+            db.commit()
+
+            return True
+        except Exception:
+            db.rollback()
+            return False
+
+    @staticmethod
+    def update_manual_exchange_rate(db: Session, asset_id: str, new_rate: float) -> bool:
+        """
+        Met à jour manuellement le taux de change d'un actif
+
+        Args:
+            db: Session de base de données
+            asset_id: ID de l'actif à mettre à jour
+            new_rate: Nouveau taux de change
+
+        Returns:
+            True si la mise à jour a réussi, False sinon
+        """
+        asset = db.query(Asset).filter(Asset.id == asset_id).first()
+        if not asset:
+            return False
+
+        try:
+            # Mettre à jour le taux de change
+            asset.exchange_rate = new_rate
+            asset.last_rate_sync = datetime.now()
+            asset.sync_error = None
+
+            # Mettre à jour la valeur en EUR
+            asset.value_eur = asset.valeur_actuelle / new_rate
+
+            # Sauvegarder les modifications
+            db.commit()
+
+            return True
+        except Exception:
+            db.rollback()
+            return False
+
+    @staticmethod
+    def add_component(db: Session, asset_id: str, component_id: str, percentage: float) -> bool:
+        """
+        Ajoute un composant à un actif
+
+        Args:
+            db: Session de base de données
+            asset_id: ID de l'actif principal
+            component_id: ID de l'actif à ajouter comme composant
+            percentage: Pourcentage du composant
+
+        Returns:
+            True si l'ajout a réussi, False sinon
+        """
+        asset = db.query(Asset).filter(Asset.id == asset_id).first()
+        if not asset:
+            return False
+
+        # Vérifier si le composant existe
+        component = db.query(Asset).filter(Asset.id == component_id).first()
+        if not component:
+            return False
+
+        try:
+            # Vérifier si le composant existe déjà dans la liste
+            if asset.composants is None:
+                asset.composants = []
+
+            # Vérifier si le composant existe déjà
+            for comp in asset.composants:
+                if comp.get("asset_id") == component_id:
+                    # Mettre à jour le pourcentage
+                    comp["percentage"] = percentage
+                    db.commit()
+                    return True
+
+            # Ajouter le nouveau composant
+            asset.composants.append({
+                "asset_id": component_id,
+                "percentage": percentage
+            })
+
+            # Sauvegarder les modifications
+            db.commit()
+
+            return True
+        except Exception:
+            db.rollback()
+            return False
+
+    @staticmethod
+    def remove_component(db: Session, asset_id: str, component_id: str) -> bool:
+        """
+        Supprime un composant d'un actif
+
+        Args:
+            db: Session de base de données
+            asset_id: ID de l'actif principal
+            component_id: ID du composant à supprimer
+
+        Returns:
+            True si la suppression a réussi, False sinon
+        """
+        asset = db.query(Asset).filter(Asset.id == asset_id).first()
+        if not asset or not asset.composants:
+            return False
+
+        try:
+            # Filtrer les composants pour exclure celui à supprimer
+            asset.composants = [comp for comp in asset.composants if comp.get("asset_id") != component_id]
+
+            # Sauvegarder les modifications
+            db.commit()
+
+            return True
+        except Exception:
+            db.rollback()
+            return False
