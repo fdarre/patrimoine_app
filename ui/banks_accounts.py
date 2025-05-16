@@ -238,7 +238,8 @@ def show_banks_accounts(db: Session, user_id: str):
                                     allocation_display = " / ".join(
                                         f"{cat.capitalize()} {pct}%" for cat, pct in asset.allocation.items())
 
-                                    composite_indicator = "✓" if asset.composants else ""
+                                    # Suppression de la référence à asset.composants
+                                    # Cette ligne a été supprimée: composite_indicator = "✓" if asset.composants else ""
 
                                     data.append([
                                         asset.nom,
@@ -246,11 +247,10 @@ def show_banks_accounts(db: Session, user_id: str):
                                         asset.type_produit,
                                         f"{asset.valeur_actuelle:,.2f} {asset.devise}".replace(",", " "),
                                         f"{pv:,.2f} {asset.devise} ({pv_percent:.2f}%)".replace(",", " "),
-                                        composite_indicator
+                                        # Suppression de composite_indicator de cette liste
                                     ])
 
-                                df = pd.DataFrame(data, columns=["Nom", "Allocation", "Type", "Valeur", "Plus-value",
-                                                                 "Composite"])
+                                df = pd.DataFrame(data, columns=["Nom", "Allocation", "Type", "Valeur", "Plus-value"])
                                 st.dataframe(df, use_container_width=True)
                             else:
                                 st.info("Aucun actif dans ce compte.")
