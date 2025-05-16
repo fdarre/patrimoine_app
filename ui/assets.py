@@ -12,6 +12,7 @@ from database.models import Bank, Account, Asset
 from services.asset_service import AssetService
 from services.data_service import DataService
 from utils.constants import ASSET_CATEGORIES, PRODUCT_TYPES, CURRENCIES
+from utils.calculations import get_default_geo_zones
 
 def show_asset_management(db: Session, user_id: str):
     """
@@ -64,12 +65,25 @@ def show_asset_management(db: Session, user_id: str):
                     )
 
                 with col3:
-                    filter_category = st.selectbox(
-                        "Catégorie",
-                        options=["Toutes les catégories"] + ASSET_CATEGORIES,
-                        format_func=lambda x: x.capitalize() if x != "Toutes les catégories" else x,
-                        key="asset_filter_category"
-                    )
+                    # Utilisateur peut filtrer soit par catégorie patrimoniale soit par type de produit
+                    filter_type = st.radio("Filtrer par", ["Catégorie", "Type de produit"], horizontal=True)
+
+                    if filter_type == "Catégorie":
+                        filter_category = st.selectbox(
+                            "Catégorie",
+                            options=["Toutes les catégories"] + ASSET_CATEGORIES,
+                            format_func=lambda x: x.capitalize() if x != "Toutes les catégories" else x,
+                            key="asset_filter_category"
+                        )
+                        filter_product_type = "Tous les types"
+                    else:
+                        filter_category = "Toutes les catégories"
+                        filter_product_type = st.selectbox(
+                            "Type de produit",
+                            options=["Tous les types"] + PRODUCT_TYPES,
+                            format_func=lambda x: x.capitalize() if x != "Tous les types" else x,
+                            key="asset_filter_product"
+                        )
 
                 with col4:
                     # Ajouter une option de tri
@@ -94,6 +108,9 @@ def show_asset_management(db: Session, user_id: str):
 
             if filter_category != "Toutes les catégories":
                 filtered_assets_query = filtered_assets_query.filter(Asset.categorie == filter_category)
+
+            if filter_product_type != "Tous les types":
+                filtered_assets_query = filtered_assets_query.filter(Asset.type_produit == filter_product_type)
 
             # Exécuter la requête
             filtered_assets = filtered_assets_query.all()
@@ -182,9 +199,13 @@ def display_assets_table(db, assets):
         # Mini indicateur de performance
         perf_indicator = f'<span class="{pv_class}-indicator" style="margin-left:5px;padding:0 3px;">{pv_percent:+.1f}%</span>'
 
+        # Créer un badge pour le type de produit
+        product_type_badge = f'<span style="background:#e9ecef;border-radius:3px;padding:1px 5px;font-size:12px;">{asset.type_produit}</span>'
+
         data.append({
             "ID": asset.id,
             "Nom": asset.nom,
+            "Type": product_type_badge,
             "Valeur": f"{asset.valeur_actuelle:,.2f} {asset.devise}".replace(",", " "),
             "Performance": f'<span class="{pv_class}">{pv:,.2f} {asset.devise}</span>{perf_indicator}'.replace(",", " "),
             "Allocation": allocation_html,
@@ -268,10 +289,13 @@ def display_assets_cards(db, assets):
             pv_percent = (pv / asset.prix_de_revient) * 100 if asset.prix_de_revient > 0 else 0
             pv_class = "positive" if pv >= 0 else "negative"
 
-            # Créer la carte
+            # Créer la carte avec le type de produit
             st.markdown(f"""
             <div style="border:1px solid #dee2e6;border-radius:5px;padding:10px;margin-bottom:15px;background-color:#fff;">
-                <h3 style="margin-top:0;font-size:18px;">{asset.nom}</h3>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <h3 style="margin-top:0;font-size:18px;">{asset.nom}</h3>
+                    <span style="background:#e9ecef;border-radius:3px;padding:1px 5px;font-size:12px;">{asset.type_produit}</span>
+                </div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
                     <div><strong>Valeur:</strong> {asset.valeur_actuelle:,.2f} {asset.devise}</div>
                     <div class="{pv_class}">{pv_percent:+.1f}%</div>
@@ -321,8 +345,11 @@ def display_assets_compact(db, assets):
         with col1:
             st.markdown(f"""
             <div style="padding:8px 0;border-bottom:1px solid #dee2e6;">
-                <div style="display:flex;justify-content:space-between;">
-                    <div><strong>{asset.nom}</strong></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <strong>{asset.nom}</strong>
+                        <span style="background:#e9ecef;border-radius:3px;padding:1px 5px;font-size:11px;margin-left:5px;">{asset.type_produit}</span>
+                    </div>
                     <div>{asset.valeur_actuelle:,.2f} {asset.devise}</div>
                 </div>
                 <div style="display:flex;justify-content:space-between;font-size:12px;color:#6c757d;">
@@ -364,8 +391,12 @@ def display_asset_details(db, asset_id):
 
     with col1:
         st.subheader(asset.nom)
-        if asset.isin:
-            st.markdown(f"**ISIN:** {asset.isin}")
+        st.markdown(f"""
+        <div style="margin-bottom:10px;">
+            <span style="background:#e9ecef;border-radius:3px;padding:2px 8px;font-size:14px;font-weight:bold;">{asset.type_produit.upper()}</span>
+            {f'<span style="margin-left:10px;font-family:monospace;background:#f8f9fa;padding:2px 8px;border-radius:3px;">{asset.isin}</span>' if asset.isin else ''}
+        </div>
+        """, unsafe_allow_html=True)
 
     with col2:
         # Calculer la plus-value
@@ -743,7 +774,6 @@ def show_add_asset_form(db, user_id):
                             f"Configuration de la répartition géographique pour la partie '{category.capitalize()}' ({alloc_pct}% de l'actif)")
 
                         # Obtenir une répartition par défaut selon la catégorie
-                        from utils.calculations import get_default_geo_zones
                         default_geo = get_default_geo_zones(category)
 
                         # Variables pour stocker la répartition géographique
