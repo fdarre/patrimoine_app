@@ -184,8 +184,9 @@ class AccountService:
 
         for account, bank in query.all():
             # Calculer la valeur totale des actifs dans ce compte
+            # MODIFICATION: Utiliser value_eur au lieu de valeur_actuelle
             total_value = db.query(Asset).filter(Asset.account_id == account.id).with_entities(
-                func.sum(Asset.valeur_actuelle)
+                func.sum(func.coalesce(Asset.value_eur, 0.0))
             ).scalar() or 0.0
 
             data.append([

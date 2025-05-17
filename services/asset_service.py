@@ -106,6 +106,25 @@ class AssetService:
         # Déterminer la catégorie principale (celle avec le pourcentage le plus élevé)
         categorie = max(allocation.items(), key=lambda x: x[1])[0] if allocation else "autre"
 
+        # Calcul du taux de change et de la valeur en EUR
+        exchange_rate = 1.0
+        value_eur = valeur_actuelle
+
+        # Si devise différente de EUR, convertir la valeur
+        if devise != "EUR":
+            # Récupérer les taux de change actuels
+            try:
+                from services.currency_service import CurrencyService
+                rates = CurrencyService.get_exchange_rates()
+                if devise in rates and rates[devise] > 0:
+                    exchange_rate = rates[devise]
+                    value_eur = valeur_actuelle / exchange_rate
+            except Exception as e:
+                # En cas d'erreur, logger mais continuer avec valeurs par défaut
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Erreur lors de la conversion de devise: {str(e)}")
+
         # Créer le nouvel actif
         new_asset = Asset(
             id=str(uuid.uuid4()),
@@ -124,8 +143,8 @@ class AssetService:
             todo=todo,
             isin=isin,
             ounces=ounces,
-            exchange_rate=1.0 if devise == "EUR" else None,
-            value_eur=valeur_actuelle if devise == "EUR" else None
+            exchange_rate=exchange_rate,
+            value_eur=value_eur
         )
 
         # Ajouter et valider
@@ -182,6 +201,22 @@ class AssetService:
         # Déterminer la catégorie principale (celle avec le pourcentage le plus élevé)
         categorie = max(allocation.items(), key=lambda x: x[1])[0] if allocation else "autre"
 
+        # Calculer la valeur en EUR et le taux de change
+        exchange_rate = 1.0
+        value_eur = valeur_actuelle
+
+        if devise != "EUR":
+            try:
+                from services.currency_service import CurrencyService
+                rates = CurrencyService.get_exchange_rates()
+                if devise in rates and rates[devise] > 0:
+                    exchange_rate = rates[devise]
+                    value_eur = valeur_actuelle / exchange_rate
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Erreur lors de la conversion de devise: {str(e)}")
+
         # Mettre à jour les champs
         asset.nom = nom
         asset.account_id = compte_id
@@ -197,6 +232,8 @@ class AssetService:
         asset.todo = todo
         asset.isin = isin
         asset.ounces = ounces
+        asset.exchange_rate = exchange_rate
+        asset.value_eur = value_eur
 
         # Valider les modifications
         db.commit()
@@ -496,11 +533,26 @@ class AssetService:
             asset.last_price_sync = datetime.now()
             asset.sync_error = None
 
-            # Mettre à jour la valeur en EUR
+            # CORRECTION: Mettre à jour la valeur en EUR
             if asset.devise == "EUR":
                 asset.value_eur = new_price
             elif asset.exchange_rate and asset.exchange_rate > 0:
                 asset.value_eur = new_price / asset.exchange_rate
+            else:
+                # Si pas de taux de change valide, essayer d'en récupérer un
+                try:
+                    from services.currency_service import CurrencyService
+                    rates = CurrencyService.get_exchange_rates()
+                    if asset.devise in rates and rates[asset.devise] > 0:
+                        asset.exchange_rate = rates[asset.devise]
+                        asset.value_eur = new_price / asset.exchange_rate
+                        asset.last_rate_sync = datetime.now()
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Erreur lors de la conversion de devise: {str(e)}")
+                    # En cas d'erreur, utiliser la valeur en devise comme approximation
+                    asset.value_eur = new_price
 
             # Sauvegarder les modifications
             db.commit()

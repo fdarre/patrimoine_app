@@ -32,10 +32,20 @@ class DataService:
         # Vérifier si on a déjà un enregistrement pour aujourd'hui
         existing_entry = db.query(HistoryPoint).filter(HistoryPoint.date == current_date).first()
 
+        # CORRECTION: Utiliser value_eur au lieu de valeur_actuelle pour l'historique
+        assets_dict = {}
+        total_value = 0.0
+
+        for asset in assets:
+            # Utiliser value_eur s'il existe, sinon valeur_actuelle
+            value = asset.value_eur if asset.value_eur is not None else asset.valeur_actuelle
+            assets_dict[asset.id] = value
+            total_value += value
+
         if existing_entry:
             # Mettre à jour l'entrée existante
-            existing_entry.assets = {asset.id: asset.valeur_actuelle for asset in assets}
-            existing_entry.total = sum(asset.valeur_actuelle for asset in assets)
+            existing_entry.assets = assets_dict
+            existing_entry.total = total_value
             db.commit()
             db.refresh(existing_entry)
             return existing_entry
@@ -43,8 +53,8 @@ class DataService:
             # Créer une nouvelle entrée
             new_entry = HistoryPoint(
                 date=current_date,
-                assets={asset.id: asset.valeur_actuelle for asset in assets},
-                total=sum(asset.valeur_actuelle for asset in assets)
+                assets=assets_dict,
+                total=total_value
             )
             db.add(new_entry)
             db.commit()

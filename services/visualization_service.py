@@ -270,7 +270,9 @@ class VisualizationService:
             # Pour chaque catégorie, calculer la valeur allouée
             for category, percentage in asset.allocation.items():
                 # Calculer la valeur allouée à cette catégorie
-                allocated_value = asset.valeur_actuelle * percentage / 100
+                # Utiliser value_eur au lieu de valeur_actuelle pour cohérence et gérer les None
+                value_to_use = asset.value_eur if asset.value_eur is not None else asset.valeur_actuelle
+                allocated_value = value_to_use * percentage / 100
                 category_values[category] += allocated_value
 
         return category_values
@@ -316,13 +318,16 @@ class VisualizationService:
             if not asset.allocation or not isinstance(asset.allocation, dict):
                 continue
 
+            # Utiliser value_eur au lieu de valeur_actuelle pour cohérence et gérer les None
+            value_to_use = asset.value_eur if asset.value_eur is not None else asset.valeur_actuelle
+
             # Si une catégorie est spécifiée, ne considérer que cette partie de l'actif
             if category:
                 if category not in asset.allocation:
                     continue
 
                 # Valeur allouée à cette catégorie
-                category_value = asset.valeur_actuelle * asset.allocation[category] / 100
+                category_value = value_to_use * asset.allocation[category] / 100
 
                 # Répartition géographique pour cette catégorie
                 geo_zones_dict = asset.geo_allocation.get(category, {}) if asset.geo_allocation else {}
@@ -332,7 +337,7 @@ class VisualizationService:
             else:
                 # Pour tous les actifs, ventiler selon les allocations et répartitions géographiques
                 for cat, allocation_pct in asset.allocation.items():
-                    category_value = asset.valeur_actuelle * allocation_pct / 100
+                    category_value = value_to_use * allocation_pct / 100
 
                     # Utiliser la répartition géographique spécifique à cette catégorie si disponible
                     geo_zones_dict = asset.geo_allocation.get(cat, {}) if asset.geo_allocation else {}

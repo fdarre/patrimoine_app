@@ -107,10 +107,14 @@ def show_analysis(db: Session, user_id: str):
             # Afficher le résultat de filtrage
             if filtered_assets:
                 # Calculer la valeur totale filtrée et non filtrée
-                total_filtered = sum(asset.valeur_actuelle for asset in filtered_assets)
+                # CORRECTION: Utiliser value_eur au lieu de valeur_actuelle et gérer les None
+                total_filtered = sum(asset.value_eur or 0.0 for asset in filtered_assets)
 
-                # Utiliser func au lieu de db.func
-                total_all = db.query(func.sum(Asset.valeur_actuelle)).filter(
+                # CORRECTION: Utiliser COALESCE pour gérer les NULL en SQL
+                # Cette requête SQL utilisera 0 si value_eur est NULL
+                total_all = db.query(func.sum(
+                    func.coalesce(Asset.value_eur, 0.0)
+                )).filter(
                     Asset.owner_id == user_id
                 ).scalar() or 0.0
 
@@ -222,7 +226,8 @@ def show_analysis(db: Session, user_id: str):
                             if bank:
                                 if bank.nom not in bank_values:
                                     bank_values[bank.nom] = 0
-                                bank_values[bank.nom] += asset.valeur_actuelle
+                                # CORRECTION: Utiliser value_eur et gérer les None
+                                bank_values[bank.nom] += asset.value_eur or 0.0
 
                     if bank_values:
                         # Créer le graphique en camembert
@@ -257,7 +262,8 @@ def show_analysis(db: Session, user_id: str):
                             account_name = account.libelle
                             if account_name not in account_values:
                                 account_values[account_name] = 0
-                            account_values[account_name] += asset.valeur_actuelle
+                            # CORRECTION: Utiliser value_eur et gérer les None
+                            account_values[account_name] += asset.value_eur or 0.0
 
                     if account_values:
                         # Créer le graphique en camembert
@@ -290,7 +296,8 @@ def show_analysis(db: Session, user_id: str):
                         product_type = asset.type_produit.capitalize()
                         if product_type not in type_values:
                             type_values[product_type] = 0
-                        type_values[product_type] += asset.valeur_actuelle
+                        # CORRECTION: Utiliser value_eur et gérer les None
+                        type_values[product_type] += asset.value_eur or 0.0
 
                     if type_values:
                         # Créer le graphique en camembert
@@ -325,6 +332,6 @@ def show_analysis(db: Session, user_id: str):
                 st.warning("Aucun actif ne correspond aux filtres sélectionnés.")
         except Exception as e:
             st.error(f"Erreur lors de la création des visualisations: {str(e)}")
-            # Afficher des informations de débogage supplémentaires si nécessaire
-            # import traceback
-            # st.code(traceback.format_exc())
+            # Afficher des informations de débogage supplémentaires
+            import traceback
+            st.code(traceback.format_exc())

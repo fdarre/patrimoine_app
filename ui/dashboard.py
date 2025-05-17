@@ -29,9 +29,9 @@ def show_dashboard(db: Session, user_id: str):
     with col1:
         st.markdown('<div class="metric-card">', unsafe_allow_html=True)
         # Calculer la valeur totale directement à partir des actifs de la base de données
-        total_value = db.query(Asset).filter(Asset.owner_id == user_id).with_entities(
-            func.sum(Asset.valeur_actuelle)
-        ).scalar() or 0.0
+        # Correction du bug: utiliser value_eur au lieu de valeur_actuelle
+        # Utiliser une méthode qui gère les None de façon sécurisée
+        total_value = sum(asset.value_eur or 0.0 for asset in assets)
         st.metric("Valeur totale du patrimoine", f"{total_value:,.2f} €".replace(",", " "))
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -92,10 +92,11 @@ def show_dashboard(db: Session, user_id: str):
             st.info("L'historique d'évolution sera disponible après plusieurs mises à jour d'actifs.")
 
         # Top 5 des actifs
-        st.subheader("Top 5 des actifs")
-        top_assets = db.query(Asset).filter(Asset.owner_id == user_id).order_by(
-            Asset.valeur_actuelle.desc()
-        ).limit(5).all()
+        # Utiliser une logique qui gère les None correctement pour le tri
+        top_assets = db.query(Asset).filter(Asset.owner_id == user_id).all()
+        # Trier manuellement pour gérer les None
+        top_assets.sort(key=lambda x: x.value_eur if x.value_eur is not None else 0.0, reverse=True)
+        top_assets = top_assets[:5]  # Garder les 5 premiers
 
         if top_assets:
             data = []
@@ -111,9 +112,21 @@ def show_dashboard(db: Session, user_id: str):
                 # Calculer la répartition pour l'affichage
                 allocation_display = " / ".join(f"{cat.capitalize()} {pct}%" for cat, pct in asset.allocation.items())
 
+                # Afficher la valeur en devise originale
+                display_value = asset.valeur_actuelle
+                display_currency = asset.devise
+
+                # Gérer le cas où value_eur est None
+                eur_info = ""
+                if asset.devise != "EUR":
+                    if asset.value_eur is not None:
+                        eur_info = f" ({asset.value_eur:,.2f} €)".replace(",", " ")
+                    else:
+                        eur_info = " (valeur EUR non disponible)"
+
                 data.append([
                     asset.nom,
-                    f"{asset.valeur_actuelle:,.2f} {asset.devise}".replace(",", " "),
+                    f"{display_value:,.2f} {display_currency}{eur_info}".replace(",", " "),
                     f'<span class="{pv_class}">{pv:,.2f} {asset.devise} ({pv_percent:.2f}%)</span>'.replace(",", " "),
                     allocation_display,
                     f"{account.libelle} ({bank.nom})" if account and bank else "N/A"

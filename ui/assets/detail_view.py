@@ -52,9 +52,11 @@ def display_asset_details(db: Session, asset_id: str):
         pv_percent = (pv / asset.prix_de_revient) * 100 if asset.prix_de_revient > 0 else 0
         pv_class = "positive" if pv >= 0 else "negative"
 
+        # MODIFICATION: Ajout de l'affichage de la valeur en EUR pour les devises étrangères
         st.markdown(f"""
         <div style="text-align:right;">
             <div style="font-size:24px;font-weight:bold;">{asset.valeur_actuelle:,.2f} {asset.devise}</div>
+            {"" if asset.devise == "EUR" else f'<div style="font-size:14px;color:#adb5bd;">(≈ {asset.value_eur or 0.0:,.2f} €)</div>'}
             <div class="{pv_class}" style="font-size:16px;">{pv:+,.2f} {asset.devise} ({pv_percent:+.2f}%)</div>
         </div>
         """, unsafe_allow_html=True)
@@ -175,10 +177,18 @@ def display_asset_valuation(asset, db: Session):
         st.metric("Valeur actuelle", f"{asset.valeur_actuelle:,.2f} {asset.devise}".replace(",", " "))
         st.metric("Prix de revient", f"{asset.prix_de_revient:,.2f} {asset.devise}".replace(",", " "))
 
-        if asset.devise != "EUR" and asset.exchange_rate:
-            st.metric("Taux de change", f"1 {asset.devise} = {asset.exchange_rate:,.4f} EUR".replace(",", " "))
-            if asset.value_eur:
+        # MODIFICATION: Ajout d'infos plus détaillées sur la devise et la conversion en EUR
+        if asset.devise != "EUR":
+            if asset.exchange_rate and asset.exchange_rate > 0:
+                st.metric("Taux de change", f"1 {asset.devise} = {asset.exchange_rate:,.4f} EUR".replace(",", " "))
+
+            if asset.value_eur is not None:
                 st.metric("Valeur en EUR", f"{asset.value_eur:,.2f} EUR".replace(",", " "))
+            else:
+                st.warning("Valeur en EUR non disponible")
+
+            if asset.last_rate_sync:
+                st.info(f"Dernier taux mis à jour: {asset.last_rate_sync.strftime('%Y-%m-%d %H:%M')}")
 
     with col2:
         # Plus-value
@@ -193,9 +203,13 @@ def display_asset_valuation(asset, db: Session):
         # Dates importantes
         st.write("**Date de mise à jour:**", asset.date_maj)
         if asset.last_price_sync:
-            st.write("**Dernière synchro prix:**", asset.last_price_sync)
+            st.write("**Dernière synchro prix:**",
+                     asset.last_price_sync.strftime("%Y-%m-%d %H:%M") if isinstance(asset.last_price_sync,
+                                                                                    datetime) else asset.last_price_sync)
         if asset.last_rate_sync:
-            st.write("**Dernière synchro taux:**", asset.last_rate_sync)
+            st.write("**Dernière synchro taux:**",
+                     asset.last_rate_sync.strftime("%Y-%m-%d %H:%M") if isinstance(asset.last_rate_sync,
+                                                                                   datetime) else asset.last_rate_sync)
 
     # Ajouter un formulaire de mise à jour rapide
     st.subheader("Mise à jour rapide")
