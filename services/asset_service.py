@@ -173,8 +173,7 @@ class AssetService(BaseService[Asset]):
             "isin": isin,
             "ounces": ounces,
             "exchange_rate": exchange_rate,
-            "value_eur": value_eur,
-            "composants": composants or []
+            "value_eur": value_eur
         }
 
         return self.create(db, data)

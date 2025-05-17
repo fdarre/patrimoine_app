@@ -6,7 +6,8 @@ import streamlit as st
 from sqlalchemy.orm import Session
 
 from database.models import Bank, Account, Asset
-from services.asset_service import AssetService
+from services.asset_service import asset_service
+
 from services.data_service import DataService
 from config.app_config import ASSET_CATEGORIES, PRODUCT_TYPES, CURRENCIES
 from utils.calculations import get_default_geo_zones
@@ -83,7 +84,7 @@ def show_add_asset_form(db: Session, user_id: str):
                 prix_de_revient = asset_info["cost"] if asset_info["cost"] > 0 else asset_info["value"]
 
                 # Ajouter l'actif
-                new_asset = AssetService.add_asset(
+                new_asset = asset_service.add_asset(
                     db=db,  # Ajout du paramètre db
                     user_id=user_id,
                     nom=asset_info["name"],
