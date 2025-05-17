@@ -1,7 +1,8 @@
 """
 Service de gestion des banques avec SQLAlchemy
 """
-from typing import List, Optional
+from typing import List, Optional, Tuple
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 import pandas as pd
 

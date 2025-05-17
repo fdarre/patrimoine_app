@@ -1,7 +1,7 @@
 """
 Service de gestion des comptes avec SQLAlchemy
 """
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import pandas as pd
