@@ -1,0 +1,320 @@
+/* 
+ * styles/main.css
+ * Styles centralisés pour l'application de gestion patrimoniale
+ */
+
+/* Variables globales */
+:root {
+    --text-color: #fff;
+    --dark-text-color: #333;
+    --background-color: #1e1e1e;
+    --primary-color: #4e79a7;
+    --secondary-color: #f28e2c;
+    --success-color: #40c057;
+    --warning-color: #ffc107;
+    --danger-color: #fa5252;
+    --light-bg: #343a40;
+    --darker-bg: #212529;
+    --border-color: #495057;
+    --muted-color: #6c757d;
+    --light-text: #adb5bd;
+}
+
+/* Cartes et conteneurs */
+.metric-card {
+    background-color: var(--light-bg);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.2);
+    margin-bottom: 1rem;
+    color: var(--text-color);
+    transition: transform 0.2s;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+}
+
+.todo-card {
+    background-color: #fff3cd;
+    border-left: 4px solid var(--warning-color);
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0.25rem;
+    color: var(--dark-text-color) !important;
+}
+
+.component-card {
+    background-color: #31383e;
+    border-left: 4px solid var(--primary-color);
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0.25rem;
+    color: var(--text-color);
+}
+
+.sync-card {
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background-color: var(--light-bg);
+    transition: all 0.2s ease;
+}
+
+.sync-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.sync-card h3 {
+    margin-top: 0;
+    font-size: 18px;
+    color: var(--text-color);
+}
+
+.sync-card p {
+    color: var(--light-text);
+    margin-bottom: 15px;
+}
+
+/* Indicateurs et badges */
+.positive {
+    color: var(--success-color);
+}
+
+.negative {
+    color: var(--danger-color);
+}
+
+.badge {
+    background-color: var(--light-bg);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 12px;
+    color: var(--text-color);
+    display: inline-block;
+}
+
+.badge-primary {
+    background-color: var(--primary-color);
+}
+
+.badge-secondary {
+    background-color: var(--secondary-color);
+}
+
+.badge-success {
+    background-color: var(--success-color);
+}
+
+.badge-danger {
+    background-color: var(--danger-color);
+}
+
+/* Navigation */
+.breadcrumb {
+    margin-bottom: 15px;
+    font-size: 14px;
+    color: var(--muted-color);
+}
+
+.breadcrumb a {
+    color: var(--light-text);
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+/* Tableaux */
+.dataframe {
+    border-collapse: collapse;
+    width: 100%;
+    border: 1px solid var(--border-color);
+    font-size: 14px;
+    background-color: var(--background-color);
+}
+
+.dataframe th {
+    background-color: var(--light-bg);
+    color: var(--text-color);
+    text-align: left;
+    padding: 12px 8px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.dataframe td {
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 8px;
+    color: var(--text-color);
+}
+
+.dataframe tr:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+    justify-content: center;
+}
+
+.page-item {
+    margin: 0 2px;
+}
+
+.page-link {
+    color: var(--text-color);
+    background-color: var(--light-bg);
+    border: 1px solid var(--border-color);
+    padding: 5px 10px;
+    border-radius: 3px;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.page-item.active .page-link {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.page-item.disabled .page-link {
+    color: var(--muted-color);
+    pointer-events: none;
+}
+
+/* Formulaires et boutons */
+.form-control {
+    background-color: var(--light-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 8px 12px;
+    border-radius: 4px;
+}
+
+.btn {
+    display: inline-block;
+    font-weight: 400;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    user-select: none;
+    border: 1px solid transparent;
+    padding: .375rem .75rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    border-radius: .25rem;
+    transition: all .15s ease-in-out;
+    cursor: pointer;
+}
+
+.btn-primary {
+    color: #fff;
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-success {
+    color: #fff;
+    background-color: var(--success-color);
+    border-color: var(--success-color);
+}
+
+.btn-danger {
+    color: #fff;
+    background-color: var(--danger-color);
+    border-color: var(--danger-color);
+}
+
+/* Loaders et feedback */
+.loader {
+    border: 4px solid var(--light-bg);
+    border-radius: 50%;
+    border-top: 4px solid var(--primary-color);
+    width: 30px;
+    height: 30px;
+    animation: spin 2s linear infinite;
+    margin: 20px auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 4px;
+    color: var(--dark-text-color);
+    max-width: 300px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    animation: fadeIn 0.3s, fadeOut 0.3s 2.7s;
+    animation-fill-mode: forwards;
+}
+
+.toast-success {
+    background-color: var(--success-color);
+}
+
+.toast-error {
+    background-color: var(--danger-color);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-20px); }
+}
+
+/* Correctifs spécifiques pour streamlit */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-color) !important;
+}
+
+.stButton > button {
+    width: 100%;
+}
+
+.allocation-box {
+    background-color: var(--light-bg);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    color: var(--text-color);
+}
+
+.allocation-title {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+}
+
+.composite-header {
+    background-color: #2c5840;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+}
+
+/* Pour les sélecteurs et entrées */
+.stSelectbox, .stTextInput, .stTextArea {
+    color: var(--text-color);
+}
+
+/* Exception pour les cartes todo */
+.todo-card p, .todo-card div, .todo-card span {
+    color: var(--dark-text-color);
+}

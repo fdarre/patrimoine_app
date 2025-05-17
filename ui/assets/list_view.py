@@ -1,17 +1,19 @@
 # ui/assets/list_view.py
 """
 Fonctions d'affichage des actifs sous différentes formes (tableau, cartes, compact)
+avec pagination et interface améliorée
 """
 import streamlit as st
 import pandas as pd
 from sqlalchemy.orm import Session
 
 from database.models import Asset, Account, Bank
+from utils.pagination import paginate_dataframe, render_pagination_controls
 
 
 def display_assets_table(db: Session, assets):
     """
-    Affiche les actifs en mode tableau amélioré
+    Affiche les actifs en mode tableau amélioré avec pagination
 
     Args:
         db: Session de base de données
@@ -20,9 +22,14 @@ def display_assets_table(db: Session, assets):
     # Préparation des données
     data = []
     for asset in assets:
-        # Récupérer le compte et la banque
-        account = db.query(Account).filter(Account.id == asset.account_id).first()
-        bank = db.query(Bank).filter(Bank.id == account.bank_id).first() if account else None
+        # Obtenir le compte et la banque en une seule requête avec jointure
+        account_bank = db.query(Account, Bank).join(
+            Bank, Account.bank_id == Bank.id
+        ).filter(
+            Account.id == asset.account_id
+        ).first()
+
+        account, bank = account_bank if account_bank else (None, None)
 
         # Calculer la plus-value
         pv = asset.valeur_actuelle - asset.prix_de_revient
@@ -36,7 +43,7 @@ def display_assets_table(db: Session, assets):
         perf_indicator = f'<span class="{pv_class}-indicator" style="margin-left:5px;padding:0 3px;">{pv_percent:+.1f}%</span>'
 
         # Créer un badge pour le type de produit avec texte blanc sur fond foncé
-        product_type_badge = f'<span style="background:#495057;border-radius:3px;padding:1px 5px;font-size:12px;color:#fff;">{asset.type_produit}</span>'
+        product_type_badge = f'<span class="badge">{asset.type_produit}</span>'
 
         data.append({
             "ID": asset.id,
@@ -53,44 +60,91 @@ def display_assets_table(db: Session, assets):
     # Créer le DataFrame
     df = pd.DataFrame(data)
 
+    # Pagination
+    page_size = 10  # Nombre d'éléments par page
+    df_paginated, total_pages, current_page = paginate_dataframe(df, page_size, "assets_table_page")
+
+    # Afficher le nombre total d'éléments et la pagination actuelle
+    st.write(
+        f"Affichage de {(current_page - 1) * page_size + 1}-{min(current_page * page_size, len(df))} sur {len(df)} actifs")
+
     # CSS pour le tableau amélioré
     apply_table_styling()
 
     # Afficher le tableau sans la colonne ID
-    st.write(df.drop(columns=["ID"]).to_html(escape=False, index=False), unsafe_allow_html=True)
+    st.write(df_paginated.drop(columns=["ID"]).to_html(escape=False, index=False), unsafe_allow_html=True)
+
+    # Afficher les contrôles de pagination
+    render_pagination_controls(total_pages, "assets_table_page")
 
     # Section détails: permet de sélectionner un actif pour voir ses détails
     st.markdown("### 🔍 Détails d'un actif")
-    selected_asset_id = st.selectbox(
-        "Sélectionner un actif",
-        options=[asset["ID"] for asset in data],
-        format_func=lambda x: next(
-            (a["Nom"].replace('<span style="color:#fff;">', '').replace('</span>', '') for a in data if a["ID"] == x),
-            "")
-    )
+
+    # Bouton de rafraîchissement des données
+    col1, col2 = st.columns([5, 1])
+    with col2:
+        if st.button("🔄 Rafraîchir", key="refresh_table"):
+            st.rerun()
+
+    # Amélioration de la sélection d'actif
+    with col1:
+        selected_asset_id = st.selectbox(
+            "Sélectionner un actif",
+            options=[asset["ID"] for asset in data],
+            format_func=lambda x: next(
+                (a["Nom"].replace('<span style="color:#fff;">', '').replace('</span>', '') for a in data if
+                 a["ID"] == x),
+                "")
+        )
 
     if selected_asset_id:
-        # On utilise la fonctionnalité session_state pour mémoriser l'actif sélectionné
-        st.session_state['view_asset_details'] = selected_asset_id
+        # Utiliser une boîte de progression pour indiquer le chargement
+        with st.spinner("Chargement des détails de l'actif..."):
+            # On utilise la fonctionnalité session_state pour mémoriser l'actif sélectionné
+            st.session_state['view_asset_details'] = selected_asset_id
+            # Ajout d'un retour visuel
+            st.success("Actif sélectionné pour affichage détaillé")
 
 
 def display_assets_cards(db: Session, assets):
     """
-    Affiche les actifs sous forme de cartes
+    Affiche les actifs sous forme de cartes avec pagination
 
     Args:
         db: Session de base de données
         assets: Liste des actifs à afficher
     """
+    # Pagination
+    page_size = 9  # 3x3 grille
+
+    # Créer une liste d'indices paginée
+    if "assets_cards_page" not in st.session_state:
+        st.session_state["assets_cards_page"] = 1
+
+    current_page = st.session_state["assets_cards_page"]
+    total_pages = (len(assets) + page_size - 1) // page_size
+
+    start_idx = (current_page - 1) * page_size
+    end_idx = min(start_idx + page_size, len(assets))
+
+    # Afficher le nombre total d'éléments et la pagination actuelle
+    st.write(f"Affichage de {start_idx + 1}-{end_idx} sur {len(assets)} actifs")
+
     # Disposition en grille
     cols = st.columns(3)
 
-    for i, asset in enumerate(assets):
+    for i, idx in enumerate(range(start_idx, end_idx)):
+        asset = assets[idx]
         # Distribution cyclique dans les colonnes
         with cols[i % 3]:
             # Récupérer le compte et la banque
-            account = db.query(Account).filter(Account.id == asset.account_id).first()
-            bank = db.query(Bank).filter(Bank.id == account.bank_id).first() if account else None
+            account_bank = db.query(Account, Bank).join(
+                Bank, Account.bank_id == Bank.id
+            ).filter(
+                Account.id == asset.account_id
+            ).first()
+
+            account, bank = account_bank if account_bank else (None, None)
 
             # Calculer la plus-value
             pv = asset.valeur_actuelle - asset.prix_de_revient
@@ -99,10 +153,10 @@ def display_assets_cards(db: Session, assets):
 
             # Créer la carte avec le type de produit
             st.markdown(f"""
-            <div style="border:1px solid #495057;border-radius:5px;padding:10px;margin-bottom:15px;background-color:#343a40;">
+            <div class="sync-card">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                     <h3 style="margin-top:0;font-size:18px;color:#fff;">{asset.nom}</h3>
-                    <span style="background:#495057;border-radius:3px;padding:1px 5px;font-size:12px;color:#fff;">{asset.type_produit}</span>
+                    <span class="badge">{asset.type_produit}</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:5px;color:#ddd;">
                     <div><strong>Valeur:</strong> {asset.valeur_actuelle:,.2f} {asset.devise}</div>
@@ -118,27 +172,57 @@ def display_assets_cards(db: Session, assets):
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Détails", key=f"details_{asset.id}"):
-                    st.session_state['view_asset_details'] = asset.id
+                    with st.spinner("Chargement des détails..."):
+                        st.session_state['view_asset_details'] = asset.id
+                        st.success("Détails chargés")
             with col2:
                 if st.button("Modifier", key=f"edit_{asset.id}"):
-                    st.session_state['edit_asset'] = asset.id
+                    with st.spinner("Préparation du formulaire..."):
+                        st.session_state['edit_asset'] = asset.id
+                        st.success("Formulaire prêt")
+
+    # Afficher les contrôles de pagination
+    render_pagination_controls(total_pages, "assets_cards_page")
 
 
 def display_assets_compact(db: Session, assets):
     """
-    Affiche les actifs en mode liste compacte
+    Affiche les actifs en mode liste compacte avec pagination
 
     Args:
         db: Session de base de données
         assets: Liste des actifs à afficher
     """
+    # Calcul de la valeur totale pour les pourcentages
     total_value = sum(asset.valeur_actuelle for asset in assets)
 
+    # Pagination
+    page_size = 15  # Plus d'éléments car format compact
+
+    # Créer une liste d'indices paginée
+    if "assets_compact_page" not in st.session_state:
+        st.session_state["assets_compact_page"] = 1
+
+    current_page = st.session_state["assets_compact_page"]
+    total_pages = (len(assets) + page_size - 1) // page_size
+
+    start_idx = (current_page - 1) * page_size
+    end_idx = min(start_idx + page_size, len(assets))
+
+    # Afficher le nombre total d'éléments et la pagination actuelle
+    st.write(f"Affichage de {start_idx + 1}-{end_idx} sur {len(assets)} actifs")
+
     # Création d'une liste compacte
-    for asset in assets:
-        # Récupérer le compte et la banque
-        account = db.query(Account).filter(Account.id == asset.account_id).first()
-        bank = db.query(Bank).filter(Bank.id == account.bank_id).first() if account else None
+    for idx in range(start_idx, end_idx):
+        asset = assets[idx]
+        # Récupérer le compte et la banque (optimisé avec jointure)
+        account_bank = db.query(Account, Bank).join(
+            Bank, Account.bank_id == Bank.id
+        ).filter(
+            Account.id == asset.account_id
+        ).first()
+
+        account, bank = account_bank if account_bank else (None, None)
 
         # Calculer la plus-value
         pv = asset.valeur_actuelle - asset.prix_de_revient
@@ -159,7 +243,7 @@ def display_assets_compact(db: Session, assets):
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                     <div>
                         <strong style="color:#fff;">{asset.nom}</strong>
-                        <span style="background:#495057;border-radius:3px;padding:1px 5px;font-size:11px;margin-left:5px;color:#fff;">{asset.type_produit}</span>
+                        <span class="badge">{asset.type_produit}</span>
                     </div>
                     <div style="color:#fff;">{asset.valeur_actuelle:,.2f} {asset.devise}</div>
                 </div>
@@ -173,7 +257,12 @@ def display_assets_compact(db: Session, assets):
 
         with col2:
             if st.button("Détails", key=f"compact_details_{asset.id}"):
-                st.session_state['view_asset_details'] = asset.id
+                with st.spinner("Chargement des détails..."):
+                    st.session_state['view_asset_details'] = asset.id
+                    st.success("Détails chargés")
+
+    # Afficher les contrôles de pagination
+    render_pagination_controls(total_pages, "assets_compact_page")
 
 
 def create_allocation_html(allocation):
@@ -209,48 +298,10 @@ def create_allocation_html(allocation):
 def apply_table_styling():
     """
     Applique le style CSS pour les tableaux
+    Note: Cette fonction sera remplacée par l'utilisation du fichier CSS centralisé
     """
     st.markdown("""
     <style>
-    .dataframe {
-        border-collapse: collapse;
-        width: 100%;
-        border: 1px solid #444;
-        font-size: 14px;
-        background-color: #1e1e1e;
-    }
-    .dataframe th {
-        background-color: #343a40;
-        color: #fff;
-        text-align: left;
-        padding: 12px 8px;
-        border-bottom: 2px solid #495057;
-    }
-    .dataframe td {
-        border-bottom: 1px solid #495057;
-        padding: 10px 8px;
-        color: #fff;
-    }
-    .dataframe tr:hover {
-        background-color: rgba(255,255,255,0.1);
-    }
-    .positive {
-        color: #40c057;
-        font-weight: bold;
-    }
-    .negative {
-        color: #fa5252;
-        font-weight: bold;
-    }
-    .positive-indicator {
-        background-color: rgba(64, 192, 87, 0.2);
-        border-radius: 3px;
-        color: #fff;
-    }
-    .negative-indicator {
-        background-color: rgba(250, 82, 82, 0.2);
-        border-radius: 3px;
-        color: #fff;
-    }
+    /* Cette fonction est conservée pour compatibilité, mais les styles sont dans main.css */
     </style>
     """, unsafe_allow_html=True)
