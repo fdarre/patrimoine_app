@@ -13,10 +13,11 @@ from .allocation_form import edit_allocation_form
 from .geo_allocation_form import edit_geo_allocation_form
 from .components import apply_button_styling
 
+
 def show_edit_asset_form(db: Session, asset_id: str, user_id: str):
     """
     Affiche un formulaire pour l'édition d'un actif existant
-    
+
     Args:
         db: Session de base de données
         asset_id: ID de l'actif à éditer
@@ -24,7 +25,7 @@ def show_edit_asset_form(db: Session, asset_id: str, user_id: str):
     """
     # Récupérer l'actif
     asset = db.query(Asset).filter(Asset.id == asset_id, Asset.owner_id == user_id).first()
-    
+
     if not asset:
         st.error("Actif introuvable.")
         return
@@ -48,24 +49,24 @@ def show_edit_asset_form(db: Session, asset_id: str, user_id: str):
 
     # Validation globale
     form_valid = (
-        asset_info["name"] and
-        asset_info["account_id"] and
-        asset_info["value"] > 0 and
-        allocation_valid and
-        all_geo_valid
+            asset_info["name"] and
+            asset_info["account_id"] and
+            asset_info["value"] > 0 and
+            allocation_valid and
+            all_geo_valid
     )
 
     # Boutons de validation
     col1, col2 = st.columns(2)
 
     apply_button_styling(form_valid)
-    
+
     with col1:
         if st.button("Enregistrer les modifications", key=f"btn_save_asset_{asset_id}", disabled=not form_valid):
             try:
                 # Mettre à jour l'actif
                 updated_asset = AssetService.update_asset(
-                    db=db,
+                    db=db,  # Ajout du paramètre db
                     asset_id=asset_id,
                     nom=asset_info["name"],
                     compte_id=asset_info["account_id"],
@@ -84,13 +85,13 @@ def show_edit_asset_form(db: Session, asset_id: str, user_id: str):
                 if updated_asset:
                     # Mettre à jour l'historique
                     DataService.record_history_entry(db, user_id)
-                    
+
                     # Nettoyer la session state
                     if f'edit_asset_{asset_id}' in st.session_state:
                         del st.session_state[f'edit_asset_{asset_id}']
                     if 'edit_asset' in st.session_state:
                         del st.session_state['edit_asset']
-                    
+
                     st.success("Actif mis à jour avec succès")
                     st.rerun()
                 else:
@@ -109,15 +110,16 @@ def show_edit_asset_form(db: Session, asset_id: str, user_id: str):
                 del st.session_state['edit_asset']
             st.rerun()
 
+
 def collect_edit_asset_info(db, asset, user_id):
     """
     Collecte les informations de base d'un actif pour l'édition
-    
+
     Args:
         db: Session de base de données
         asset: Actif à éditer
         user_id: ID de l'utilisateur
-        
+
     Returns:
         Dictionnaire contenant les informations de base de l'actif
     """
@@ -125,34 +127,34 @@ def collect_edit_asset_info(db, asset, user_id):
 
     with col1:
         asset_name = st.text_input("Nom", value=asset.nom, key=f"edit_asset_name_{asset.id}")
-        
+
         asset_type = st.selectbox(
             "Type de produit",
             options=PRODUCT_TYPES,
             index=PRODUCT_TYPES.index(asset.type_produit) if asset.type_produit in PRODUCT_TYPES else 0,
             key=f"edit_asset_type_{asset.id}"
         )
-        
-        asset_isin = st.text_input("Code ISIN (optionnel)", value=asset.isin or "", 
-                                  key=f"edit_asset_isin_{asset.id}")
+
+        asset_isin = st.text_input("Code ISIN (optionnel)", value=asset.isin or "",
+                                   key=f"edit_asset_isin_{asset.id}")
 
         # Champs spécifiques selon le type
         if asset_type == "metal":
-            asset_ounces = st.number_input("Quantité (onces)", 
-                                         min_value=0.0, 
-                                         value=float(asset.ounces or 0.0), 
-                                         format="%.3f",
-                                         key=f"edit_asset_ounces_{asset.id}")
+            asset_ounces = st.number_input("Quantité (onces)",
+                                           min_value=0.0,
+                                           value=float(asset.ounces or 0.0),
+                                           format="%.3f",
+                                           key=f"edit_asset_ounces_{asset.id}")
         else:
             asset_ounces = None
 
-        asset_notes = st.text_area("Notes", value=asset.notes or "", 
-                                  key=f"edit_asset_notes_{asset.id}")
+        asset_notes = st.text_area("Notes", value=asset.notes or "",
+                                   key=f"edit_asset_notes_{asset.id}")
 
     with col2:
         # Sélection des banques et comptes
         banks = db.query(Bank).filter(Bank.owner_id == user_id).all()
-        
+
         # Récupérer le compte actuel et sa banque
         account = db.query(Account).filter(Account.id == asset.account_id).first()
         bank_id = account.bank_id if account else None
@@ -168,39 +170,39 @@ def collect_edit_asset_info(db, asset, user_id):
 
         # Filtrer les comptes selon la banque sélectionnée
         bank_accounts = db.query(Account).filter(Account.bank_id == asset_bank).all()
-        
+
         # Trouver l'index du compte actuel dans la liste filtrée
         account_index = next((i for i, acc in enumerate(bank_accounts) if acc.id == asset.account_id), 0)
-        
+
         asset_account = st.selectbox(
             "Compte",
             options=[acc.id for acc in bank_accounts],
-            index=min(account_index, len(bank_accounts)-1) if bank_accounts else 0,
+            index=min(account_index, len(bank_accounts) - 1) if bank_accounts else 0,
             format_func=lambda x: next((acc.libelle for acc in bank_accounts if acc.id == x), ""),
             key=f"edit_asset_account_{asset.id}"
         )
 
-        asset_value = st.number_input("Valeur actuelle", 
-                                    min_value=0.0, 
-                                    value=float(asset.valeur_actuelle), 
-                                    format="%.2f",
-                                    key=f"edit_asset_value_{asset.id}")
-        
-        asset_cost = st.number_input("Prix de revient", 
-                                   min_value=0.0, 
-                                   value=float(asset.prix_de_revient), 
-                                   format="%.2f",
-                                   key=f"edit_asset_cost_{asset.id}")
-        
+        asset_value = st.number_input("Valeur actuelle",
+                                      min_value=0.0,
+                                      value=float(asset.valeur_actuelle),
+                                      format="%.2f",
+                                      key=f"edit_asset_value_{asset.id}")
+
+        asset_cost = st.number_input("Prix de revient",
+                                     min_value=0.0,
+                                     value=float(asset.prix_de_revient),
+                                     format="%.2f",
+                                     key=f"edit_asset_cost_{asset.id}")
+
         asset_currency = st.selectbox(
             "Devise",
             options=CURRENCIES,
             index=CURRENCIES.index(asset.devise) if asset.devise in CURRENCIES else 0,
             key=f"edit_asset_currency_{asset.id}"
         )
-        
+
         asset_todo = st.text_area("Tâche à faire", value=asset.todo or "",
-                                key=f"edit_asset_todo_{asset.id}")
+                                  key=f"edit_asset_todo_{asset.id}")
 
     # Retourner les informations collectées
     return {

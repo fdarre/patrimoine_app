@@ -223,7 +223,7 @@ def display_asset_valuation(asset, db: Session):
     with col2:
         if st.button("Mettre à jour", key=f"update_price_{asset.id}"):
             # Code pour la mise à jour du prix
-            if AssetService.update_manual_price(db, asset.id, new_price):
+            if AssetService.update_manual_price(db, asset.id, new_price):  # Ajout du paramètre db
                 st.success("Prix mis à jour avec succès")
                 st.rerun()
             else:

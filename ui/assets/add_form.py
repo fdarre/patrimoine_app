@@ -14,10 +14,11 @@ from .allocation_form import create_allocation_form
 from .geo_allocation_form import create_geo_allocation_form
 from .components import apply_button_styling
 
+
 def show_add_asset_form(db: Session, user_id: str):
     """
     Affiche un formulaire amélioré pour l'ajout d'actifs
-    
+
     Args:
         db: Session de base de données
         user_id: ID de l'utilisateur
@@ -57,11 +58,11 @@ def show_add_asset_form(db: Session, user_id: str):
 
         # Vérifier si toutes les conditions sont remplies
         form_valid = (
-            asset_info["name"] and
-            asset_info["account_id"] and
-            asset_info["value"] > 0 and
-            sum(allocation.values()) == 100 and
-            all_geo_valid
+                asset_info["name"] and
+                asset_info["account_id"] and
+                asset_info["value"] > 0 and
+                sum(allocation.values()) == 100 and
+                all_geo_valid
         )
 
         # Afficher un message récapitulatif avant validation
@@ -83,7 +84,7 @@ def show_add_asset_form(db: Session, user_id: str):
 
                 # Ajouter l'actif
                 new_asset = AssetService.add_asset(
-                    db=db,
+                    db=db,  # Ajout du paramètre db
                     user_id=user_id,
                     nom=asset_info["name"],
                     compte_id=asset_info["account_id"],
@@ -111,14 +112,15 @@ def show_add_asset_form(db: Session, user_id: str):
             except Exception as e:
                 st.error(f"Erreur inattendue: {str(e)}")
 
+
 def collect_basic_asset_info(db, user_id):
     """
     Collecte les informations de base d'un actif
-    
+
     Args:
         db: Session de base de données
         user_id: ID de l'utilisateur
-        
+
     Returns:
         Dictionnaire contenant les informations de base de l'actif
     """
@@ -133,8 +135,8 @@ def collect_basic_asset_info(db, user_id):
             help="Type de produit financier (ETF, action individuelle, etc.)"
         )
         asset_isin = st.text_input("Code ISIN (optionnel)",
-                                 key="new_asset_isin",
-                                 help="Pour les ETF, actions et obligations")
+                                   key="new_asset_isin",
+                                   help="Pour les ETF, actions et obligations")
 
         # Champs spécifiques selon le type
         if asset_type == "metal":
@@ -168,17 +170,17 @@ def collect_basic_asset_info(db, user_id):
             asset_account = None
 
         asset_value = st.number_input("Valeur actuelle",
-                                min_value=0.0,
-                                value=0.0,
-                                format="%.2f",
-                                key="new_asset_value")
+                                      min_value=0.0,
+                                      value=0.0,
+                                      format="%.2f",
+                                      key="new_asset_value")
 
         asset_cost = st.number_input("Prix de revient",
-                                 min_value=0.0,
-                                 value=0.0,
-                                 format="%.2f",
-                                 help="Laissez à 0 pour utiliser la valeur actuelle",
-                                 key="new_asset_cost")
+                                     min_value=0.0,
+                                     value=0.0,
+                                     format="%.2f",
+                                     help="Laissez à 0 pour utiliser la valeur actuelle",
+                                     key="new_asset_cost")
 
         asset_currency = st.selectbox(
             "Devise",
@@ -190,7 +192,7 @@ def collect_basic_asset_info(db, user_id):
     # Champs supplémentaires
     st.subheader("Informations additionnelles")
     asset_notes = st.text_area("Notes", key="new_asset_notes",
-                              help="Notes personnelles sur cet actif")
+                               help="Notes personnelles sur cet actif")
     asset_todo = st.text_area("Tâche à faire (optionnel)", key="new_asset_todo")
 
     # Retourner les informations collectées
@@ -207,10 +209,11 @@ def collect_basic_asset_info(db, user_id):
         "ounces": asset_ounces
     }
 
+
 def display_form_validation_errors(asset_info, allocation):
     """
     Affiche les erreurs de validation du formulaire
-    
+
     Args:
         asset_info: Informations de base de l'actif
         allocation: Dictionnaire d'allocation par catégorie
@@ -221,7 +224,7 @@ def display_form_validation_errors(asset_info, allocation):
         st.warning("Veuillez sélectionner un compte.")
     if asset_info["value"] <= 0:
         st.warning("La valeur actuelle doit être supérieure à 0.")
-        
+
     allocation_total = sum(allocation.values()) if allocation else 0
     if allocation_total != 100:
         st.warning(f"Le total des allocations doit être de 100% (actuellement: {allocation_total}%).")
