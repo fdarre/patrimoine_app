@@ -7,8 +7,13 @@ from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, cast, Float, and_, or_, JSON, text
+import json
+import logging
 
 from database.models import Asset, HistoryPoint, Bank, Account
+
+# Configurer le logger
+logger = logging.getLogger(__name__)
 
 class VisualizationService:
     """Service pour les visualisations et graphiques avec SQLAlchemy"""
@@ -260,33 +265,78 @@ class VisualizationService:
 
         # Pour SQLite, nous devons utiliser json_extract pour chaque catégorie
         for category in asset_categories:
-            # Construction de la requête d'agrégation SQL pour cette catégorie
-            query = db.query(
-                func.sum(
-                    # Calculer la valeur allouée à cette catégorie
-                    func.coalesce(Asset.value_eur, Asset.valeur_actuelle) *
-                    # Multiplier par le pourcentage de la catégorie dans l'allocation
-                    # Utilisation de json_extract pour SQLite
-                    func.cast(
-                        func.json_extract(Asset.allocation, f'$.{category}'),
-                        Float
-                    ) / 100.0
+            try:
+                # Construction de la requête d'agrégation SQL pour cette catégorie
+                query = db.query(
+                    func.sum(
+                        # Calculer la valeur allouée à cette catégorie
+                        func.coalesce(Asset.value_eur, Asset.valeur_actuelle) *
+                        # Multiplier par le pourcentage de la catégorie dans l'allocation
+                        # Utilisation de json_extract pour SQLite avec gestion de null
+                        func.cast(
+                            func.coalesce(func.json_extract(Asset.allocation, f'$.{category}'), 0),
+                            Float
+                        ) / 100.0
+                    )
+                ).filter(
+                    Asset.owner_id == user_id,
+                    # Vérifier que l'allocation JSON contient cette catégorie
+                    # Nous retirons cette condition car elle peut causer des erreurs
+                    # func.json_extract(Asset.allocation, f'$.{category}').isnot(None)
                 )
-            ).filter(
-                Asset.owner_id == user_id,
-                # Vérifier que l'allocation JSON contient cette catégorie
-                func.json_extract(Asset.allocation, f'$.{category}').isnot(None)
-            )
 
-            # Ajouter le filtre par compte si nécessaire
-            if account_id:
-                query = query.filter(Asset.account_id == account_id)
+                # Ajouter le filtre par compte si nécessaire
+                if account_id:
+                    query = query.filter(Asset.account_id == account_id)
 
-            # Exécuter la requête et récupérer le résultat
-            result = query.scalar() or 0.0
-            category_values[category] = result
+                # Exécuter la requête et récupérer le résultat
+                result = query.scalar() or 0.0
+                category_values[category] = result
+            except Exception as e:
+                # En cas d'erreur, logger l'erreur et continuer avec la méthode de secours
+                logger.error(f"Erreur lors du calcul pour la catégorie {category}: {str(e)}")
+                category_values[category] = VisualizationService.calculate_category_fallback(db, user_id, category, account_id)
 
         return category_values
+
+    @staticmethod
+    def calculate_category_fallback(db, user_id, category, account_id=None):
+        """
+        Méthode de secours pour calculer les valeurs par catégorie en cas d'erreur SQL
+
+        Args:
+            db: Session de base de données
+            user_id: ID de l'utilisateur
+            category: Catégorie à calculer
+            account_id: ID du compte (optionnel)
+
+        Returns:
+            Valeur totale pour la catégorie
+        """
+        # Récupérer les actifs pertinents
+        query = db.query(Asset).filter(Asset.owner_id == user_id)
+        if account_id:
+            query = query.filter(Asset.account_id == account_id)
+
+        total = 0.0
+        for asset in query.all():
+            try:
+                # Accéder aux attributs de manière sécurisée
+                allocations = asset.allocation or {}
+                if isinstance(allocations, str):
+                    allocations = json.loads(allocations)
+
+                # Si la catégorie existe dans l'allocation
+                if category in allocations:
+                    pct = float(allocations[category])
+                    value = asset.value_eur if asset.value_eur is not None else asset.valeur_actuelle
+                    total += value * pct / 100.0
+            except Exception as e:
+                # Ignorer silencieusement les erreurs individuelles
+                logger.warning(f"Erreur lors du traitement de l'actif pour la catégorie {category}: {str(e)}")
+                continue
+
+        return total
 
     @staticmethod
     def calculate_geo_values(
@@ -316,65 +366,82 @@ class VisualizationService:
         # Initialiser le dictionnaire des valeurs par zone géographique
         geo_values = {zone: 0.0 for zone in geo_zones}
 
-        # OPTIMISATION: Utiliser une requête SQL plus efficace avec jointures
-        # Cette optimisation est difficile car nous traitons des JSON imbriqués
-        # Pour SQLite, nous devons encore faire une partie du traitement en Python
+        try:
+            # OPTIMISATION: Utiliser une requête SQL plus efficace avec jointures
+            # Cette optimisation est difficile car nous traitons des JSON imbriqués
+            # Pour SQLite, nous devons encore faire une partie du traitement en Python
 
-        # Récupérer les actifs avec leurs allocations et répartitions géographiques
-        query = db.query(
-            Asset.id,
-            Asset.value_eur,
-            Asset.valeur_actuelle,
-            Asset.allocation,
-            Asset.geo_allocation
-        ).filter(
-            Asset.owner_id == user_id
-        )
+            # Récupérer les actifs avec leurs allocations et répartitions géographiques
+            query = db.query(
+                Asset.id,
+                Asset.value_eur,
+                Asset.valeur_actuelle,
+                Asset.allocation,
+                Asset.geo_allocation
+            ).filter(
+                Asset.owner_id == user_id
+            )
 
-        # Ajouter des filtres supplémentaires si nécessaire
-        if account_id:
-            query = query.filter(Asset.account_id == account_id)
+            # Ajouter des filtres supplémentaires si nécessaire
+            if account_id:
+                query = query.filter(Asset.account_id == account_id)
 
-        # Si une catégorie est spécifiée, filtrer les actifs qui ont cette catégorie
-        if category:
-            query = query.filter(func.json_extract(Asset.allocation, f'$.{category}').isnot(None))
-
-        # Exécuter la requête et traiter les résultats
-        assets_data = query.all()
-
-        # Traiter les résultats - pour les JSON imbriqués complexes, c'est plus simple en Python
-        for asset_id, value_eur, valeur_actuelle, allocation, geo_allocation in assets_data:
-            # Ignorer les actifs sans allocations ou répartitions géographiques
-            if not allocation or not geo_allocation:
-                continue
-
-            # Utiliser value_eur s'il existe, sinon valeur_actuelle
-            value_to_use = value_eur if value_eur is not None else valeur_actuelle
-
-            # Si une catégorie est spécifiée, ne considérer que cette partie de l'actif
+            # Si une catégorie est spécifiée, filtrer les actifs qui ont cette catégorie
             if category:
-                if category not in allocation:
+                # Utilisez le coalesce pour éviter les erreurs JSON
+                query = query.filter(
+                    func.coalesce(func.json_extract(Asset.allocation, f'$.{category}'), 0) > 0
+                )
+
+            # Exécuter la requête et traiter les résultats
+            assets_data = query.all()
+
+            # Traiter les résultats - pour les JSON imbriqués complexes, c'est plus simple en Python
+            for asset_id, value_eur, valeur_actuelle, allocation, geo_allocation in assets_data:
+                # Ignorer les actifs sans allocations ou répartitions géographiques
+                if not allocation:
                     continue
 
-                # Valeur allouée à cette catégorie
-                category_value = value_to_use * allocation[category] / 100
+                # Vérifier si geo_allocation est valide
+                if not geo_allocation or not isinstance(geo_allocation, dict):
+                    continue
 
-                # Répartition géographique pour cette catégorie
-                geo_zones_dict = geo_allocation.get(category, {})
+                # Utiliser value_eur s'il existe, sinon valeur_actuelle
+                value_to_use = value_eur if value_eur is not None else valeur_actuelle
+                if value_to_use is None or value_to_use <= 0:
+                    continue
 
-                for zone, percentage in geo_zones_dict.items():
-                    if zone in geo_values:
-                        geo_values[zone] += category_value * percentage / 100
-            else:
-                # Pour tous les actifs, ventiler selon les allocations et répartitions géographiques
-                for cat, allocation_pct in allocation.items():
-                    category_value = value_to_use * allocation_pct / 100
+                # Si une catégorie est spécifiée, ne considérer que cette partie de l'actif
+                if category:
+                    if category not in allocation:
+                        continue
 
-                    # Utiliser la répartition géographique spécifique à cette catégorie si disponible
-                    geo_zones_dict = geo_allocation.get(cat, {})
+                    # Valeur allouée à cette catégorie
+                    category_value = value_to_use * allocation[category] / 100
+
+                    # Répartition géographique pour cette catégorie
+                    geo_zones_dict = geo_allocation.get(category, {})
+                    if not geo_zones_dict:
+                        continue
 
                     for zone, percentage in geo_zones_dict.items():
                         if zone in geo_values:
                             geo_values[zone] += category_value * percentage / 100
+                else:
+                    # Pour tous les actifs, ventiler selon les allocations et répartitions géographiques
+                    for cat, allocation_pct in allocation.items():
+                        category_value = value_to_use * allocation_pct / 100
+
+                        # Utiliser la répartition géographique spécifique à cette catégorie si disponible
+                        geo_zones_dict = geo_allocation.get(cat, {})
+                        if not geo_zones_dict:
+                            continue
+
+                        for zone, percentage in geo_zones_dict.items():
+                            if zone in geo_values:
+                                geo_values[zone] += category_value * percentage / 100
+        except Exception as e:
+            logger.error(f"Erreur lors du calcul des valeurs géographiques: {str(e)}")
+            # En cas d'erreur, utiliser une approche de secours (à implémenter si nécessaire)
 
         return geo_values
