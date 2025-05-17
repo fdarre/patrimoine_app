@@ -89,7 +89,7 @@ def show_existing_templates(db: Session, user_id: str):
 
 def show_template_details(db: Session, template: Asset):
     """
-    Affiche les détails d'un modèle et ses actifs liés
+    Affiche les détails d'un modèle et ses actifs liés, avec possibilité de modification
 
     Args:
         db: Session de base de données
@@ -97,25 +97,214 @@ def show_template_details(db: Session, template: Asset):
     """
     st.subheader(f"Détails du modèle: {template.template_name}")
 
-    # Afficher les allocations
-    col1, col2 = st.columns(2)
-    with col1:
-        st.write("**Allocation par catégorie:**")
-        if template.allocation:
-            for cat, percent in template.allocation.items():
-                st.write(f"- {cat.capitalize()}: {percent}%")
-        else:
-            st.write("Aucune allocation définie")
+    # Ajouter un onglet pour afficher et modifier le modèle
+    edit_tabs = st.tabs(
+        ["📊 Afficher les allocations", "✏️ Modifier les allocations", "🌎 Modifier la répartition géographique"])
 
-    with col2:
-        st.write("**Géographie par catégorie:**")
-        if template.geo_allocation:
-            for cat, zones in template.geo_allocation.items():
-                st.write(f"**{cat.capitalize()}:**")
-                for zone, percent in zones.items():
-                    st.write(f"  - {zone.capitalize()}: {percent}%")
+    with edit_tabs[0]:
+        # Afficher les allocations (mode lecture seule)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**Allocation par catégorie:**")
+            if template.allocation:
+                for cat, percent in template.allocation.items():
+                    st.write(f"- {cat.capitalize()}: {percent}%")
+            else:
+                st.write("Aucune allocation définie")
+
+        with col2:
+            st.write("**Géographie par catégorie:**")
+            if template.geo_allocation:
+                for cat, zones in template.geo_allocation.items():
+                    st.write(f"**{cat.capitalize()}:**")
+                    for zone, percent in zones.items():
+                        st.write(f"  - {zone.capitalize()}: {percent}%")
+            else:
+                st.write("Aucune répartition géographique définie")
+
+    with edit_tabs[1]:
+        # Interface pour modifier l'allocation
+        st.write("**Modifier l'allocation par catégorie:**")
+
+        # Récupérer l'allocation actuelle
+        current_allocation = template.allocation.copy() if template.allocation else {}
+
+        # Variables pour stocker les nouvelles allocations
+        new_allocation = {}
+        allocation_total = 0
+
+        # Interface avec deux colonnes
+        col1, col2 = st.columns(2)
+
+        # Première colonne: principaux types d'actifs
+        with col1:
+            for category in ["actions", "obligations", "immobilier", "cash"]:
+                percentage = st.slider(
+                    f"{category.capitalize()} (%)",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=float(current_allocation.get(category, 0.0)),
+                    step=1.0,
+                    key=f"edit_template_alloc_{template.id}_{category}"
+                )
+                if percentage > 0:
+                    new_allocation[category] = percentage
+                    allocation_total += percentage
+
+        # Deuxième colonne: autres types d'actifs
+        with col2:
+            for category in ["crypto", "metaux", "autre"]:
+                percentage = st.slider(
+                    f"{category.capitalize()} (%)",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=float(current_allocation.get(category, 0.0)),
+                    step=1.0,
+                    key=f"edit_template_alloc_{template.id}_{category}"
+                )
+                if percentage > 0:
+                    new_allocation[category] = percentage
+                    allocation_total += percentage
+
+        # Vérifier que le total est de 100%
+        st.progress(allocation_total / 100)
+
+        allocation_valid = allocation_total == 100
+
+        if not allocation_valid:
+            st.warning(f"Le total des allocations doit être de 100%. Actuellement: {allocation_total}%")
         else:
-            st.write("Aucune répartition géographique définie")
+            st.success("Allocation valide (100%)")
+
+            # Bouton pour sauvegarder les modifications d'allocation
+            if st.button("Sauvegarder l'allocation", key="save_template_allocation"):
+                # Mettre à jour l'allocation du modèle
+                template.allocation = new_allocation
+                template.date_maj = datetime.now().strftime("%Y-%m-%d")
+                db.commit()
+                st.success("Allocation du modèle mise à jour avec succès!")
+                st.rerun()
+
+    with edit_tabs[2]:
+        # Interface pour modifier la répartition géographique
+        st.write("**Modifier la répartition géographique:**")
+
+        # Récupérer l'allocation actuelle pour les catégories disponibles
+        current_allocation = template.allocation.copy() if template.allocation else {}
+        current_geo = template.geo_allocation.copy() if template.geo_allocation else {}
+
+        # S'il n'y a pas d'allocation, informer l'utilisateur
+        if not current_allocation:
+            st.warning("Veuillez d'abord définir l'allocation par catégorie.")
+        else:
+            # Créer des onglets pour chaque catégorie avec allocation > 0
+            geo_tabs = st.tabs([cat.capitalize() for cat, pct in current_allocation.items() if pct > 0])
+
+            # Variables pour suivre la validité de la répartition géographique
+            new_geo_allocation = {}
+            all_geo_valid = True
+
+            # Pour chaque catégorie, créer une interface de répartition géographique
+            for i, (category, allocation_pct) in enumerate(
+                    [(cat, pct) for cat, pct in current_allocation.items() if pct > 0]):
+                with geo_tabs[i]:
+                    st.info(
+                        f"Configuration de la répartition géographique pour la partie '{category}' ({allocation_pct}% de l'actif)")
+
+                    # Obtenir la répartition actuelle ou une répartition par défaut
+                    current_category_geo = current_geo.get(category, get_default_geo_zones(category))
+
+                    # Interface pour éditer les pourcentages
+                    geo_zones = {}
+                    geo_total = 0
+
+                    # Créer des onglets pour faciliter la saisie
+                    geo_zone_tabs = st.tabs(["Principales", "Secondaires", "Autres"])
+
+                    with geo_zone_tabs[0]:
+                        # Zones principales
+                        main_zones = ["amerique_nord", "europe_zone_euro", "europe_hors_zone_euro", "japon"]
+                        cols = st.columns(2)
+                        for j, zone in enumerate(main_zones):
+                            with cols[j % 2]:
+                                pct = st.slider(
+                                    f"{zone.capitalize()} (%)",
+                                    min_value=0.0,
+                                    max_value=100.0,
+                                    value=float(current_category_geo.get(zone, 0.0)),
+                                    step=1.0,
+                                    key=f"edit_template_geo_{template.id}_{category}_{zone}"
+                                )
+                                if pct > 0:
+                                    geo_zones[zone] = pct
+                                    geo_total += pct
+
+                    with geo_zone_tabs[1]:
+                        # Zones secondaires
+                        secondary_zones = ["chine", "inde", "asie_developpee", "autres_emergents"]
+                        cols = st.columns(2)
+                        for j, zone in enumerate(secondary_zones):
+                            with cols[j % 2]:
+                                pct = st.slider(
+                                    f"{zone.capitalize()} (%)",
+                                    min_value=0.0,
+                                    max_value=100.0,
+                                    value=float(current_category_geo.get(zone, 0.0)),
+                                    step=1.0,
+                                    key=f"edit_template_geo_{template.id}_{category}_{zone}"
+                                )
+                                if pct > 0:
+                                    geo_zones[zone] = pct
+                                    geo_total += pct
+
+                    with geo_zone_tabs[2]:
+                        # Autres zones
+                        other_zones = ["global_non_classe"]
+                        cols = st.columns(2)
+                        for j, zone in enumerate(other_zones):
+                            with cols[j % 2]:
+                                pct = st.slider(
+                                    f"{zone.capitalize()} (%)",
+                                    min_value=0.0,
+                                    max_value=100.0,
+                                    value=float(current_category_geo.get(zone, 0.0)),
+                                    step=1.0,
+                                    key=f"edit_template_geo_{template.id}_{category}_{zone}"
+                                )
+                                if pct > 0:
+                                    geo_zones[zone] = pct
+                                    geo_total += pct
+
+                    # Vérifier que le total est de 100%
+                    st.progress(geo_total / 100)
+
+                    geo_valid = geo_total == 100
+                    if not geo_valid:
+                        all_geo_valid = False
+                        if geo_total < 100:
+                            st.warning(
+                                f"Le total de la répartition géographique pour '{category}' doit être de 100%. Actuellement: {geo_total}%")
+                        else:
+                            st.error(
+                                f"Le total de la répartition géographique pour '{category}' ne doit pas dépasser 100%. Actuellement: {geo_total}%")
+                    else:
+                        st.success(f"Répartition géographique pour '{category}' valide (100%)")
+
+                    # Enregistrer la répartition géographique pour cette catégorie
+                    new_geo_allocation[category] = geo_zones
+
+            # Bouton pour sauvegarder les modifications de répartition géographique
+            if all_geo_valid and st.button("Sauvegarder la répartition géographique", key="save_template_geo"):
+                # Mettre à jour la répartition géographique du modèle
+                template.geo_allocation = new_geo_allocation
+                template.date_maj = datetime.now().strftime("%Y-%m-%d")
+                db.commit()
+                st.success("Répartition géographique du modèle mise à jour avec succès!")
+                st.rerun()
+
+    # Section pour les actifs liés au modèle
+    st.markdown("---")
+    st.subheader("Actifs liés")
 
     # Récupérer les actifs liés à ce modèle
     linked_assets = template_service.get_linked_assets(db, template.id)
