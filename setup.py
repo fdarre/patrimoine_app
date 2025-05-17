@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from database.db_config import engine, SessionLocal, Base
 from database.models import User
 from utils.password import hash_password
-from utils.constants import DATA_DIR, MAX_USERS
+from config.app_config import DATA_DIR, MAX_USERS
 
 
 def setup():

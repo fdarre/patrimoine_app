@@ -12,7 +12,7 @@ from typing import Dict, List
 from database.db_config import get_db, engine, Base
 from database.models import User, Bank, Account, Asset
 from utils.password import hash_password
-from utils.constants import ACCOUNT_TYPES, PRODUCT_TYPES, ASSET_CATEGORIES, GEO_ZONES, CURRENCIES
+from config.app_config import ACCOUNT_TYPES, PRODUCT_TYPES, ASSET_CATEGORIES
 from utils.calculations import get_default_geo_zones
 
 

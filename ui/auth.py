@@ -8,7 +8,7 @@ from typing import Optional
 from database.db_config import get_db
 from database.models import User
 from services.auth_service import AuthService
-from utils.constants import MAX_USERS
+from config.app_config import MAX_USERS
 
 def show_login():
     """

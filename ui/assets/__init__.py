@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 # Importer les modèles de base de données nécessaires
 from database.models import Asset, Bank, Account
-from utils.constants import ASSET_CATEGORIES, PRODUCT_TYPES
+from config.app_config import ASSET_CATEGORIES, PRODUCT_TYPES
 
 # Importer les fonctions des sous-modules
 from .list_view import display_assets_table, display_assets_cards, display_assets_compact

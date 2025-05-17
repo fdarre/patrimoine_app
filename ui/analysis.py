@@ -11,7 +11,7 @@ from sqlalchemy import func  # Importation correcte de func
 
 from database.models import Bank, Account, Asset, HistoryPoint
 from services.visualization_service import VisualizationService
-from utils.constants import ASSET_CATEGORIES, GEO_ZONES, GEO_ZONES_DESCRIPTIONS
+from config.app_config import ASSET_CATEGORIES, GEO_ZONES, GEO_ZONES_DESCRIPTIONS
 from utils.visualizations import get_geo_zone_display_name
 
 def show_analysis(db: Session, user_id: str):

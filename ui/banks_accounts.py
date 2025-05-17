@@ -10,7 +10,7 @@ from database.models import Bank, Account, Asset
 from services.bank_service import BankService
 from services.account_service import AccountService
 from services.data_service import DataService
-from utils.constants import ACCOUNT_TYPES
+from config.app_config import ACCOUNT_TYPES  # Correction ici
 
 def show_banks_accounts(db: Session, user_id: str):
     """
@@ -238,16 +238,12 @@ def show_banks_accounts(db: Session, user_id: str):
                                     allocation_display = " / ".join(
                                         f"{cat.capitalize()} {pct}%" for cat, pct in asset.allocation.items())
 
-                                    # Suppression de la référence à asset.composants
-                                    # Cette ligne a été supprimée: composite_indicator = "✓" if asset.composants else ""
-
                                     data.append([
                                         asset.nom,
                                         allocation_display,
                                         asset.type_produit,
                                         f"{asset.valeur_actuelle:,.2f} {asset.devise}".replace(",", " "),
                                         f"{pv:,.2f} {asset.devise} ({pv_percent:.2f}%)".replace(",", " "),
-                                        # Suppression de composite_indicator de cette liste
                                     ])
 
                                 df = pd.DataFrame(data, columns=["Nom", "Allocation", "Type", "Valeur", "Plus-value"])

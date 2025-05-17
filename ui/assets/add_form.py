@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from database.models import Bank, Account, Asset
 from services.asset_service import AssetService
 from services.data_service import DataService
-from utils.constants import ASSET_CATEGORIES, PRODUCT_TYPES, CURRENCIES
+from config.app_config import ASSET_CATEGORIES, PRODUCT_TYPES, CURRENCIES
 from utils.calculations import get_default_geo_zones
 from .allocation_form import create_allocation_form
 from .geo_allocation_form import create_geo_allocation_form

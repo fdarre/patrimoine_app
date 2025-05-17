@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from database.models import User, Bank, Account, Asset, HistoryPoint
 from database.db_config import engine
 from services.backup_service import BackupService
-from utils.constants import DATA_DIR, MAX_USERS
+from config.app_config import DATA_DIR, MAX_USERS
 
 def show_settings(db: Session, user_id: str):
     """
