@@ -29,11 +29,11 @@ def load_css():
             """, unsafe_allow_html=True)
         else:
             # Utiliser le CSS de secours des constantes si le fichier n'existe pas
-            from utils.constants import CUSTOM_CSS
+            from config.app_config import CUSTOM_CSS
             st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
     except Exception as e:
         # En cas d'erreur, utiliser le CSS de secours
-        from utils.constants import CUSTOM_CSS
+        from config.app_config import CUSTOM_CSS
         st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
         # Afficher un message d'erreur en console pour le débogage

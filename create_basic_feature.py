@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from database.db_config import get_db, engine, Base
 from database.models import User, Bank, Account, Asset
 from utils.password import hash_password
-from utils.constants import ACCOUNT_TYPES, PRODUCT_TYPES, ASSET_CATEGORIES
+from config.app_config import ACCOUNT_TYPES, PRODUCT_TYPES, ASSET_CATEGORIES
 
 
 def create_user_fixtures():

@@ -248,7 +248,7 @@ class VisualizationService:
             Dictionnaire avec les valeurs par catégorie
         """
         if asset_categories is None:
-            from utils.constants import ASSET_CATEGORIES
+            from config.app_config import ASSET_CATEGORIES
             asset_categories = ASSET_CATEGORIES
 
         # Initialiser le dictionnaire des valeurs par catégorie
@@ -299,7 +299,7 @@ class VisualizationService:
             Dictionnaire avec les valeurs par zone géographique
         """
         if geo_zones is None:
-            from utils.constants import GEO_ZONES
+            from config.app_config import GEO_ZONES
             geo_zones = GEO_ZONES
 
         # Initialiser le dictionnaire des valeurs par zone géographique
