@@ -19,6 +19,7 @@ from ui.analysis import show_analysis
 from ui.todos import show_todos
 from ui.settings import show_settings
 from ui.auth import show_auth, check_auth, logout, get_current_user_id
+from ui.templates.template_management import show_template_management
 
 # Configurer le logger
 logger = get_logger(__name__)
@@ -65,6 +66,7 @@ def main():
         "Dashboard": "📊",
         "Gestion des actifs": "💼",
         "Banques & Comptes": "🏦",
+        "Modèles d'actifs": "📋",
         "Analyses": "📈",
         "Tâches (Todo)": "✅",
         "Paramètres": "⚙️"
@@ -89,6 +91,8 @@ def main():
             show_asset_management(db, user_id)
         elif page == "Banques & Comptes":
             show_banks_accounts(db, user_id)
+        elif page == "Modèles d'actifs":
+            show_template_management(db, user_id)
         elif page == "Analyses":
             show_analysis(db, user_id)
         elif page == "Tâches (Todo)":

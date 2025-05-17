@@ -76,6 +76,12 @@ class Asset(Base):
     last_rate_sync = Column(DateTime, nullable=True)  # Date de dernière synchronisation du taux de change
     sync_error = Column(String, nullable=True)  # Message d'erreur de synchronisation
 
+    # for asset templates
+    template_id = Column(String, ForeignKey("assets.id"), nullable=True, index=True)
+    is_template = Column(Boolean, default=False)
+    template_name = Column(String, nullable=True)
+    sync_allocations = Column(Boolean, default=True)  # Si True, synchroniser les allocations depuis le template
+
     # Indices composites pour les requêtes fréquentes
     __table_args__ = (
         Index('idx_assets_owner_account', 'owner_id', 'account_id'),
