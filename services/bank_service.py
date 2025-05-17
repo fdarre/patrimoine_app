@@ -148,5 +148,30 @@ class BankService(BaseService[Bank]):
 
         return pd.DataFrame(data, columns=["ID", "Nom", "Nb comptes"])
 
+    @handle_exceptions
+    def get_banks_with_account_counts(self, db: Session, user_id: str) -> List[Tuple[Bank, int]]:
+        """
+        Récupère toutes les banques d'un utilisateur avec le nombre de comptes pour chacune
+
+        Args:
+            db: Session de base de données
+            user_id: ID de l'utilisateur
+
+        Returns:
+            Liste de tuples (banque, nombre de comptes)
+        """
+        result = db.query(
+            Bank,
+            func.count(Account.id).label('account_count')
+        ).outerjoin(
+            Account, Bank.id == Account.bank_id
+        ).filter(
+            Bank.owner_id == user_id
+        ).group_by(
+            Bank.id
+        ).all()
+
+        return result
+
 # Créer une instance singleton du service
 bank_service = BankService()

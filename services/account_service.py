@@ -188,5 +188,43 @@ class AccountService(BaseService[Account]):
         return pd.DataFrame(data, columns=["ID", "Banque", "Type", "Libellé", "Valeur totale"])
 
 
+    @handle_exceptions
+    def get_accounts_with_total_values(
+            self, db: Session,
+            user_id: str,
+            bank_id: Optional[str] = None
+    ) -> List[Tuple[Account, Bank, float]]:
+        """
+        Récupère tous les comptes d'un utilisateur avec leur banque et valeur totale en une seule requête
+
+        Args:
+            db: Session de base de données
+            user_id: ID de l'utilisateur
+            bank_id: ID de la banque (optionnel)
+
+        Returns:
+            Liste de tuples (compte, banque, valeur_totale)
+        """
+        query = db.query(
+            Account,
+            Bank,
+            func.coalesce(func.sum(Asset.value_eur), 0).label('total_value')
+        ).join(
+            Bank, Account.bank_id == Bank.id
+        ).outerjoin(
+            Asset, Account.id == Asset.account_id
+        ).filter(
+            Bank.owner_id == user_id
+        )
+
+        if bank_id:
+            query = query.filter(Account.bank_id == bank_id)
+
+        result = query.group_by(
+            Account.id, Bank.id
+        ).all()
+
+        return result
+
 # Créer une instance singleton du service
 account_service = AccountService()
