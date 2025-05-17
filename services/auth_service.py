@@ -1,17 +1,31 @@
 """
-Service d'authentification et de gestion des utilisateurs
+Service d'authentification et de gestion des utilisateurs avec protections améliorées
 """
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 import jwt
+import logging
+import os
 from sqlalchemy.orm import Session
 
 from database.models import User
-from utils.constants import SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from utils.constants import SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, DATA_DIR
 from utils.password import hash_password, verify_password
 
+# Configurer le logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    filename=os.path.join(DATA_DIR, 'auth.log')
+)
+logger = logging.getLogger('auth')
+
+# Dictionnaire pour stocker les tentatives d'authentification échouées
+# Clé = nom d'utilisateur, Valeur = (nombre de tentatives, heure de dernière tentative)
+failed_attempts = {}
+
 class AuthService:
-    """Service pour l'authentification et la gestion des utilisateurs"""
+    """Service pour l'authentification et la gestion des utilisateurs avec sécurité renforcée"""
 
     @staticmethod
     def get_user_by_username(db: Session, username: str) -> Optional[User]:
@@ -44,7 +58,7 @@ class AuthService:
     @staticmethod
     def create_user(db: Session, username: str, email: str, password: str) -> Optional[User]:
         """
-        Crée un nouvel utilisateur
+        Crée un nouvel utilisateur avec vérification de la force du mot de passe
 
         Args:
             db: Session de base de données
@@ -55,14 +69,21 @@ class AuthService:
         Returns:
             L'utilisateur créé ou None si le nom d'utilisateur existe déjà
         """
+        # Vérifier la force du mot de passe (minimal)
+        if len(password) < 8:
+            logger.warning(f"Tentative de création d'utilisateur avec un mot de passe trop court: {username}")
+            raise ValueError("Le mot de passe doit contenir au moins 8 caractères")
+
         # Vérifier si le nom d'utilisateur existe déjà
         existing_user = db.query(User).filter(User.username == username).first()
         if existing_user:
+            logger.warning(f"Tentative de création d'un utilisateur avec un nom existant: {username}")
             return None
 
         # Vérifier si l'email existe déjà
         existing_email = db.query(User).filter(User.email == email).first()
         if existing_email:
+            logger.warning(f"Tentative de création d'un utilisateur avec un email existant: {email}")
             return None
 
         # Hacher le mot de passe
@@ -81,13 +102,14 @@ class AuthService:
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
+        logger.info(f"Nouvel utilisateur créé: {username}")
 
         return new_user
 
     @staticmethod
     def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
         """
-        Authentifie un utilisateur
+        Authentifie un utilisateur avec protection contre les attaques par force brute
 
         Args:
             db: Session de base de données
@@ -97,19 +119,46 @@ class AuthService:
         Returns:
             L'utilisateur authentifié ou None
         """
+        # Vérifier les tentatives précédentes
+        if username in failed_attempts:
+            attempts, last_attempt = failed_attempts[username]
+            if attempts >= 5 and datetime.now() - last_attempt < timedelta(minutes=15):
+                logger.warning(f"Compte temporairement verrouillé après plusieurs échecs: {username}")
+                return None
+
         # Trouver l'utilisateur
         user = db.query(User).filter(User.username == username).first()
         if not user:
+            logger.warning(f"Tentative d'authentification avec un nom d'utilisateur inconnu: {username}")
+            # Incrémenter le compteur même pour les utilisateurs inexistants
+            if username not in failed_attempts:
+                failed_attempts[username] = (1, datetime.now())
+            else:
+                attempts, _ = failed_attempts[username]
+                failed_attempts[username] = (attempts + 1, datetime.now())
             return None
 
         # Vérifier le mot de passe
         if not verify_password(password, user.password_hash):
+            logger.warning(f"Échec d'authentification pour l'utilisateur: {username}")
+            # Incrémenter le compteur d'échecs
+            if username not in failed_attempts:
+                failed_attempts[username] = (1, datetime.now())
+            else:
+                attempts, _ = failed_attempts[username]
+                failed_attempts[username] = (attempts + 1, datetime.now())
             return None
 
         # Vérifier que l'utilisateur est actif
         if not user.is_active:
+            logger.warning(f"Tentative d'authentification avec un compte inactif: {username}")
             return None
 
+        # Réinitialiser le compteur d'échecs en cas de succès
+        if username in failed_attempts:
+            del failed_attempts[username]
+
+        logger.info(f"Authentification réussie pour l'utilisateur: {username}")
         return user
 
     @staticmethod
@@ -126,11 +175,11 @@ class AuthService:
         """
         to_encode = data.copy()
 
-        # Définir l'expiration du token
+        # Définir l'expiration du token (4 heures par défaut au lieu de 24)
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+            expire = datetime.utcnow() + timedelta(minutes=240)  # 4 heures
 
         to_encode.update({"exp": expire})
 
@@ -153,7 +202,8 @@ class AuthService:
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
             return payload
-        except jwt.PyJWTError:
+        except jwt.PyJWTError as e:
+            logger.warning(f"Vérification de token échouée: {str(e)}")
             return None
 
     @staticmethod
@@ -198,13 +248,14 @@ class AuthService:
         # Valider les modifications
         db.commit()
         db.refresh(user)
+        logger.info(f"Utilisateur mis à jour: {user.username}")
 
         return user
 
     @staticmethod
     def change_password(db: Session, user_id: str, new_password: str) -> Optional[User]:
         """
-        Change le mot de passe d'un utilisateur
+        Change le mot de passe d'un utilisateur avec vérification de la force du mot de passe
 
         Args:
             db: Session de base de données
@@ -214,6 +265,11 @@ class AuthService:
         Returns:
             L'utilisateur mis à jour ou None
         """
+        # Vérifier la force du mot de passe
+        if len(new_password) < 8:
+            logger.warning(f"Tentative de changement de mot de passe trop court pour l'utilisateur: {user_id}")
+            raise ValueError("Le mot de passe doit contenir au moins 8 caractères")
+
         # Récupérer l'utilisateur
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
@@ -228,6 +284,7 @@ class AuthService:
         # Valider les modifications
         db.commit()
         db.refresh(user)
+        logger.info(f"Mot de passe changé pour l'utilisateur: {user.username}")
 
         return user
 
@@ -251,5 +308,18 @@ class AuthService:
         # Supprimer l'utilisateur
         db.delete(user)
         db.commit()
+        logger.info(f"Utilisateur supprimé: {user.username}")
 
         return True
+
+    @staticmethod
+    def reset_failed_attempts(username: str) -> None:
+        """
+        Réinitialise le compteur de tentatives échouées pour un utilisateur
+
+        Args:
+            username: Nom d'utilisateur
+        """
+        if username in failed_attempts:
+            del failed_attempts[username]
+            logger.info(f"Compteur de tentatives échouées réinitialisé pour: {username}")

@@ -3,3 +3,5 @@
 .env
 generate_keys.py
 /data/patrimoine.db
+.salt
+crypto.log
