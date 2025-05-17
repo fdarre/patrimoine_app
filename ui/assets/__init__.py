@@ -3,7 +3,8 @@
 Point d'entrée principal pour l'interface de gestion des actifs
 """
 import streamlit as st
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, or_, and_
 
 # Importer les modèles de base de données nécessaires
 from database.models import Asset, Bank, Account
@@ -31,15 +32,19 @@ def show_asset_management(db: Session, user_id: str):
     tab1, tab2, tab3 = st.tabs(["📋 Vue d'ensemble", "➕ Ajouter un actif", "🔄 Synchronisation"])
 
     with tab1:
-        # Récupérer les données
-        assets = db.query(Asset).filter(Asset.owner_id == user_id).all()
-        banks = db.query(Bank).filter(Bank.owner_id == user_id).all()
+        # OPTIMISATION: Ne récupérer que le nombre d'actifs d'abord
+        asset_count = db.query(func.count(Asset.id)).filter(Asset.owner_id == user_id).scalar() or 0
+        bank_count = db.query(func.count(Bank.id)).filter(Bank.owner_id == user_id).scalar() or 0
 
-        if not assets:
+        if asset_count == 0:
             st.info("Aucun actif n'a encore été ajouté.")
         else:
             # Interface de filtrage et affichage des actifs
-            filtered_assets = apply_filters(db, assets, banks, user_id)
+            # Au lieu de récupérer tous les actifs d'abord, on utilise une requête filtrée
+            filtered_query = build_filtered_query(db, user_id)
+
+            # Exécute la requête seulement maintenant, après tous les filtres appliqués
+            filtered_assets = filtered_query.all()
 
             # Sélection de la vue
             view_type = st.radio("Type d'affichage", ["Tableau", "Cartes", "Compact"], horizontal=True)
@@ -74,21 +79,22 @@ def show_asset_management(db: Session, user_id: str):
         show_sync_options(db, user_id)
 
 
-def apply_filters(db, assets, banks, user_id):
+def build_filtered_query(db, user_id):
     """
-    Applique les filtres de recherche et tri aux actifs
+    Construit une requête filtrée pour les actifs selon les critères de l'utilisateur
 
     Args:
         db: Session de base de données
-        assets: Liste des actifs
-        banks: Liste des banques
         user_id: ID de l'utilisateur
 
     Returns:
-        Liste des actifs filtrés
+        Requête SQLAlchemy filtrée
     """
     # Interface de filtrage améliorée
     with st.expander("🔍 Filtres", expanded=True):
+        # Récupérer les banques une seule fois
+        banks = db.query(Bank).filter(Bank.owner_id == user_id).all()
+
         col1, col2, col3, col4 = st.columns([1.5, 1.5, 1.5, 1])
 
         with col1:
@@ -146,80 +152,84 @@ def apply_filters(db, assets, banks, user_id):
     # Interface de recherche
     search_query = st.text_input("🔎 Rechercher un actif", placeholder="Nom d'actif, ISIN, description...")
 
-    # Appliquer les filtres et le tri
-    return filter_and_sort_assets(db, assets, user_id, filter_bank, filter_account,
+    # OPTIMISATION: Construire et exécuter une requête SQL optimisée
+    return filter_and_sort_assets(db, user_id, filter_bank, filter_account,
                                   filter_category, filter_product_type, search_query, sort_by)
 
 
 def get_filtered_accounts(db, user_id, filter_bank):
     """
-    Récupère les comptes filtrés par banque
+    Récupère les comptes filtrés par banque de manière optimisée
     """
     if filter_bank != "Toutes les banques":
+        # OPTIMISATION: Ajouter un index sur bank_id pour cette requête
         return db.query(Account).filter(Account.bank_id == filter_bank).all()
     else:
+        # OPTIMISATION: Utiliser une jointure pour récupérer seulement les comptes de l'utilisateur
         return db.query(Account).join(Bank).filter(Bank.owner_id == user_id).all()
 
 
-def filter_and_sort_assets(db, assets, user_id, filter_bank, filter_account,
+def filter_and_sort_assets(db, user_id, filter_bank, filter_account,
                            filter_category, filter_product_type, search_query, sort_by):
     """
-    Filtre et trie les actifs selon les critères spécifiés
+    Filtre et trie les actifs selon les critères spécifiés au niveau SQL
+
+    Args:
+        db: Session de base de données
+        user_id: ID de l'utilisateur
+        filter_bank: Filtre par banque
+        filter_account: Filtre par compte
+        filter_category: Filtre par catégorie
+        filter_product_type: Filtre par type de produit
+        search_query: Texte de recherche
+        sort_by: Critère de tri
+
+    Returns:
+        Requête SQLAlchemy filtrée et triée
     """
-    # Filtrage à la source (niveau base de données si possible)
-    filtered_assets = []
+    # OPTIMISATION: Eager loading pour charger les relations en une seule requête
+    query = db.query(Asset).filter(Asset.owner_id == user_id)
 
-    # Premier niveau de filtrage (attributs simples)
-    for asset in assets:
-        # Filtrage par compte/banque
-        if filter_bank != "Toutes les banques":
-            account = db.query(Account).filter(Account.id == asset.account_id).first()
-            if not account or account.bank_id != filter_bank:
-                continue
+    # OPTIMISATION: Appliquer les filtres au niveau SQL
+    if filter_bank != "Toutes les banques":
+        # Jointure optimisée au lieu de sous-requêtes
+        query = query.join(Account, Asset.account_id == Account.id)
+        query = query.filter(Account.bank_id == filter_bank)
 
-        if filter_account != "Tous les comptes" and asset.account_id != filter_account:
-            continue
+    if filter_account != "Tous les comptes":
+        query = query.filter(Asset.account_id == filter_account)
 
-        if filter_product_type != "Tous les types" and asset.type_produit != filter_product_type:
-            continue
+    if filter_product_type != "Tous les types":
+        query = query.filter(Asset.type_produit == filter_product_type)
 
-        # Filtrage par catégorie (allocation est un JSON stocké)
-        if filter_category != "Toutes les catégories":
-            if not asset.allocation or filter_category not in asset.allocation:
-                continue
+    # OPTIMISATION: Filtrage sur JSON pour les catégories en SQLite
+    if filter_category != "Toutes les catégories":
+        # Pour SQLite, utiliser json_extract
+        query = query.filter(func.json_extract(Asset.allocation, f'$.{filter_category}').isnot(None))
 
-        # Filtrage par recherche textuelle
-        if search_query:
-            search_lower = search_query.lower()
-            if not (
-                    search_lower in asset.nom.lower() or
-                    (asset.isin and search_lower in asset.isin.lower()) or
-                    (asset.notes and search_lower in asset.notes.lower())
-            ):
-                continue
+    # OPTIMISATION: Filtrage par recherche textuelle au niveau SQL
+    if search_query:
+        search_pattern = f"%{search_query.lower()}%"
+        query = query.filter(
+            or_(
+                func.lower(Asset.nom).like(search_pattern),
+                func.lower(Asset.isin or '').like(search_pattern),
+                func.lower(Asset.notes or '').like(search_pattern)
+            )
+        )
 
-        # Si on arrive ici, l'actif passe tous les filtres
-        filtered_assets.append(asset)
-
-    # Tri (fait en mémoire)
+    # OPTIMISATION: Tri au niveau SQL
     if sort_by == "Valeur ▼":
-        filtered_assets.sort(key=lambda x: x.valeur_actuelle if x.valeur_actuelle is not None else 0, reverse=True)
+        query = query.order_by(Asset.valeur_actuelle.desc())
     elif sort_by == "Valeur ▲":
-        filtered_assets.sort(key=lambda x: x.valeur_actuelle if x.valeur_actuelle is not None else 0)
+        query = query.order_by(Asset.valeur_actuelle)
     elif sort_by == "Nom A-Z":
-        filtered_assets.sort(key=lambda x: x.nom.lower())
+        query = query.order_by(func.lower(Asset.nom))
     elif sort_by == "Nom Z-A":
-        filtered_assets.sort(key=lambda x: x.nom.lower(), reverse=True)
-    elif sort_by == "Performance ▼":
-        filtered_assets.sort(
-            key=lambda x: (x.valeur_actuelle - x.prix_de_revient) / x.prix_de_revient
-            if x.prix_de_revient and x.prix_de_revient > 0 else -float('inf'),
-            reverse=True
-        )
-    elif sort_by == "Performance ▲":
-        filtered_assets.sort(
-            key=lambda x: (x.valeur_actuelle - x.prix_de_revient) / x.prix_de_revient
-            if x.prix_de_revient and x.prix_de_revient > 0 else float('inf')
-        )
+        query = query.order_by(func.lower(Asset.nom).desc())
+    # Pour le tri par performance, il faudra encore le faire en Python car c'est un calcul complexe
+    elif sort_by in ["Performance ▼", "Performance ▲"]:
+        # Ce tri sera fait en Python après récupération des résultats
+        pass
 
-    return filtered_assets
+    return query

@@ -5,10 +5,11 @@ avec pagination et interface améliorée
 """
 import streamlit as st
 import pandas as pd
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 
 from database.models import Asset, Account, Bank
-from utils.pagination import paginate_dataframe, render_pagination_controls
+from utils.pagination import paginate_query, render_pagination_controls
 
 
 def display_assets_table(db: Session, assets):
@@ -21,15 +22,29 @@ def display_assets_table(db: Session, assets):
     """
     # Préparation des données
     data = []
-    for asset in assets:
-        # Obtenir le compte et la banque en une seule requête avec jointure
-        account_bank = db.query(Account, Bank).join(
-            Bank, Account.bank_id == Bank.id
-        ).filter(
-            Account.id == asset.account_id
-        ).first()
 
-        account, bank = account_bank if account_bank else (None, None)
+    # OPTIMISATION: Récupérer tous les comptes et banques en une seule requête
+    asset_ids = [asset.id for asset in assets]
+
+    # Créer une map de relation account-bank pour chaque asset_id
+    account_bank_map = {}
+    if asset_ids:
+        # Jointure optimisée pour récupérer toutes les relations en une seule requête
+        account_bank_query = (
+            db.query(Account, Bank, Asset.id)
+            .join(Bank, Account.bank_id == Bank.id)
+            .join(Asset, Asset.account_id == Account.id)
+            .filter(Asset.id.in_(asset_ids))
+            .all()
+        )
+
+        # Créer le dictionnaire de mapping pour lookups rapides
+        for account, bank, asset_id in account_bank_query:
+            account_bank_map[asset_id] = (account, bank)
+
+    for asset in assets:
+        # Utiliser le mapping au lieu de faire une requête à chaque itération
+        account, bank = account_bank_map.get(asset.id, (None, None))
 
         # Calculer la plus-value
         pv = asset.valeur_actuelle - asset.prix_de_revient
@@ -114,6 +129,25 @@ def display_assets_cards(db: Session, assets):
         db: Session de base de données
         assets: Liste des actifs à afficher
     """
+    # OPTIMISATION: Récupérer tous les comptes et banques en une seule requête
+    asset_ids = [asset.id for asset in assets]
+
+    # Créer une map de relation account-bank pour chaque asset_id
+    account_bank_map = {}
+    if asset_ids:
+        # Jointure optimisée pour récupérer toutes les relations en une seule requête
+        account_bank_query = (
+            db.query(Account, Bank, Asset.id)
+            .join(Bank, Account.bank_id == Bank.id)
+            .join(Asset, Asset.account_id == Account.id)
+            .filter(Asset.id.in_(asset_ids))
+            .all()
+        )
+
+        # Créer le dictionnaire de mapping pour lookups rapides
+        for account, bank, asset_id in account_bank_query:
+            account_bank_map[asset_id] = (account, bank)
+
     # Pagination
     page_size = 9  # 3x3 grille
 
@@ -137,14 +171,8 @@ def display_assets_cards(db: Session, assets):
         asset = assets[idx]
         # Distribution cyclique dans les colonnes
         with cols[i % 3]:
-            # Récupérer le compte et la banque
-            account_bank = db.query(Account, Bank).join(
-                Bank, Account.bank_id == Bank.id
-            ).filter(
-                Account.id == asset.account_id
-            ).first()
-
-            account, bank = account_bank if account_bank else (None, None)
+            # Récupérer le compte et la banque depuis le mapping
+            account, bank = account_bank_map.get(asset.id, (None, None))
 
             # Calculer la plus-value
             pv = asset.valeur_actuelle - asset.prix_de_revient
@@ -163,7 +191,7 @@ def display_assets_cards(db: Session, assets):
                     <div class="{pv_class}">{pv_percent:+.1f}%</div>
                 </div>
                 <div style="margin-bottom:8px;font-size:12px;color:#adb5bd;">
-                    {account.libelle} | {bank.nom if bank else "N/A"}
+                    {account.libelle if account else "N/A"} | {bank.nom if bank else "N/A"}
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -193,6 +221,25 @@ def display_assets_compact(db: Session, assets):
         db: Session de base de données
         assets: Liste des actifs à afficher
     """
+    # OPTIMISATION: Récupérer tous les comptes et banques en une seule requête
+    asset_ids = [asset.id for asset in assets]
+
+    # Créer une map de relation account-bank pour chaque asset_id
+    account_bank_map = {}
+    if asset_ids:
+        # Jointure optimisée pour récupérer toutes les relations en une seule requête
+        account_bank_query = (
+            db.query(Account, Bank, Asset.id)
+            .join(Bank, Account.bank_id == Bank.id)
+            .join(Asset, Asset.account_id == Account.id)
+            .filter(Asset.id.in_(asset_ids))
+            .all()
+        )
+
+        # Créer le dictionnaire de mapping pour lookups rapides
+        for account, bank, asset_id in account_bank_query:
+            account_bank_map[asset_id] = (account, bank)
+
     # Calcul de la valeur totale pour les pourcentages
     total_value = sum(asset.valeur_actuelle for asset in assets)
 
@@ -215,14 +262,8 @@ def display_assets_compact(db: Session, assets):
     # Création d'une liste compacte
     for idx in range(start_idx, end_idx):
         asset = assets[idx]
-        # Récupérer le compte et la banque (optimisé avec jointure)
-        account_bank = db.query(Account, Bank).join(
-            Bank, Account.bank_id == Bank.id
-        ).filter(
-            Account.id == asset.account_id
-        ).first()
-
-        account, bank = account_bank if account_bank else (None, None)
+        # Récupérer le compte et la banque depuis le mapping
+        account, bank = account_bank_map.get(asset.id, (None, None))
 
         # Calculer la plus-value
         pv = asset.valeur_actuelle - asset.prix_de_revient
@@ -248,7 +289,7 @@ def display_assets_compact(db: Session, assets):
                     <div style="color:#fff;">{asset.valeur_actuelle:,.2f} {asset.devise}</div>
                 </div>
                 <div style="display:flex;justify-content:space-between;font-size:12px;">
-                    <div style="color:#adb5bd;">{account.libelle} | {bank.nom if bank else "N/A"}</div>
+                    <div style="color:#adb5bd;">{account.libelle if account else "N/A"} | {bank.nom if bank else "N/A"}</div>
                     <div class="{pv_class}">{pv_percent:+.1f}%</div>
                 </div>
                 {progress_html}
@@ -305,3 +346,34 @@ def apply_table_styling():
     /* Cette fonction est conservée pour compatibilité, mais les styles sont dans main.css */
     </style>
     """, unsafe_allow_html=True)
+
+
+def paginate_dataframe(df, page_size=10, page_key="pagination_page"):
+    """
+    Fonction de pagination pour DataFrame - sera remplacée par paginate_query
+    pour les requêtes SQLAlchemy
+    """
+    import math
+
+    # Calculer le nombre total de pages
+    total_rows = len(df)
+    total_pages = math.ceil(total_rows / page_size) if total_rows > 0 else 1
+
+    # Initialiser la page courante dans session_state si nécessaire
+    if page_key not in st.session_state:
+        st.session_state[page_key] = 1
+
+    # S'assurer que la page courante est valide
+    current_page = st.session_state[page_key]
+    if current_page > total_pages:
+        current_page = total_pages
+        st.session_state[page_key] = current_page
+
+    # Calculer les indices de début et de fin
+    start_idx = (current_page - 1) * page_size
+    end_idx = min(start_idx + page_size, total_rows)
+
+    # Extraire la page courante
+    df_paginated = df.iloc[start_idx:end_idx].copy() if not df.empty else df.copy()
+
+    return df_paginated, total_pages, current_page

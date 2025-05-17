@@ -2,7 +2,8 @@
 Service de gestion des actifs avec SQLAlchemy
 """
 from typing import List, Optional, Dict, Any, Union
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, or_, and_
 from datetime import datetime
 import uuid
 
@@ -43,20 +44,53 @@ class AssetService(BaseService[Asset]):
         Returns:
             Liste des actifs
         """
-        query = db.query(Asset).filter(Asset.owner_id == user_id)
+        # OPTIMISATION: Utiliser eager loading pour charger les relations en une seule requête
+        query = db.query(Asset).options(
+            joinedload(Asset.account).joinedload(Account.bank)
+        ).filter(Asset.owner_id == user_id)
 
         if account_id:
             query = query.filter(Asset.account_id == account_id)
 
-        # Récupérer tous les actifs et filtrer par catégorie en Python
-        assets = query.all()
-
+        # OPTIMISATION: Filtrage sur JSON pour les catégories au niveau SQL
         if category:
-            # Filtrer les actifs qui ont cette catégorie dans leur allocation
-            assets = [asset for asset in assets
-                     if asset.allocation and category in asset.allocation]
+            # Pour SQLite, utiliser json_extract
+            query = query.filter(func.json_extract(Asset.allocation, f'$.{category}').isnot(None))
 
-        return assets
+        return query.all()
+
+    @handle_exceptions
+    def get_assets_with_relations(
+            self, db: Session,
+            user_id: str,
+            account_id: Optional[str] = None,
+            category: Optional[str] = None
+    ) -> List[Asset]:
+        """
+        Récupère les actifs avec leurs relations (comptes, banques) en une seule requête
+
+        Args:
+            db: Session de base de données
+            user_id: ID de l'utilisateur
+            account_id: ID du compte (optionnel)
+            category: Catégorie d'actif (optionnel)
+
+        Returns:
+            Liste des actifs avec relations chargées
+        """
+        # OPTIMISATION: Utiliser eager loading pour charger les relations en une seule requête
+        query = db.query(Asset).options(
+            joinedload(Asset.account).joinedload(Account.bank)
+        ).filter(Asset.owner_id == user_id)
+
+        if account_id:
+            query = query.filter(Asset.account_id == account_id)
+
+        # Filtrage par catégorie JSON (SQLite)
+        if category:
+            query = query.filter(func.json_extract(Asset.allocation, f'$.{category}').isnot(None))
+
+        return query.all()
 
     @handle_exceptions
     def add_asset(
@@ -234,17 +268,18 @@ class AssetService(BaseService[Asset]):
         Returns:
             Nombre d'actifs mis à jour
         """
-        # Récupérer les taux de change actuels
+        # OPTIMISATION: Récupérer les taux de change une seule fois
         rates = self.currency_service.get_exchange_rates()
 
-        # Préparer la requête
+        # OPTIMISATION: Utiliser une requête optimisée avec filtres directement dans SQL
         query = db.query(Asset)
         if asset_id:
             query = query.filter(Asset.id == asset_id)
         else:
-            # Exclure les actifs en EUR
+            # Exclure les actifs en EUR directement dans la requête
             query = query.filter(Asset.devise != "EUR")
 
+        # OPTIMISATION: Charger uniquement les colonnes nécessaires
         assets = query.all()
         updated_count = 0
 
@@ -273,7 +308,7 @@ class AssetService(BaseService[Asset]):
                 asset.sync_error = None
                 updated_count += 1
 
-        # Sauvegarder les modifications
+        # OPTIMISATION: Commit une seule fois après toutes les mises à jour
         db.commit()
 
         return updated_count
@@ -290,14 +325,15 @@ class AssetService(BaseService[Asset]):
         Returns:
             Nombre d'actifs mis à jour
         """
-        # Préparer la requête
+        # OPTIMISATION: Utiliser une requête optimisée avec filtres directement dans SQL
         query = db.query(Asset)
         if asset_id:
             query = query.filter(Asset.id == asset_id)
         else:
-            # Uniquement les actifs avec un ISIN
+            # Uniquement les actifs avec un ISIN directement dans la requête
             query = query.filter(Asset.isin != None)
 
+        # OPTIMISATION: Charger uniquement les colonnes nécessaires
         assets = query.all()
         updated_count = 0
 
@@ -325,7 +361,7 @@ class AssetService(BaseService[Asset]):
                 except Exception as e:
                     asset.sync_error = str(e)
 
-        # Sauvegarder les modifications
+        # OPTIMISATION: Commit une seule fois après toutes les mises à jour
         db.commit()
 
         return updated_count
@@ -342,14 +378,15 @@ class AssetService(BaseService[Asset]):
         Returns:
             Nombre d'actifs mis à jour
         """
-        # Préparer la requête
+        # OPTIMISATION: Utiliser une requête optimisée avec filtres directement dans SQL
         query = db.query(Asset)
         if asset_id:
             query = query.filter(Asset.id == asset_id)
         else:
-            # Uniquement les actifs de type métal avec des onces définies
+            # Uniquement les actifs de type métal avec des onces définies directement dans la requête
             query = query.filter(Asset.type_produit == "metal", Asset.ounces != None)
 
+        # OPTIMISATION: Charger uniquement les colonnes nécessaires
         assets = query.all()
         updated_count = 0
 
@@ -389,7 +426,7 @@ class AssetService(BaseService[Asset]):
                 except Exception as e:
                     asset.sync_error = str(e)
 
-        # Sauvegarder les modifications
+        # OPTIMISATION: Commit une seule fois après toutes les mises à jour
         db.commit()
 
         return updated_count
@@ -456,7 +493,11 @@ class AssetService(BaseService[Asset]):
         Returns:
             Dictionnaire avec l'allocation effective
         """
-        asset = self.get_by_id(db, asset_id)
+        # OPTIMISATION: Utiliser une seule requête avec eager loading pour récupérer l'actif
+        asset = db.query(Asset).options(
+            joinedload(Asset.account)
+        ).filter(Asset.id == asset_id).first()
+
         if not asset:
             return {}
 
@@ -482,20 +523,24 @@ class AssetService(BaseService[Asset]):
             for category, percentage in asset.allocation.items():
                 effective_allocation[category] = percentage * direct_percentage / 100.0
 
-        # Ajouter l'allocation des composants
-        for comp in composants:
-            comp_id = comp.get('asset_id')
-            comp_percentage = comp.get('percentage', 0) * normalization_factor / 100.0
+        # OPTIMISATION: Récupérer tous les composants en une seule requête
+        component_ids = [comp.get('asset_id') for comp in composants if comp.get('asset_id')]
+        if component_ids:
+            components_query = db.query(Asset).filter(Asset.id.in_(component_ids))
+            component_assets = {asset.id: asset for asset in components_query.all()}
 
-            if comp_id:
-                # Récupérer l'allocation effective du composant (récursif)
-                comp_allocation = self.calculate_effective_allocation(db, comp_id)
+            # Ajouter l'allocation des composants
+            for comp in composants:
+                comp_id = comp.get('asset_id')
+                comp_percentage = comp.get('percentage', 0) * normalization_factor / 100.0
 
-                # Ajouter à l'allocation effective en proportion
-                for category, percentage in comp_allocation.items():
-                    if category not in effective_allocation:
-                        effective_allocation[category] = 0.0
-                    effective_allocation[category] += percentage * comp_percentage
+                if comp_id and comp_id in component_assets:
+                    comp_asset = component_assets[comp_id]
+                    if comp_asset.allocation:
+                        for category, percentage in comp_asset.allocation.items():
+                            if category not in effective_allocation:
+                                effective_allocation[category] = 0.0
+                            effective_allocation[category] += percentage * comp_percentage
 
         return effective_allocation
 

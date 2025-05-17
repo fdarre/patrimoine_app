@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
-from sqlalchemy.orm import Session
-from sqlalchemy import func  # Importation correcte de func
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, cast, Float, and_, or_, JSON, text
 
 from database.models import Asset, HistoryPoint, Bank, Account
 
@@ -73,7 +73,7 @@ class VisualizationService:
             text.set_fontsize(9)
 
         for autotext in autotexts:
-            autotext.set_fontsize(9)
+            text.set_fontsize(9)
             autotext.set_weight('bold')
 
         ax.axis('equal')
@@ -175,12 +175,16 @@ class VisualizationService:
         Returns:
             Figure matplotlib ou None si moins de 2 points d'historique
         """
-        # Récupérer l'historique
-        query = db.query(HistoryPoint).order_by(HistoryPoint.date)
+        # OPTIMISATION: Utiliser directement les indices et limiter les champs récupérés
+        query = db.query(HistoryPoint.date, HistoryPoint.total).order_by(HistoryPoint.date)
 
         if days:
-            # Récupérer uniquement les N derniers points
-            query = query.order_by(HistoryPoint.date.desc()).limit(days)
+            # Récupérer uniquement les N derniers points de manière optimisée
+            # SQLite ne supporte pas LIMIT avec OFFSET, donc on doit utiliser une sous-requête
+            subquery = db.query(HistoryPoint.id).order_by(HistoryPoint.date.desc()).limit(days).subquery()
+            query = db.query(HistoryPoint.date, HistoryPoint.total).filter(
+                HistoryPoint.id.in_(subquery)
+            ).order_by(HistoryPoint.date)
 
         history_data = query.all()
 
@@ -190,8 +194,8 @@ class VisualizationService:
         fig, ax = plt.subplots(figsize=figsize)
 
         # Extraire les dates et les valeurs totales
-        dates = [entry.date for entry in history_data]
-        values = [entry.total for entry in history_data]
+        dates = [entry[0] for entry in history_data]  # date est à l'index 0
+        values = [entry[1] for entry in history_data]  # total est à l'index 1
 
         # Convertir les dates au format datetime pour le graphique
         x = [datetime.strptime(date, "%Y-%m-%d") for date in dates]
@@ -236,7 +240,7 @@ class VisualizationService:
             asset_categories: List[str] = None
     ) -> Dict[str, float]:
         """
-        Calcule la répartition par catégorie
+        Calcule la répartition par catégorie avec optimisation SQL
 
         Args:
             db: Session de base de données
@@ -251,29 +255,36 @@ class VisualizationService:
             from config.app_config import ASSET_CATEGORIES
             asset_categories = ASSET_CATEGORIES
 
-        # Initialiser le dictionnaire des valeurs par catégorie
+        # OPTIMISATION: Utiliser une agrégation SQL au lieu du filtrage Python
         category_values = {cat: 0.0 for cat in asset_categories}
 
-        # Récupérer les actifs
-        query = db.query(Asset).filter(Asset.owner_id == user_id)
-        if account_id:
-            query = query.filter(Asset.account_id == account_id)
+        # Pour SQLite, nous devons utiliser json_extract pour chaque catégorie
+        for category in asset_categories:
+            # Construction de la requête d'agrégation SQL pour cette catégorie
+            query = db.query(
+                func.sum(
+                    # Calculer la valeur allouée à cette catégorie
+                    func.coalesce(Asset.value_eur, Asset.valeur_actuelle) *
+                    # Multiplier par le pourcentage de la catégorie dans l'allocation
+                    # Utilisation de json_extract pour SQLite
+                    func.cast(
+                        func.json_extract(Asset.allocation, f'$.{category}'),
+                        Float
+                    ) / 100.0
+                )
+            ).filter(
+                Asset.owner_id == user_id,
+                # Vérifier que l'allocation JSON contient cette catégorie
+                func.json_extract(Asset.allocation, f'$.{category}').isnot(None)
+            )
 
-        assets = query.all()
+            # Ajouter le filtre par compte si nécessaire
+            if account_id:
+                query = query.filter(Asset.account_id == account_id)
 
-        # Calculer les valeurs par catégorie
-        for asset in assets:
-            # Vérifier que allocation est un dictionnaire et pas None
-            if not asset.allocation or not isinstance(asset.allocation, dict):
-                continue
-
-            # Pour chaque catégorie, calculer la valeur allouée
-            for category, percentage in asset.allocation.items():
-                # Calculer la valeur allouée à cette catégorie
-                # Utiliser value_eur au lieu de valeur_actuelle pour cohérence et gérer les None
-                value_to_use = asset.value_eur if asset.value_eur is not None else asset.valeur_actuelle
-                allocated_value = value_to_use * percentage / 100
-                category_values[category] += allocated_value
+            # Exécuter la requête et récupérer le résultat
+            result = query.scalar() or 0.0
+            category_values[category] = result
 
         return category_values
 
@@ -286,7 +297,7 @@ class VisualizationService:
             geo_zones: List[str] = None
     ) -> Dict[str, float]:
         """
-        Calcule la répartition géographique
+        Calcule la répartition géographique avec optimisation SQL
 
         Args:
             db: Session de base de données
@@ -305,44 +316,65 @@ class VisualizationService:
         # Initialiser le dictionnaire des valeurs par zone géographique
         geo_values = {zone: 0.0 for zone in geo_zones}
 
-        # Récupérer les actifs
-        query = db.query(Asset).filter(Asset.owner_id == user_id)
+        # OPTIMISATION: Utiliser une requête SQL plus efficace avec jointures
+        # Cette optimisation est difficile car nous traitons des JSON imbriqués
+        # Pour SQLite, nous devons encore faire une partie du traitement en Python
+
+        # Récupérer les actifs avec leurs allocations et répartitions géographiques
+        query = db.query(
+            Asset.id,
+            Asset.value_eur,
+            Asset.valeur_actuelle,
+            Asset.allocation,
+            Asset.geo_allocation
+        ).filter(
+            Asset.owner_id == user_id
+        )
+
+        # Ajouter des filtres supplémentaires si nécessaire
         if account_id:
             query = query.filter(Asset.account_id == account_id)
 
-        assets = query.all()
+        # Si une catégorie est spécifiée, filtrer les actifs qui ont cette catégorie
+        if category:
+            query = query.filter(func.json_extract(Asset.allocation, f'$.{category}').isnot(None))
 
-        # Calculer les valeurs par zone géographique
-        for asset in assets:
-            # Vérifier que allocation est un dictionnaire et pas None
-            if not asset.allocation or not isinstance(asset.allocation, dict):
+        # Exécuter la requête et traiter les résultats
+        assets_data = query.all()
+
+        # Traiter les résultats - pour les JSON imbriqués complexes, c'est plus simple en Python
+        for asset_id, value_eur, valeur_actuelle, allocation, geo_allocation in assets_data:
+            # Ignorer les actifs sans allocations ou répartitions géographiques
+            if not allocation or not geo_allocation:
                 continue
 
-            # Utiliser value_eur au lieu de valeur_actuelle pour cohérence et gérer les None
-            value_to_use = asset.value_eur if asset.value_eur is not None else asset.valeur_actuelle
+            # Utiliser value_eur s'il existe, sinon valeur_actuelle
+            value_to_use = value_eur if value_eur is not None else valeur_actuelle
 
             # Si une catégorie est spécifiée, ne considérer que cette partie de l'actif
             if category:
-                if category not in asset.allocation:
+                if category not in allocation:
                     continue
 
                 # Valeur allouée à cette catégorie
-                category_value = value_to_use * asset.allocation[category] / 100
+                category_value = value_to_use * allocation[category] / 100
 
                 # Répartition géographique pour cette catégorie
-                geo_zones_dict = asset.geo_allocation.get(category, {}) if asset.geo_allocation else {}
+                geo_zones_dict = geo_allocation.get(category, {})
 
                 for zone, percentage in geo_zones_dict.items():
-                    geo_values[zone] += category_value * percentage / 100
+                    if zone in geo_values:
+                        geo_values[zone] += category_value * percentage / 100
             else:
                 # Pour tous les actifs, ventiler selon les allocations et répartitions géographiques
-                for cat, allocation_pct in asset.allocation.items():
+                for cat, allocation_pct in allocation.items():
                     category_value = value_to_use * allocation_pct / 100
 
                     # Utiliser la répartition géographique spécifique à cette catégorie si disponible
-                    geo_zones_dict = asset.geo_allocation.get(cat, {}) if asset.geo_allocation else {}
+                    geo_zones_dict = geo_allocation.get(cat, {})
 
                     for zone, percentage in geo_zones_dict.items():
-                        geo_values[zone] += category_value * percentage / 100
+                        if zone in geo_values:
+                            geo_values[zone] += category_value * percentage / 100
 
         return geo_values
