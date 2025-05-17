@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 
 from utils.constants import DATA_DIR
-from utils.style_loader import load_css
+from utils.style_loader import load_css, load_js
 from database.db_config import get_db, engine, Base
 from ui.dashboard import show_dashboard
 from ui.banks_accounts import show_banks_accounts
@@ -29,27 +29,30 @@ def main():
         initial_sidebar_state="expanded"
     )
 
-    # Charger les styles CSS
+    # Charger les styles CSS et JS améliorés
     load_css()
+    load_js()
 
-    # Vérifier l'authentification
-    is_authenticated = check_auth()
+    # Afficher un indicateur de chargement pendant l'initialisation
+    with st.spinner("Chargement de l'application..."):
+        # Vérifier l'authentification
+        is_authenticated = check_auth()
 
-    if not is_authenticated:
-        # Afficher l'interface d'authentification
-        show_auth()
-        return
+        if not is_authenticated:
+            # Afficher l'interface d'authentification
+            show_auth()
+            return
 
-    # Récupérer l'ID de l'utilisateur courant
-    user_id = get_current_user_id()
-    if not user_id:
-        show_auth()
-        return
+        # Récupérer l'ID de l'utilisateur courant
+        user_id = get_current_user_id()
+        if not user_id:
+            show_auth()
+            return
 
-    # Titre principal avec style simplifié
+    # Titre principal avec style moderne
     st.title("Application de Gestion Patrimoniale")
 
-    # Navigation simplifiée - Utiliser uniquement le composant radio de Streamlit
+    # Navigation dans la barre latérale avec icônes
     st.sidebar.title("Navigation")
 
     # Définition des options de menu avec icônes
@@ -75,18 +78,28 @@ def main():
         db = next(get_db())
     except Exception as e:
         st.error(f"Erreur de connexion à la base de données: {str(e)}")
-        st.warning("Essai de reconnexion dans 5 secondes...")
-        time.sleep(5)
-        try:
-            db = next(get_db())
-        except Exception as e:
-            st.error(f"Échec de la reconnexion: {str(e)}")
-            st.info("Veuillez redémarrer l'application.")
-            return
+
+        # Afficher un bouton stylisé pour réessayer
+        if st.button("🔄 Réessayer la connexion", key="retry_connection"):
+            with st.spinner("Nouvelle tentative de connexion..."):
+                time.sleep(1)  # Effet visuel
+                try:
+                    db = next(get_db())
+                    st.success("Connexion réussie!")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Échec de la reconnexion: {str(e)}")
+                    st.info("Veuillez vérifier la configuration de la base de données.")
+                    return
+        return
 
     try:
-        # Afficher un indicateur de chargement pour la page sélectionnée
+        # Afficher la page sélectionnée avec transition douce
         with st.spinner(f"Chargement de {page}..."):
+            # Effet de transition
+            time.sleep(0.3)
+
             # Afficher la page sélectionnée
             if page == "Dashboard":
                 show_dashboard(db, user_id)
@@ -106,9 +119,22 @@ def main():
             elif page == "Paramètres":
                 show_settings(db, user_id)
     except Exception as e:
-        # Gestion globale des erreurs
+        # Gestion globale des erreurs avec style moderne
         st.error(f"Une erreur s'est produite: {str(e)}")
-        st.info("Si le problème persiste, veuillez vérifier vos données ou contacter l'administrateur.")
+
+        st.markdown("""
+        <div class="card-container" style="background-color: rgba(239, 68, 68, 0.1); padding: 1.5rem;">
+            <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                <span style="font-size: 2rem; margin-right: 1rem;">⚠️</span>
+                <div>
+                    <h3 style="margin: 0;">Erreur de l'application</h3>
+                    <p>Si le problème persiste, veuillez vérifier vos données ou contacter l'administrateur.</p>
+                </div>
+            </div>
+            <pre style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 0.5rem; overflow: auto;">{str(e)}</pre>
+        </div>
+        """, unsafe_allow_html=True)
+
         # Journalisation de l'erreur
         import logging
         logging.error(f"Erreur dans l'application: {str(e)}", exc_info=True)
@@ -131,18 +157,41 @@ def main():
         Vos données sont sécurisées avec une base de données chiffrée et des sauvegardes automatiques.
         """)
 
-    # Bouton de déconnexion simplifié
+    # Bouton de déconnexion stylisé
     st.sidebar.markdown("---")
-    if st.sidebar.button("📤 Déconnexion"):
-        logout()
+    if st.sidebar.button("📤 Déconnexion", key="logout_button"):
+        with st.spinner("Déconnexion en cours..."):
+            time.sleep(0.5)  # Effet visuel
+            logout()
 
-    # Afficher les informations de version et l'utilisateur connecté
+    # Afficher les informations stylisées en bas de la sidebar
     st.sidebar.markdown("---")
 
-    # Information utilisateur
+    # Information utilisateur avec style moderne
     if "user" in st.session_state:
-        st.sidebar.text(f"Utilisateur: {st.session_state['user']}")
-        st.sidebar.text(f"Version: 3.0")
+        user = st.session_state['user']
+        # Format de date moderne
+        current_date = datetime.now().strftime("%d %b %Y")
+
+        st.sidebar.markdown(f"""
+        <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(30, 41, 59, 0.4)); 
+                    padding: 1rem; border-radius: 0.5rem; border: 1px solid rgba(255, 255, 255, 0.05);">
+            <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+                <div style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #ec4899); 
+                          display: flex; align-items: center; justify-content: center; margin-right: 0.75rem;">
+                    <span style="color: white; font-size: 1.25rem;">👤</span>
+                </div>
+                <div>
+                    <div style="font-weight: 600; font-size: 1rem;">{user}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">{current_date}</div>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
+                <span>Version 3.0</span>
+                <span>Pro</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 # Point d'entrée

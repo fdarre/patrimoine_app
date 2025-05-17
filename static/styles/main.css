@@ -1,146 +1,592 @@
 /* 
  * styles/main.css
- * Styles centralisés pour l'application de gestion patrimoniale
+ * Design moderne pour l'application de gestion patrimoniale
  */
 
-/* Variables globales */
+/* Système de couleurs modernisé */
 :root {
-    --text-color: #f8f9fa;
-    --dark-text-color: #212529;
-    --background-color: #121212;
-    --primary-color: #4e79a7;
-    --secondary-color: #f28e2c;
-    --success-color: #40c057;
-    --warning-color: #ffc107;
-    --danger-color: #fa5252;
-    --light-bg: #1e1e1e;
-    --darker-bg: #121212;
-    --border-color: #343a40;
-    --muted-color: #6c757d;
-    --light-text: #adb5bd;
+    /* Couleurs primaires */
+    --primary-color: #6366f1;        /* Indigo vif */
+    --primary-light: #818cf8;
+    --primary-dark: #4f46e5;
+
+    /* Couleurs secondaires */
+    --secondary-color: #ec4899;      /* Rose */
+    --secondary-light: #f472b6;
+    --secondary-dark: #db2777;
+
+    /* Couleurs sémantiques */
+    --success-color: #10b981;        /* Emeraude */
+    --warning-color: #f59e0b;        /* Ambre */
+    --danger-color: #ef4444;         /* Rouge */
+    --info-color: #0ea5e9;           /* Bleu ciel */
+
+    /* Palette de gris */
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    --gray-950: #030712;
+
+    /* Couleurs de fond et texte */
+    --bg-color: #0f172a;             /* Fond sombre bleuté */
+    --card-bg: #1e293b;              /* Fond de carte */
+    --sidebar-bg: #0f172a;           /* Fond sidebar */
+    --text-light: #f8fafc;           /* Texte clair */
+    --text-muted: #94a3b8;           /* Texte secondaire */
+    --text-dark: #1e293b;            /* Texte sombre (pour cartes claires) */
+
+    /* Rayons de bordure */
+    --radius-sm: 0.25rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+
+    /* Ombres */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+
+    /* Variables d'animation */
+    --transition-fast: 150ms;
+    --transition-normal: 250ms;
+    --transition-slow: 350ms;
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    --ease-in: cubic-bezier(0.4, 0, 1, 1);
 }
 
-/* Styles globaux */
+/* Base HTML et Body */
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-light);
+    line-height: 1.5;
+}
+
+/* Application Streamlit */
 .stApp {
-    color: var(--text-color);
-    background-color: var(--background-color);
+    background-color: var(--bg-color);
+    color: var(--text-light);
 }
 
-/* Typos */
+/* Typography */
 h1, h2, h3, h4, h5, h6 {
-    color: var(--text-color) !important;
-    margin-bottom: 1.5rem;
+    color: var(--text-light) !important;
+    font-weight: 600;
+    letter-spacing: -0.025em;
 }
 
 h1 {
-    border-bottom: 2px solid var(--primary-color);
-    padding-bottom: 0.5rem;
+    font-size: 2.25rem !important;
+    margin-bottom: 2.5rem;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    position: relative;
+    display: inline-block;
 }
 
-/* Cartes métriques */
+h1::after {
+    content: "";
+    position: absolute;
+    bottom: -10px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    border-radius: 3px;
+}
+
+h2 {
+    font-size: 1.75rem !important;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    color: var(--text-light) !important;
+}
+
+h3 {
+    font-size: 1.25rem !important;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+}
+
+p, li, div {
+    color: var(--text-light);
+}
+
+a {
+    color: var(--primary-light);
+    text-decoration: none;
+    transition: color var(--transition-fast) var(--ease-in-out);
+}
+
+a:hover {
+    color: var(--primary-color);
+    text-decoration: underline;
+}
+
+/* Barre latérale */
+[data-testid="stSidebar"] {
+    background-color: var(--sidebar-bg);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-testid="stSidebar"] div:first-child {
+    background-image: linear-gradient(to bottom, var(--sidebar-bg), rgba(15, 23, 42, 0.95));
+}
+
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
+    color: var(--text-light);
+}
+
+/* En-tête de la sidebar */
+[data-testid="stSidebar"] h1 {
+    font-size: 1.5rem !important;
+    padding-left: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Options de navigation */
+[data-testid="stSidebar"] [role="radiogroup"] label {
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast) var(--ease-out);
+    padding: 0.5rem;
+}
+
+[data-testid="stSidebar"] [role="radiogroup"] label:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-light);
+}
+
+[data-testid="stSidebar"] [role="radiogroup"] label[data-baseweb="radio"] input:checked ~ div {
+    border-color: var(--primary-color);
+    background-color: var(--primary-color);
+}
+
+/* Séparateurs dans la sidebar */
+[data-testid="stSidebar"] hr {
+    border-color: rgba(255, 255, 255, 0.1);
+    margin: 1.5rem 0;
+}
+
+/* Métriques améliorées */
 [data-testid="stMetric"] {
-    background-color: var(--light-bg);
-    border-radius: 0.5rem;
-    padding: 1rem;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease;
+    background: linear-gradient(135deg, var(--card-bg), rgba(30, 41, 59, 0.8));
+    border-radius: var(--radius-lg);
+    padding: 1.25rem !important;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    transition: transform var(--transition-normal) var(--ease-out),
+                box-shadow var(--transition-normal) var(--ease-out);
 }
 
 [data-testid="stMetric"]:hover {
-    transform: translateY(-2px);
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+                0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 [data-testid="stMetricLabel"] {
-    color: var(--light-text) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
+    color: var(--text-muted) !important;
+    margin-bottom: 0.25rem;
 }
 
 [data-testid="stMetricValue"] {
-    color: var(--text-color) !important;
-    font-weight: 600;
-    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+    font-size: 1.75rem !important;
+    background: linear-gradient(90deg, var(--text-light), var(--primary-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
-/* Tableaux améliorés */
-[data-testid="stDataFrame"] {
-    border: 1px solid var(--border-color);
-    border-radius: 0.5rem;
-    overflow: hidden;
+[data-testid="stMetricDelta"] {
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
 }
 
-[data-testid="stDataFrame"] [data-testid="stDataFrameHeader"] {
-    background-color: var(--light-bg);
-    color: var(--text-color);
-    font-weight: 600;
-    border-bottom: 1px solid var(--border-color);
-}
-
-/* Cartes et conteneurs */
-.metric-card {
-    background-color: var(--light-bg);
-    border-radius: 0.5rem;
-    padding: 1rem;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    margin-bottom: 1rem;
-    color: var(--text-color);
-}
-
-.todo-card {
-    background-color: #fff3cd;
-    border-left: 4px solid var(--warning-color);
-    padding: 1rem;
-    margin-bottom: 0.5rem;
-    border-radius: 0.25rem;
-    color: var(--dark-text-color) !important;
-}
-
-/* Onglets */
+/* Onglets modernisés */
 [data-testid="stTabs"] {
-    background-color: var(--light-bg);
-    border-radius: 0.5rem;
-    overflow: hidden;
+    background-color: transparent;
 }
 
 [data-testid="stTabs"] [data-testid="stTabsHeader"] {
-    background-color: var(--light-bg);
-    border-bottom: 1px solid var(--border-color);
+    background-color: transparent;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 [data-testid="stTabs"] [data-testid="stTabsHeaderButton"] {
-    color: var(--muted-color);
+    color: var(--text-muted);
+    font-weight: 500;
+    padding: 0.75rem 1rem;
+    transition: color var(--transition-fast) var(--ease-out),
+                border-color var(--transition-fast) var(--ease-out);
+}
+
+[data-testid="stTabs"] [data-testid="stTabsHeaderButton"]:hover {
+    color: var(--text-light);
 }
 
 [data-testid="stTabs"] [data-testid="stTabsHeaderButton"][aria-selected="true"] {
-    color: var(--text-color);
+    color: var(--primary-color);
     border-bottom: 2px solid var(--primary-color);
+    font-weight: 600;
 }
 
-/* Sidebar */
-[data-testid="stSidebar"] {
-    background-color: var(--light-bg);
-    border-right: 1px solid var(--border-color);
+/* Cartes et conteneurs */
+.card-container {
+    background: linear-gradient(135deg, var(--card-bg), rgba(30, 41, 59, 0.8));
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 1.5rem;
+    transition: transform var(--transition-normal) var(--ease-out),
+                box-shadow var(--transition-normal) var(--ease-out);
+    overflow: hidden;
 }
 
-[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+.card-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+                0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.card-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text-light);
+}
+
+.card-body {
+    color: var(--text-muted);
+}
+
+/* Metric card personnalisée */
+.metric-card {
+    background: linear-gradient(135deg, var(--card-bg), rgba(30, 41, 59, 0.8));
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 1.5rem;
+    transition: transform var(--transition-normal) var(--ease-out),
+                box-shadow var(--transition-normal) var(--ease-out);
+}
+
+.metric-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+                0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Carte de tâche modernisée */
+.todo-card {
+    background-color: rgba(254, 240, 138, 0.1);
+    border-left: 4px solid var(--warning-color);
     padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: var(--radius-md);
+    backdrop-filter: blur(8px);
+    transition: transform var(--transition-fast) var(--ease-out);
+}
+
+.todo-card:hover {
+    transform: translateX(4px);
+}
+
+.todo-card strong {
+    color: var(--warning-color) !important;
+}
+
+.todo-card p, .todo-card div, .todo-card span {
+    color: var(--text-light) !important;
+}
+
+/* Tableaux modernisés */
+[data-testid="stTable"], .dataframe {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+[data-testid="stTable"] table, .dataframe {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+[data-testid="stTable"] th, .dataframe th {
+    background-color: rgba(30, 41, 59, 0.8);
+    color: var(--text-light);
+    font-weight: 600;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+[data-testid="stTable"] td, .dataframe td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--text-light);
+    font-size: 0.875rem;
+}
+
+[data-testid="stTable"] tr:hover td, .dataframe tr:hover td {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Boutons modernisés */
+.stButton button {
+    background: linear-gradient(90deg, var(--primary-color), var(--primary-dark));
+    color: white;
+    font-weight: 500;
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--radius-md);
+    border: none;
+    transition: transform var(--transition-fast) var(--ease-out),
+                box-shadow var(--transition-fast) var(--ease-out);
+    box-shadow: var(--shadow-md);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.875rem;
+}
+
+.stButton button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+                0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.stButton button:active {
+    transform: translateY(0);
+}
+
+/* Boutons secondaires */
+.stButton button.secondary {
+    background: transparent;
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+/* Boutons d'action */
+.stButton button.success {
+    background: linear-gradient(90deg, var(--success-color), #059669);
+}
+
+.stButton button.danger {
+    background: linear-gradient(90deg, var(--danger-color), #b91c1c);
+}
+
+.stButton button.warning {
+    background: linear-gradient(90deg, var(--warning-color), #d97706);
+    color: var(--text-dark);
+}
+
+/* Inputs et contrôles */
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+[data-testid="stDateInput"] input {
+    background-color: rgba(30, 41, 59, 0.6) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: var(--radius-md) !important;
+    color: var(--text-light) !important;
+    padding: 0.625rem 1rem !important;
+    height: auto !important;
+    transition: border-color var(--transition-fast) var(--ease-out),
+                box-shadow var(--transition-fast) var(--ease-out);
+}
+
+[data-testid="stTextInput"] input:focus,
+[data-testid="stNumberInput"] input:focus,
+[data-testid="stSelectbox"] div[data-baseweb="select"] > div:focus-within,
+[data-testid="stDateInput"] input:focus {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25) !important;
+}
+
+[data-testid="stTextInput"] label,
+[data-testid="stNumberInput"] label,
+[data-testid="stSelectbox"] label,
+[data-testid="stDateInput"] label {
+    color: var(--text-muted) !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+}
+
+/* Sliders modernisés */
+[data-testid="stSlider"] [data-testid="stThumbValue"] {
+    background-color: var(--primary-color);
+    color: white;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+}
+
+[data-testid="stSlider"] > div:first-child {
+    height: 0.25rem !important;
+}
+
+[data-testid="stSlider"] [data-testid="stTickBar"] {
+    color: var(--text-muted);
+}
+
+[data-testid="stSlider"] [data-testid="stTrack"] > div:first-child {
+    background-color: var(--primary-color);
+}
+
+/* Boîtes d'information */
+[data-testid="stAlert"] {
+    border-radius: var(--radius-md);
+    margin: 1rem 0;
+    padding: 1rem;
+    border: none;
+    box-shadow: var(--shadow-md);
+}
+
+[data-testid="stAlert"][kind="info"] {
+    background-color: rgba(14, 165, 233, 0.1);
+    border-left: 4px solid var(--info-color);
+}
+
+[data-testid="stAlert"][kind="success"] {
+    background-color: rgba(16, 185, 129, 0.1);
+    border-left: 4px solid var(--success-color);
+}
+
+[data-testid="stAlert"][kind="warning"] {
+    background-color: rgba(245, 158, 11, 0.1);
+    border-left: 4px solid var(--warning-color);
+}
+
+[data-testid="stAlert"][kind="error"] {
+    background-color: rgba(239, 68, 68, 0.1);
+    border-left: 4px solid var(--danger-color);
 }
 
 /* Indicateurs */
 .positive {
     color: var(--success-color) !important;
+    font-weight: 600;
 }
 
 .negative {
     color: var(--danger-color) !important;
+    font-weight: 600;
 }
 
-/* Corrections spécifiques */
-.stButton button {
-    width: 100%;
-    background-color: var(--primary-color);
-    color: white;
+/* Badges */
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-light);
 }
 
-/* Masquer les éléments dupliqués */
+.badge-primary {
+    background-color: rgba(99, 102, 241, 0.2);
+    color: var(--primary-light);
+}
+
+.badge-success {
+    background-color: rgba(16, 185, 129, 0.2);
+    color: var(--success-color);
+}
+
+.badge-warning {
+    background-color: rgba(245, 158, 11, 0.2);
+    color: var(--warning-color);
+}
+
+.badge-danger {
+    background-color: rgba(239, 68, 68, 0.2);
+    color: var(--danger-color);
+}
+
+/* Animation d'entrée pour les éléments importants */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+h1, [data-testid="stMetric"] {
+    animation: fadeInUp 0.5s var(--ease-out);
+}
+
+/* Scrollbar personnalisée */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-color);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Spinner modernisé */
+.stSpinner > div {
+    border-color: var(--primary-color) transparent transparent !important;
+}
+
+/* Filtres glassmorphism */
+[data-testid="stExpander"] {
+    background: rgba(30, 41, 59, 0.6);
+    backdrop-filter: blur(10px);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+[data-testid="stExpanderHeader"] {
+    background-color: transparent;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 0.75rem 1rem;
+}
+
+/* Correctifs spécifiques */
 [data-testid="stVerticalBlock"] > div > div:empty {
     display: none !important;
 }
@@ -149,7 +595,81 @@ h1 {
     display: none !important;
 }
 
-/* Exception pour les cartes todo */
-.todo-card p, .todo-card div, .todo-card span {
-    color: var(--dark-text-color) !important;
+/* Style pour les graphiques */
+.js-plotly-plot, .plotly, .plot-container {
+    background-color: transparent !important;
+}
+
+.js-plotly-plot .bg {
+    fill: rgba(30, 41, 59, 0.3) !important;
+    stroke: rgba(255, 255, 255, 0.1) !important;
+    stroke-width: 1 !important;
+}
+
+.js-plotly-plot .main-svg {
+    background-color: transparent !important;
+}
+
+.js-plotly-plot .xtick text, .js-plotly-plot .ytick text {
+    fill: var(--text-muted) !important;
+}
+
+.js-plotly-plot .xgrid, .js-plotly-plot .ygrid {
+    stroke: rgba(255, 255, 255, 0.05) !important;
+}
+
+.js-plotly-plot .legendtext {
+    fill: var(--text-light) !important;
+}
+
+/* Splash d'accueil animé */
+@keyframes gradientBG {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.splash-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(-45deg, #6366f1, #4f46e5, #ec4899, #0ea5e9);
+    background-size: 400% 400%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: gradientBG 15s ease infinite;
+    z-index: 1000;
+}
+
+.splash-content {
+    text-align: center;
+    color: white;
+}
+
+.splash-title {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.splash-subtitle {
+    font-size: 1.5rem;
+    opacity: 0.8;
+}
+
+/* Mode sombre enforced */
+@media (prefers-color-scheme: light) {
+    .stApp {
+        background-color: var(--bg-color) !important;
+        color: var(--text-light) !important;
+    }
 }
