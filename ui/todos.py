@@ -4,9 +4,10 @@ Interface de gestion des tâches
 
 import streamlit as st
 from sqlalchemy.orm import Session
+import time
 
 from database.models import Bank, Account, Asset
-from services.asset_service import AssetService
+from services.asset_service import asset_service
 from services.data_service import DataService
 
 def show_todos(db: Session, user_id: str):
@@ -19,11 +20,18 @@ def show_todos(db: Session, user_id: str):
     """
     st.header("Tâches à faire", anchor=False)
 
+    # État de session pour suivre quelle tâche est terminée
+    if 'completed_tasks' not in st.session_state:
+        st.session_state['completed_tasks'] = set()
+
     # Récupérer les actifs avec des tâches
     todos = db.query(Asset).filter(
         Asset.owner_id == user_id,
         Asset.todo != ""
     ).all()
+
+    # Filtrer pour exclure les tâches déjà marquées comme terminées dans cette session
+    todos = [todo for todo in todos if todo.id not in st.session_state['completed_tasks']]
 
     if todos:
         st.subheader(f"Liste des tâches ({len(todos)})")
@@ -44,24 +52,19 @@ def show_todos(db: Session, user_id: str):
             col1, col2 = st.columns([4, 1])
             with col2:
                 if st.button("Terminé", key=f"done_todo_{asset.id}"):
-                    # Mettre à jour l'actif avec todo vide
-                    updated_asset = AssetService.update_asset(
-                        db=db,
-                        asset_id=asset.id,
-                        nom=asset.nom,
-                        compte_id=asset.account_id,
-                        type_produit=asset.type_produit,
-                        allocation=asset.allocation,
-                        geo_allocation=asset.geo_allocation,
-                        valeur_actuelle=asset.valeur_actuelle,
-                        prix_de_revient=asset.prix_de_revient,
-                        devise=asset.devise,
-                        notes=asset.notes,
-                        todo=""  # Todo vide
-                    )
+                    # Utiliser la méthode directe pour vider le todo
+                    if asset_service.clear_todo(db, asset.id):
+                        # Ajouter l'ID de l'actif à notre set de tâches terminées pour cette session
+                        st.session_state['completed_tasks'].add(asset.id)
 
-                    if updated_asset:
+                        # Enregistrer l'historique
+                        DataService.record_history_entry(db, user_id)
+
+                        # Afficher un message de succès
                         st.success(f"Tâche marquée comme terminée.")
+
+                        # Forcer le rechargement complet de la page
+                        time.sleep(0.5)
                         st.rerun()
                     else:
                         st.error("Erreur lors de la mise à jour de la tâche.")
@@ -84,29 +87,25 @@ def show_todos(db: Session, user_id: str):
             todo_text = st.text_area("Description de la tâche")
 
             if st.button("Ajouter la tâche", disabled=not todo_text):
-                asset = AssetService.find_asset_by_id(db, asset_id)
+                asset = next((a for a in all_assets if a.id == asset_id), None)
                 if asset:
-                    # Mettre à jour l'actif avec la nouvelle tâche
-                    updated_asset = AssetService.update_asset(
-                        db=db,
-                        asset_id=asset_id,
-                        nom=asset.nom,
-                        compte_id=asset.account_id,
-                        type_produit=asset.type_produit,
-                        allocation=asset.allocation,
-                        geo_allocation=asset.geo_allocation,
-                        valeur_actuelle=asset.valeur_actuelle,
-                        prix_de_revient=asset.prix_de_revient,
-                        devise=asset.devise,
-                        notes=asset.notes,
-                        todo=todo_text
-                    )
+                    # Mettre à jour directement le champ todo
+                    updated = db.query(Asset).filter(Asset.id == asset_id).update({"todo": todo_text})
+                    if updated:
+                        db.commit()
+                        # Enregistrer l'historique
+                        DataService.record_history_entry(db, user_id)
 
-                    if updated_asset:
                         st.success(f"Tâche ajoutée avec succès.")
+                        # Supprimer cette tâche de notre ensemble de tâches terminées si elle y était
+                        if asset_id in st.session_state['completed_tasks']:
+                            st.session_state['completed_tasks'].remove(asset_id)
+                        time.sleep(0.5)
                         st.rerun()
                     else:
                         st.error("Erreur lors de l'ajout de la tâche.")
+                else:
+                    st.error("Actif non trouvé.")
         else:
             st.warning("Aucun actif disponible pour ajouter une tâche.")
     else:
@@ -130,28 +129,20 @@ def show_todos(db: Session, user_id: str):
             todo_text = st.text_area("Description de la tâche")
 
             if st.button("Ajouter la tâche", disabled=not todo_text):
-                asset = AssetService.find_asset_by_id(db, asset_id)
-                if asset:
-                    # Mettre à jour l'actif avec la nouvelle tâche
-                    updated_asset = AssetService.update_asset(
-                        db=db,
-                        asset_id=asset_id,
-                        nom=asset.nom,
-                        compte_id=asset.account_id,
-                        type_produit=asset.type_produit,
-                        allocation=asset.allocation,
-                        geo_allocation=asset.geo_allocation,
-                        valeur_actuelle=asset.valeur_actuelle,
-                        prix_de_revient=asset.prix_de_revient,
-                        devise=asset.devise,
-                        notes=asset.notes,
-                        todo=todo_text
-                    )
+                # Mettre à jour directement le champ todo
+                updated = db.query(Asset).filter(Asset.id == asset_id).update({"todo": todo_text})
+                if updated:
+                    db.commit()
+                    # Enregistrer l'historique
+                    DataService.record_history_entry(db, user_id)
 
-                    if updated_asset:
-                        st.success(f"Tâche ajoutée avec succès.")
-                        st.rerun()
-                    else:
-                        st.error("Erreur lors de l'ajout de la tâche.")
+                    st.success(f"Tâche ajoutée avec succès.")
+                    # Supprimer cette tâche de notre ensemble de tâches terminées si elle y était
+                    if asset_id in st.session_state['completed_tasks']:
+                        st.session_state['completed_tasks'].remove(asset_id)
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error("Erreur lors de l'ajout de la tâche.")
         else:
             st.warning("Veuillez d'abord ajouter des actifs.")

@@ -544,5 +544,28 @@ class AssetService(BaseService[Asset]):
 
         return effective_allocation
 
+    @handle_exceptions
+    def clear_todo(self, db: Session, asset_id: str) -> bool:
+        """
+        Vide le champ todo d'un actif existant de manière directe
+
+        Args:
+            db: Session de base de données
+            asset_id: ID de l'actif à mettre à jour
+
+        Returns:
+            True si la mise à jour a réussi, False sinon
+        """
+        try:
+            # Mettre à jour directement le champ todo sans recharger tout l'actif
+            result = db.query(Asset).filter(Asset.id == asset_id).update({"todo": ""})
+            db.commit()
+            logger.info(f"Todo effacé pour l'actif {asset_id}")
+            return result > 0
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Erreur lors de l'effacement du todo: {str(e)}")
+            return False
+
 # Créer une instance singleton du service
 asset_service = AssetService()

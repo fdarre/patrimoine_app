@@ -178,7 +178,9 @@ def show_accounts_list(db: Session, user_id: str):
         )
 
         # Obtenir les comptes selon le filtre - en une seule requête avec la somme des valeurs des actifs
-        accounts_with_values = account_service.get_accounts_with_total_values(db, user_id, filter_bank)
+        # CORRECTION: Passage de None au lieu de "Toutes les banques" quand aucun filtre
+        filter_bank_id = None if filter_bank == "Toutes les banques" else filter_bank
+        accounts_with_values = account_service.get_accounts_with_total_values(db, user_id, filter_bank_id)
 
         if accounts_with_values:
             # Créer directement un DataFrame avec les données
