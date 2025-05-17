@@ -1,266 +1,85 @@
 /* 
  * styles/main.css
- * Styles centralisés pour l'application de gestion patrimoniale - Optimisé pour Streamlit natif
+ * Styles centralisés pour l'application de gestion patrimoniale
  */
 
 /* Variables globales */
 :root {
-    --text-color: #fff;
-    --dark-text-color: #333;
-    --background-color: #1e1e1e;
+    --text-color: #f8f9fa;
+    --dark-text-color: #212529;
+    --background-color: #121212;
     --primary-color: #4e79a7;
     --secondary-color: #f28e2c;
     --success-color: #40c057;
     --warning-color: #ffc107;
     --danger-color: #fa5252;
-    --light-bg: #343a40;
-    --darker-bg: #212529;
-    --border-color: #495057;
+    --light-bg: #1e1e1e;
+    --darker-bg: #121212;
+    --border-color: #343a40;
     --muted-color: #6c757d;
     --light-text: #adb5bd;
 }
 
-/* Style global du corps */
-body {
+/* Styles globaux */
+.stApp {
     color: var(--text-color);
     background-color: var(--background-color);
 }
 
-/* Améliorations pour Streamlit */
-.stApp {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+/* Typos */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-color) !important;
+    margin-bottom: 1.5rem;
 }
 
-/* Personnalisation de la barre latérale */
-[data-testid="stSidebar"] {
-    background-color: var(--darker-bg);
-    border-right: 1px solid var(--border-color);
+h1 {
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 0.5rem;
 }
 
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h1,
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2,
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3 {
-    color: var(--text-color);
-    padding-left: 1rem;
-    border-left: 4px solid var(--primary-color);
-    margin-top: 2rem;
-}
-
-/* Personnalisation des métriques */
+/* Cartes métriques */
 [data-testid="stMetric"] {
     background-color: var(--light-bg);
     border-radius: 0.5rem;
     padding: 1rem;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    margin-bottom: 1rem;
-    transition: transform 0.2s ease-in-out;
+    transition: transform 0.2s ease;
 }
 
 [data-testid="stMetric"]:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
 }
 
 [data-testid="stMetricLabel"] {
-    font-size: 1rem !important;
-    font-weight: 400 !important;
-    color: var(--muted-color) !important;
-    margin-bottom: 0.25rem;
+    color: var(--light-text) !important;
 }
 
 [data-testid="stMetricValue"] {
-    font-size: 1.5rem !important;
-    font-weight: 700 !important;
     color: var(--text-color) !important;
-}
-
-[data-testid="stMetricDelta"] {
-    font-size: 0.875rem !important;
-}
-
-/* Personnalisation des conteneurs d'information */
-[data-testid="stAlert"] {
-    border-radius: 0.5rem;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    margin-bottom: 1rem;
-}
-
-/* Style pour les cartes de composants */
-.card-container {
-    background-color: var(--light-bg);
-    border-radius: 0.5rem;
-    padding: 1rem;
-    margin-bottom: 1rem;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-}
-
-.card-container:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
-}
-
-/* Personnalisation des expandeurs */
-[data-testid="stExpander"] {
-    border-radius: 0.5rem;
-    overflow: hidden;
-    margin-bottom: 1rem;
-    border: 1px solid var(--border-color);
-}
-
-[data-testid="stExpanderHeader"] {
-    background-color: var(--light-bg);
-    padding: 0.75rem 1rem;
     font-weight: 600;
+    font-size: 1.5rem !important;
 }
 
-[data-testid="stExpanderContent"] {
-    background-color: var(--background-color);
-    padding: 1rem;
-    border-top: 1px solid var(--border-color);
-}
-
-/* Style pour les boutons */
-[data-testid="baseButton-secondary"] {
-    border-radius: 0.375rem;
-    transition: all 0.15s ease-in-out;
-    font-weight: 500;
-    padding: 0.5rem 1rem;
-    border: none;
-}
-
-[data-testid="baseButton-secondary"]:hover {
-    filter: brightness(1.1);
-    transform: translateY(-1px);
-}
-
-/* Personnalisation des tableaux de données */
+/* Tableaux améliorés */
 [data-testid="stDataFrame"] {
+    border: 1px solid var(--border-color);
     border-radius: 0.5rem;
     overflow: hidden;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-/* En-tête du tableau */
 [data-testid="stDataFrame"] [data-testid="stDataFrameHeader"] {
     background-color: var(--light-bg);
     color: var(--text-color);
     font-weight: 600;
-    padding: 0.75rem 1rem;
-    font-size: 0.875rem;
     border-bottom: 1px solid var(--border-color);
 }
 
-/* Cellules du tableau */
-[data-testid="stDataFrame"] [role="cell"] {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border-color);
-    color: var(--text-color);
-    font-size: 0.875rem;
-}
-
-/* Lignes alternées pour une meilleure lisibilité */
-[data-testid="stDataFrame"] [role="rowgroup"] > div:nth-of-type(even) {
-    background-color: rgba(255, 255, 255, 0.05);
-}
-
-/* Ligne au survol */
-[data-testid="stDataFrame"] [role="rowgroup"] > div:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-/* Style des onglets */
-[data-testid="stTabs"] {
-    margin-bottom: 1rem;
-}
-
-[data-testid="stTabs"] [data-testid="stTabsHeader"] {
-    background-color: var(--darker-bg);
-    border-radius: 0.5rem 0.5rem 0 0;
-    overflow: hidden;
-    border-bottom: 1px solid var(--border-color);
-}
-
-[data-testid="stTabs"] [data-testid="stTabsHeaderButton"] {
-    font-weight: 500;
-    padding: 0.75rem 1.5rem;
-    color: var(--light-text);
-}
-
-[data-testid="stTabs"] [data-testid="stTabsHeaderButton"][aria-selected="true"] {
-    color: var(--text-color);
-    border-bottom: 2px solid var(--primary-color);
-    background-color: var(--light-bg);
-}
-
-[data-testid="stTabs"] [data-testid="stTabContent"] {
-    background-color: var(--light-bg);
-    border-radius: 0 0 0.5rem 0.5rem;
-    padding: 1rem;
-    border: 1px solid var(--border-color);
-    border-top: none;
-}
-
-/* Styliser les sliders (input range) */
-[data-testid="stSlider"] [data-testid="stThumbValue"] {
-    background-color: var(--primary-color);
-    color: white;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    font-weight: 500;
-    font-size: 0.75rem;
-}
-
-[data-testid="stSlider"] [data-testid="stTrack"] > div:first-child {
-    background-color: var(--primary-color);
-}
-
-/* Améliorer l'apparence des formulaires */
-[data-testid="stForm"] {
-    border-radius: 0.5rem;
-    overflow: hidden;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    background-color: var(--light-bg);
-    padding: 1rem;
-    margin-bottom: 1rem;
-}
-
-[data-testid="stForm"] [data-testid="stFormSubmitButton"] {
-    background-color: var(--primary-color);
-    color: white;
-    border-radius: 0.375rem;
-    padding: 0.5rem 1rem;
-    font-weight: 500;
-    transition: all 0.15s ease-in-out;
-}
-
-[data-testid="stForm"] [data-testid="stFormSubmitButton"]:hover {
-    filter: brightness(1.1);
-    transform: translateY(-1px);
-}
-
-/* Titre avec animation d'entrée */
-@keyframes fadeInDown {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-h1, h2, h3 {
-    animation: fadeInDown 0.5s ease-out;
-}
-
-/* Classes utilitaires */
+/* Cartes et conteneurs */
 .metric-card {
     background-color: var(--light-bg);
     border-radius: 0.5rem;
     padding: 1rem;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     margin-bottom: 1rem;
     color: var(--text-color);
 }
@@ -274,142 +93,63 @@ h1, h2, h3 {
     color: var(--dark-text-color) !important;
 }
 
+/* Onglets */
+[data-testid="stTabs"] {
+    background-color: var(--light-bg);
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+[data-testid="stTabs"] [data-testid="stTabsHeader"] {
+    background-color: var(--light-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+[data-testid="stTabs"] [data-testid="stTabsHeaderButton"] {
+    color: var(--muted-color);
+}
+
+[data-testid="stTabs"] [data-testid="stTabsHeaderButton"][aria-selected="true"] {
+    color: var(--text-color);
+    border-bottom: 2px solid var(--primary-color);
+}
+
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background-color: var(--light-bg);
+    border-right: 1px solid var(--border-color);
+}
+
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+    padding: 1rem;
+}
+
+/* Indicateurs */
 .positive {
-    color: var(--success-color);
+    color: var(--success-color) !important;
 }
 
 .negative {
-    color: var(--danger-color);
+    color: var(--danger-color) !important;
 }
 
-/* Badges et indicateurs */
-.badge {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    border-radius: 0.25rem;
-    background-color: var(--light-bg);
-    color: var(--text-color);
-    margin-right: 0.5rem;
-}
-
-.badge-primary {
+/* Corrections spécifiques */
+.stButton button {
+    width: 100%;
     background-color: var(--primary-color);
+    color: white;
 }
 
-.badge-success {
-    background-color: var(--success-color);
+/* Masquer les éléments dupliqués */
+[data-testid="stVerticalBlock"] > div > div:empty {
+    display: none !important;
 }
 
-.badge-warning {
-    background-color: var(--warning-color);
-    color: var(--dark-text-color);
-}
-
-.badge-danger {
-    background-color: var(--danger-color);
-}
-
-/* Composants flexibles */
-.flex-container {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.flex-grow {
-    flex-grow: 1;
-}
-
-/* Animation de transition pour les éléments de l'interface */
-.transition-all {
-    transition: all 0.3s ease;
-}
-
-/* Style des barres de progression */
-[data-testid="stProgress"] > div {
-    background-color: var(--primary-color);
-}
-
-[data-testid="stProgress"] {
-    height: 0.5rem;
-    border-radius: 0.25rem;
-    margin-bottom: 1rem;
-}
-
-/* Navigation principale */
-.nav-item {
-    padding: 1rem;
-    border-radius: 0.5rem;
-    margin-bottom: 0.5rem;
-    background-color: var(--darker-bg);
-    transition: all 0.2s ease-in-out;
-    cursor: pointer;
-}
-
-.nav-item:hover {
-    background-color: var(--light-bg);
-    transform: translateX(5px);
-}
-
-.nav-item.active {
-    background-color: var(--primary-color);
-}
-
-.nav-icon {
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
-}
-
-.nav-title {
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-}
-
-.nav-desc {
-    font-size: 0.75rem;
-    color: var(--light-text);
+[data-testid="stSidebar"] ul:nth-of-type(2) {
+    display: none !important;
 }
 
 /* Exception pour les cartes todo */
 .todo-card p, .todo-card div, .todo-card span {
     color: var(--dark-text-color) !important;
-}
-
-/* Personnalisation des sélecteurs */
-[data-testid="stSelectbox"] {
-    color: var(--text-color);
-}
-
-[data-testid="stSelectbox"] > div > div {
-    background-color: var(--light-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 0.375rem;
-}
-
-/* Styles spécifiques pour les composants d'analyse */
-.allocation-card {
-    background-color: var(--light-bg);
-    border-radius: 0.5rem;
-    padding: 1rem;
-    margin-bottom: 1rem;
-}
-
-.allocation-bar {
-    height: 1.5rem;
-    background-color: var(--darker-bg);
-    border-radius: 0.75rem;
-    overflow: hidden;
-    margin-bottom: 0.5rem;
-}
-
-.allocation-segment {
-    height: 100%;
-    display: inline-block;
-    text-align: center;
-    font-size: 0.75rem;
-    color: white;
-    padding: 0.25rem 0;
-    font-weight: 600;
 }

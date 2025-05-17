@@ -23,29 +23,21 @@ def show_dashboard(db: Session, user_id: str):
     # Récupérer les données de l'utilisateur
     assets = db.query(Asset).filter(Asset.owner_id == user_id).all()
 
-    # Métriques principales
+    # Métriques principales - Simplifiées et corrigées
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        # Calculer la valeur totale directement à partir des actifs de la base de données
-        # Correction du bug: utiliser value_eur au lieu de valeur_actuelle
-        # Utiliser une méthode qui gère les None de façon sécurisée
+        # Calculer la valeur totale directement
         total_value = sum(asset.value_eur or 0.0 for asset in assets)
         st.metric("Valeur totale du patrimoine", f"{total_value:,.2f} €".replace(",", " "))
-        st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        asset_count = db.query(Asset).filter(Asset.owner_id == user_id).count()
+        asset_count = len(assets)
         st.metric("Nombre d'actifs", asset_count)
-        st.markdown('</div>', unsafe_allow_html=True)
 
     with col3:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
         account_count = db.query(Account).join(Bank).filter(Bank.owner_id == user_id).count()
         st.metric("Nombre de comptes", account_count)
-        st.markdown('</div>', unsafe_allow_html=True)
 
     # Graphiques principaux (si des actifs existent)
     if assets:
@@ -92,13 +84,11 @@ def show_dashboard(db: Session, user_id: str):
             st.info("L'historique d'évolution sera disponible après plusieurs mises à jour d'actifs.")
 
         # Top 5 des actifs
-        # Utiliser une logique qui gère les None correctement pour le tri
-        top_assets = db.query(Asset).filter(Asset.owner_id == user_id).all()
-        # Trier manuellement pour gérer les None
-        top_assets.sort(key=lambda x: x.value_eur if x.value_eur is not None else 0.0, reverse=True)
-        top_assets = top_assets[:5]  # Garder les 5 premiers
+        top_assets = sorted(assets, key=lambda x: x.value_eur if x.value_eur is not None else 0.0, reverse=True)[:5]
 
         if top_assets:
+            st.subheader("Top 5 des actifs")
+
             data = []
             for asset in top_assets:
                 # Récupérer le compte et la banque associés
@@ -109,31 +99,19 @@ def show_dashboard(db: Session, user_id: str):
                 pv_percent = (pv / asset.prix_de_revient) * 100 if asset.prix_de_revient > 0 else 0
                 pv_class = "positive" if pv >= 0 else "negative"
 
-                # Calculer la répartition pour l'affichage
+                # Allocation simplifiée
                 allocation_display = " / ".join(f"{cat.capitalize()} {pct}%" for cat, pct in asset.allocation.items())
-
-                # Afficher la valeur en devise originale
-                display_value = asset.valeur_actuelle
-                display_currency = asset.devise
-
-                # Gérer le cas où value_eur est None
-                eur_info = ""
-                if asset.devise != "EUR":
-                    if asset.value_eur is not None:
-                        eur_info = f" ({asset.value_eur:,.2f} €)".replace(",", " ")
-                    else:
-                        eur_info = " (valeur EUR non disponible)"
 
                 data.append([
                     asset.nom,
-                    f"{display_value:,.2f} {display_currency}{eur_info}".replace(",", " "),
+                    f"{asset.valeur_actuelle:,.2f} {asset.devise}".replace(",", " "),
                     f'<span class="{pv_class}">{pv:,.2f} {asset.devise} ({pv_percent:.2f}%)</span>'.replace(",", " "),
                     allocation_display,
                     f"{account.libelle} ({bank.nom})" if account and bank else "N/A"
                 ])
 
             df = pd.DataFrame(data, columns=["Nom", "Valeur", "Plus-value", "Allocation", "Compte"])
-            st.markdown(df.to_html(escape=False, index=False), unsafe_allow_html=True)
+            st.write(df.to_html(escape=False, index=False), unsafe_allow_html=True)
 
         # Tâches à faire
         todos = db.query(Asset).filter(Asset.owner_id == user_id).filter(Asset.todo != "").all()

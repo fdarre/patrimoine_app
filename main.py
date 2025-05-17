@@ -1,5 +1,5 @@
 """
-Point d'entrée principal de l'application de gestion patrimoniale - Version Streamlit Only
+Point d'entrée principal de l'application de gestion patrimoniale
 """
 
 import streamlit as st
@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 
 from utils.constants import DATA_DIR
-from utils.style_loader import load_css, apply_streamlit_config
+from utils.style_loader import load_css
 from database.db_config import get_db, engine, Base
 from ui.dashboard import show_dashboard
 from ui.banks_accounts import show_banks_accounts
@@ -21,68 +21,53 @@ from ui.auth import show_auth, check_auth, logout, get_current_user_id
 
 def main():
     """Fonction principale de l'application"""
-    # Appliquer les configurations et styles de Streamlit
-    apply_streamlit_config()
+    # Configuration de base de l'application
+    st.set_page_config(
+        page_title="Gestion Patrimoniale",
+        page_icon="💰",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
 
-    # Créer un conteneur pour les notifications
-    notification_area = st.container()
+    # Charger les styles CSS
+    load_css()
 
-    # Afficher un indicateur de chargement pendant l'initialisation
-    with st.spinner("Chargement de l'application..."):
-        # Vérifier l'authentification
-        is_authenticated = check_auth()
+    # Vérifier l'authentification
+    is_authenticated = check_auth()
 
-        if not is_authenticated:
-            # Afficher l'interface d'authentification
-            show_auth()
-            return
+    if not is_authenticated:
+        # Afficher l'interface d'authentification
+        show_auth()
+        return
 
-        # Récupérer l'ID de l'utilisateur courant
-        user_id = get_current_user_id()
-        if not user_id:
-            show_auth()
-            return
+    # Récupérer l'ID de l'utilisateur courant
+    user_id = get_current_user_id()
+    if not user_id:
+        show_auth()
+        return
 
-    # Titre principal avec style amélioré
-    st.markdown("""
-    <h1 style="color:#fff;border-bottom:2px solid var(--primary-color);padding-bottom:0.5rem;">
-        Application de Gestion Patrimoniale
-    </h1>
-    """, unsafe_allow_html=True)
+    # Titre principal avec style simplifié
+    st.title("Application de Gestion Patrimoniale")
 
-    # Navigation dans la barre latérale avec icônes et descriptions
-    st.sidebar.markdown("<h1 style='font-size:1.5rem;'>Navigation</h1>", unsafe_allow_html=True)
+    # Navigation simplifiée - Utiliser uniquement le composant radio de Streamlit
+    st.sidebar.title("Navigation")
 
-    # Amélioration avec des icônes et descriptions
+    # Définition des options de menu avec icônes
     nav_options = {
-        "Dashboard": {"icon": "📊", "desc": "Vue d'ensemble de votre patrimoine"},
-        "Gestion des actifs": {"icon": "💼", "desc": "Ajout et gestion de vos actifs"},
-        "Banques & Comptes": {"icon": "🏦", "desc": "Gestion des banques et comptes"},
-        "Analyses": {"icon": "📈", "desc": "Analyses détaillées et visualisations"},
-        "Tâches (Todo)": {"icon": "✅", "desc": "Gestion des tâches à réaliser"},
-        "Paramètres": {"icon": "⚙️", "desc": "Configuration de l'application"}
+        "Dashboard": "📊",
+        "Gestion des actifs": "💼",
+        "Banques & Comptes": "🏦",
+        "Analyses": "📈",
+        "Tâches (Todo)": "✅",
+        "Paramètres": "⚙️"
     }
-
-    # Créer un élément pour chaque option de navigation et l'ajouter à la barre latérale
-    for option, details in nav_options.items():
-        st.sidebar.markdown(f"""
-        <div class="nav-item" id="nav_{option.lower().replace(' ', '_')}">
-            <div style="display:flex;align-items:center;">
-                <div style="font-size:1.5rem;margin-right:10px;">{details['icon']}</div>
-                <div>
-                    <div style="font-weight:600;">{option}</div>
-                    <div style="font-size:0.8rem;color:#adb5bd;">{details['desc']}</div>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
 
     # Utiliser le sélecteur standard de Streamlit pour la navigation
     page = st.sidebar.radio(
         "Sélectionner une page",
         list(nav_options.keys()),
-        format_func=lambda x: f"{nav_options[x]['icon']} {x}",
-        label_visibility="collapsed"  # Cacher le titre pour éviter la duplication visuelle
+        format_func=lambda x: f"{nav_options[x]} {x}",
+        key="navigation"
     )
 
     # Obtenir une session de base de données avec gestion des erreurs
@@ -90,19 +75,14 @@ def main():
         db = next(get_db())
     except Exception as e:
         st.error(f"Erreur de connexion à la base de données: {str(e)}")
-
-        # Afficher un bouton pour réessayer
-        if st.button("🔄 Réessayer la connexion"):
-            try:
-                db = next(get_db())
-                st.success("Connexion à la base de données réussie!")
-                time.sleep(1)
-                st.rerun()
-            except Exception as e:
-                st.error(f"Échec de la reconnexion: {str(e)}")
-                st.info("Veuillez vérifier la configuration de la base de données et redémarrer l'application.")
-                return
-        return
+        st.warning("Essai de reconnexion dans 5 secondes...")
+        time.sleep(5)
+        try:
+            db = next(get_db())
+        except Exception as e:
+            st.error(f"Échec de la reconnexion: {str(e)}")
+            st.info("Veuillez redémarrer l'application.")
+            return
 
     try:
         # Afficher un indicateur de chargement pour la page sélectionnée
@@ -129,25 +109,12 @@ def main():
         # Gestion globale des erreurs
         st.error(f"Une erreur s'est produite: {str(e)}")
         st.info("Si le problème persiste, veuillez vérifier vos données ou contacter l'administrateur.")
-
-        # Option pour revenir à la page précédente
-        if st.button("⬅️ Retour à la page précédente"):
-            # Si la page précédente est stockée dans la session, y retourner
-            if 'previous_page' in st.session_state:
-                st.session_state['page'] = st.session_state['previous_page']
-                st.rerun()
-
         # Journalisation de l'erreur
         import logging
         logging.error(f"Erreur dans l'application: {str(e)}", exc_info=True)
     finally:
         # Toujours fermer la session de base de données
         db.close()
-
-    # Mettre à jour la page actuelle dans la session
-    if 'page' in st.session_state:
-        st.session_state['previous_page'] = st.session_state['page']
-    st.session_state['page'] = page
 
     # Afficher un message d'aide dans la barre latérale
     st.sidebar.markdown("---")
@@ -164,35 +131,18 @@ def main():
         Vos données sont sécurisées avec une base de données chiffrée et des sauvegardes automatiques.
         """)
 
-    # Bouton de déconnexion avec style amélioré
+    # Bouton de déconnexion simplifié
     st.sidebar.markdown("---")
-    col1, col2 = st.sidebar.columns([1, 1])
-
-    with col1:
-        if st.button("🔄 Actualiser", use_container_width=True):
-            st.rerun()
-
-    with col2:
-        if st.button("📤 Déconnexion", use_container_width=True):
-            with st.spinner("Déconnexion en cours..."):
-                logout()
+    if st.sidebar.button("📤 Déconnexion"):
+        logout()
 
     # Afficher les informations de version et l'utilisateur connecté
     st.sidebar.markdown("---")
 
-    # Créer un pied de page avec l'utilisateur connecté et la date
-    current_datetime = datetime.now().strftime("%d/%m/%Y %H:%M")
-
+    # Information utilisateur
     if "user" in st.session_state:
-        st.sidebar.markdown(f"""
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2rem;font-size:0.8rem;color:#adb5bd;">
-            <div>👤 {st.session_state['user']}</div>
-            <div>v3.0</div>
-        </div>
-        <div style="text-align:center;font-size:0.7rem;color:#6c757d;margin-top:0.5rem;">
-            {current_datetime}
-        </div>
-        """, unsafe_allow_html=True)
+        st.sidebar.text(f"Utilisateur: {st.session_state['user']}")
+        st.sidebar.text(f"Version: 3.0")
 
 
 # Point d'entrée
