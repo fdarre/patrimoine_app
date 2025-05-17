@@ -10,10 +10,11 @@ from database.models import Asset, Account, Bank
 from services.asset_service import AssetService
 from services.data_service import DataService
 
+
 def show_sync_options(db: Session, user_id: str):
     """
     Affiche les options de synchronisation améliorées
-    
+
     Args:
         db: Session de base de données
         user_id: ID de l'utilisateur
@@ -39,16 +40,17 @@ def show_sync_options(db: Session, user_id: str):
     apply_sync_card_styles()
 
     show_sync_cards(db, user_id, isin_count, forex_count, metal_count)
-    
+
     # Table des actifs avec leur dernière synchronisation
     st.subheader("État de synchronisation des actifs")
-    
+
     show_sync_status_table(db, user_id)
+
 
 def show_sync_cards(db, user_id, isin_count, forex_count, metal_count):
     """
     Affiche les cartes de synchronisation pour les différents types d'actifs
-    
+
     Args:
         db: Session de base de données
         user_id: ID de l'utilisateur
@@ -134,14 +136,16 @@ def show_sync_cards(db, user_id, isin_count, forex_count, metal_count):
             # Mettre à jour l'historique si au moins un actif a été mis à jour
             if forex_updated > 0 or isin_updated > 0 or metals_updated > 0:
                 DataService.record_history_entry(db, user_id)
-                st.success(f"Synchronisation complète terminée avec succès!\n- {forex_updated} taux de change\n- {isin_updated} prix via ISIN\n- {metals_updated} métaux précieux")
+                st.success(
+                    f"Synchronisation complète terminée avec succès!\n- {forex_updated} taux de change\n- {isin_updated} prix via ISIN\n- {metals_updated} métaux précieux")
             else:
                 st.info("Aucun actif mis à jour lors de la synchronisation complète.")
+
 
 def show_sync_status_table(db, user_id):
     """
     Affiche un tableau avec l'état de synchronisation des actifs
-    
+
     Args:
         db: Session de base de données
         user_id: ID de l'utilisateur
@@ -198,16 +202,20 @@ def show_sync_status_table(db, user_id):
                 "Erreur": asset.sync_error or "-"
             })
 
-        # Créer le DataFrame
-        sync_df = pd.DataFrame(sync_data)
-
-        # Afficher le tableau avec les options de tri
-        st.write(sync_df.drop(columns=["ID"]).to_html(escape=False, index=False), unsafe_allow_html=True)
-
-        # Sélection d'un actif pour synchronisation individuelle
-        st.subheader("Synchronisation individuelle")
-        
+        # Créer le DataFrame et afficher de manière robuste
         if sync_data:
+            # Créer le DataFrame
+            sync_df = pd.DataFrame(sync_data)
+
+            # Définir explicitement les colonnes à afficher (approche robuste)
+            display_columns = [col for col in sync_df.columns if col != "ID"]
+
+            # Afficher le DataFrame avec uniquement les colonnes sélectionnées
+            st.write(sync_df[display_columns].to_html(escape=False, index=False), unsafe_allow_html=True)
+
+            # Sélection d'un actif pour synchronisation individuelle
+            st.subheader("Synchronisation individuelle")
+
             selected_sync_id = st.selectbox(
                 "Sélectionner un actif à synchroniser",
                 options=[a["ID"] for a in sync_data],
@@ -216,13 +224,16 @@ def show_sync_status_table(db, user_id):
 
             if selected_sync_id:
                 show_individual_sync_buttons(db, selected_sync_id, user_id)
+        else:
+            st.info("Aucun actif ne correspond aux critères de recherche.")
     else:
         st.info("Aucun actif disponible")
+
 
 def show_individual_sync_buttons(db, asset_id, user_id):
     """
     Affiche les boutons de synchronisation individuelle pour un actif
-    
+
     Args:
         db: Session de base de données
         asset_id: ID de l'actif
@@ -265,6 +276,7 @@ def show_individual_sync_buttons(db, asset_id, user_id):
                     st.rerun()
                 else:
                     st.error("Erreur lors de la synchronisation du prix du métal")
+
 
 def apply_sync_card_styles():
     """
