@@ -54,8 +54,7 @@ def show_dashboard(db: Session, user_id: str):
             category_values_display = {k.capitalize(): v for k, v in category_values.items() if v > 0}
 
             if category_values_display:
-                fig = VisualizationService.create_pie_chart(category_values_display,
-                                                           colors=['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#0ea5e9', '#8b5cf6', '#14b8a6'])
+                fig = VisualizationService.create_pie_chart(category_values_display)
                 if fig:
                     st.pyplot(fig)
 
@@ -70,8 +69,7 @@ def show_dashboard(db: Session, user_id: str):
             geo_values_display = {k.capitalize(): v for k, v in geo_values.items() if v > 0}
 
             if geo_values_display:
-                fig = VisualizationService.create_pie_chart(geo_values_display,
-                                                           colors=['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#0ea5e9', '#14b8a6'])
+                fig = VisualizationService.create_pie_chart(geo_values_display)
                 if fig:
                     st.pyplot(fig)
 
@@ -79,9 +77,7 @@ def show_dashboard(db: Session, user_id: str):
         history_points = db.query(HistoryPoint).order_by(HistoryPoint.date).all()
         if len(history_points) > 1:
             st.subheader("Évolution du patrimoine")
-            fig = VisualizationService.create_time_series_chart(db,
-                                                              title="Évolution de la valeur patrimoniale",
-                                                              line_color="#6366f1")
+            fig = VisualizationService.create_time_series_chart(db)
             if fig:
                 st.pyplot(fig)
         else:

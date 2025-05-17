@@ -4,7 +4,6 @@ Point d'entrée principal de l'application de gestion patrimoniale
 
 import streamlit as st
 import os
-import time
 from datetime import datetime
 
 from utils.constants import DATA_DIR
@@ -29,25 +28,22 @@ def main():
         initial_sidebar_state="expanded"
     )
 
-    # Charger les styles CSS et JS améliorés
+    # Charger les styles CSS
     load_css()
-    load_js()
 
-    # Afficher un indicateur de chargement pendant l'initialisation
-    with st.spinner("Chargement de l'application..."):
-        # Vérifier l'authentification
-        is_authenticated = check_auth()
+    # Vérifier l'authentification
+    is_authenticated = check_auth()
 
-        if not is_authenticated:
-            # Afficher l'interface d'authentification
-            show_auth()
-            return
+    if not is_authenticated:
+        # Afficher l'interface d'authentification
+        show_auth()
+        return
 
-        # Récupérer l'ID de l'utilisateur courant
-        user_id = get_current_user_id()
-        if not user_id:
-            show_auth()
-            return
+    # Récupérer l'ID de l'utilisateur courant
+    user_id = get_current_user_id()
+    if not user_id:
+        show_auth()
+        return
 
     # Titre principal avec style moderne
     st.title("Application de Gestion Patrimoniale")
@@ -81,43 +77,30 @@ def main():
 
         # Afficher un bouton stylisé pour réessayer
         if st.button("🔄 Réessayer la connexion", key="retry_connection"):
-            with st.spinner("Nouvelle tentative de connexion..."):
-                time.sleep(1)  # Effet visuel
-                try:
-                    db = next(get_db())
-                    st.success("Connexion réussie!")
-                    time.sleep(1)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Échec de la reconnexion: {str(e)}")
-                    st.info("Veuillez vérifier la configuration de la base de données.")
-                    return
+            try:
+                db = next(get_db())
+                st.success("Connexion réussie!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Échec de la reconnexion: {str(e)}")
+                st.info("Veuillez vérifier la configuration de la base de données.")
+                return
         return
 
     try:
-        # Afficher la page sélectionnée avec transition douce
-        with st.spinner(f"Chargement de {page}..."):
-            # Effet de transition
-            time.sleep(0.3)
-
-            # Afficher la page sélectionnée
-            if page == "Dashboard":
-                show_dashboard(db, user_id)
-
-            elif page == "Gestion des actifs":
-                show_asset_management(db, user_id)
-
-            elif page == "Banques & Comptes":
-                show_banks_accounts(db, user_id)
-
-            elif page == "Analyses":
-                show_analysis(db, user_id)
-
-            elif page == "Tâches (Todo)":
-                show_todos(db, user_id)
-
-            elif page == "Paramètres":
-                show_settings(db, user_id)
+        # Afficher la page sélectionnée directement sans transitions artificielles
+        if page == "Dashboard":
+            show_dashboard(db, user_id)
+        elif page == "Gestion des actifs":
+            show_asset_management(db, user_id)
+        elif page == "Banques & Comptes":
+            show_banks_accounts(db, user_id)
+        elif page == "Analyses":
+            show_analysis(db, user_id)
+        elif page == "Tâches (Todo)":
+            show_todos(db, user_id)
+        elif page == "Paramètres":
+            show_settings(db, user_id)
     except Exception as e:
         # Gestion globale des erreurs avec style moderne
         st.error(f"Une erreur s'est produite: {str(e)}")
@@ -160,9 +143,7 @@ def main():
     # Bouton de déconnexion stylisé
     st.sidebar.markdown("---")
     if st.sidebar.button("📤 Déconnexion", key="logout_button"):
-        with st.spinner("Déconnexion en cours..."):
-            time.sleep(0.5)  # Effet visuel
-            logout()
+        logout()
 
     # Afficher les informations stylisées en bas de la sidebar
     st.sidebar.markdown("---")
