@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from database.models import Asset, Account, Bank
 from services.template_service import template_service
 from utils.ui_helpers import show_message
+from datetime import datetime
+from utils.calculations import get_default_geo_zones
 
 
 def show_template_management(db: Session, user_id: str):
