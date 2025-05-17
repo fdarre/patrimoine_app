@@ -4,21 +4,18 @@ Service d'authentification et de gestion des utilisateurs avec protections amél
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 import jwt
-import logging
 import os
 from sqlalchemy.orm import Session
 
 from database.models import User
-from utils.constants import SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, DATA_DIR
+from config.app_config import SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, MAX_USERS
 from utils.password import hash_password, verify_password
+from utils.logger import get_logger
+from utils.exceptions import AuthenticationError, ValidationError
+from utils.decorators import handle_exceptions
 
-# Configurer le logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    filename=os.path.join(DATA_DIR, 'auth.log')
-)
-logger = logging.getLogger('auth')
+# Configurer le logger
+logger = get_logger(__name__)
 
 # Dictionnaire pour stocker les tentatives d'authentification échouées
 # Clé = nom d'utilisateur, Valeur = (nombre de tentatives, heure de dernière tentative)
@@ -28,6 +25,7 @@ class AuthService:
     """Service pour l'authentification et la gestion des utilisateurs avec sécurité renforcée"""
 
     @staticmethod
+    @handle_exceptions
     def get_user_by_username(db: Session, username: str) -> Optional[User]:
         """
         Récupère un utilisateur par son nom d'utilisateur
@@ -42,6 +40,7 @@ class AuthService:
         return db.query(User).filter(User.username == username).first()
 
     @staticmethod
+    @handle_exceptions
     def get_user_by_id(db: Session, user_id: str) -> Optional[User]:
         """
         Récupère un utilisateur par son ID
@@ -56,6 +55,7 @@ class AuthService:
         return db.query(User).filter(User.id == user_id).first()
 
     @staticmethod
+    @handle_exceptions
     def create_user(db: Session, username: str, email: str, password: str) -> Optional[User]:
         """
         Crée un nouvel utilisateur avec vérification de la force du mot de passe
@@ -68,11 +68,14 @@ class AuthService:
 
         Returns:
             L'utilisateur créé ou None si le nom d'utilisateur existe déjà
+
+        Raises:
+            ValidationError: Si le mot de passe est trop court
         """
         # Vérifier la force du mot de passe (minimal)
         if len(password) < 8:
             logger.warning(f"Tentative de création d'utilisateur avec un mot de passe trop court: {username}")
-            raise ValueError("Le mot de passe doit contenir au moins 8 caractères")
+            raise ValidationError("Le mot de passe doit contenir au moins 8 caractères")
 
         # Vérifier si le nom d'utilisateur existe déjà
         existing_user = db.query(User).filter(User.username == username).first()
@@ -107,6 +110,7 @@ class AuthService:
         return new_user
 
     @staticmethod
+    @handle_exceptions
     def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
         """
         Authentifie un utilisateur avec protection contre les attaques par force brute
@@ -118,13 +122,16 @@ class AuthService:
 
         Returns:
             L'utilisateur authentifié ou None
+
+        Raises:
+            AuthenticationError: Si le compte est temporairement verrouillé
         """
         # Vérifier les tentatives précédentes
         if username in failed_attempts:
             attempts, last_attempt = failed_attempts[username]
             if attempts >= 5 and datetime.now() - last_attempt < timedelta(minutes=15):
                 logger.warning(f"Compte temporairement verrouillé après plusieurs échecs: {username}")
-                return None
+                raise AuthenticationError("Compte temporairement verrouillé suite à plusieurs échecs d'authentification. Veuillez réessayer dans 15 minutes.")
 
         # Trouver l'utilisateur
         user = db.query(User).filter(User.username == username).first()
@@ -179,7 +186,7 @@ class AuthService:
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=240)  # 4 heures
+            expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
         to_encode.update({"exp": expire})
 
@@ -207,6 +214,7 @@ class AuthService:
             return None
 
     @staticmethod
+    @handle_exceptions
     def get_user_count(db: Session) -> int:
         """
         Compte le nombre d'utilisateurs
@@ -220,6 +228,7 @@ class AuthService:
         return db.query(User).count()
 
     @staticmethod
+    @handle_exceptions
     def update_user(db: Session, user_id: str, is_active: bool = None, email: str = None) -> Optional[User]:
         """
         Met à jour un utilisateur
@@ -253,6 +262,7 @@ class AuthService:
         return user
 
     @staticmethod
+    @handle_exceptions
     def change_password(db: Session, user_id: str, new_password: str) -> Optional[User]:
         """
         Change le mot de passe d'un utilisateur avec vérification de la force du mot de passe
@@ -264,11 +274,14 @@ class AuthService:
 
         Returns:
             L'utilisateur mis à jour ou None
+
+        Raises:
+            ValidationError: Si le mot de passe est trop court
         """
         # Vérifier la force du mot de passe
         if len(new_password) < 8:
             logger.warning(f"Tentative de changement de mot de passe trop court pour l'utilisateur: {user_id}")
-            raise ValueError("Le mot de passe doit contenir au moins 8 caractères")
+            raise ValidationError("Le mot de passe doit contenir au moins 8 caractères")
 
         # Récupérer l'utilisateur
         user = db.query(User).filter(User.id == user_id).first()
@@ -289,6 +302,7 @@ class AuthService:
         return user
 
     @staticmethod
+    @handle_exceptions
     def delete_user(db: Session, user_id: str) -> bool:
         """
         Supprime un utilisateur

@@ -6,12 +6,20 @@ from sqlalchemy.orm import Session
 import pandas as pd
 
 from database.models import Bank, Account, Asset, User
+from services.base_service import BaseService
+from utils.decorators import handle_exceptions
+from utils.logger import get_logger
 
-class BankService:
+logger = get_logger(__name__)
+
+class BankService(BaseService[Bank]):
     """Service pour la gestion des banques avec SQLAlchemy"""
 
-    @staticmethod
-    def get_banks(db: Session, user_id: str) -> List[Bank]:
+    def __init__(self):
+        super().__init__(Bank)
+
+    @handle_exceptions
+    def get_banks(self, db: Session, user_id: str) -> List[Bank]:
         """
         Récupère toutes les banques d'un utilisateur
 
@@ -22,10 +30,10 @@ class BankService:
         Returns:
             Liste des banques
         """
-        return db.query(Bank).filter(Bank.owner_id == user_id).all()
+        return self.get_all(db, owner_id=user_id)
 
-    @staticmethod
-    def get_bank(db: Session, bank_id: str) -> Optional[Bank]:
+    @handle_exceptions
+    def get_bank(self, db: Session, bank_id: str) -> Optional[Bank]:
         """
         Récupère une banque par son ID
 
@@ -36,10 +44,10 @@ class BankService:
         Returns:
             La banque ou None
         """
-        return db.query(Bank).filter(Bank.id == bank_id).first()
+        return self.get_by_id(db, bank_id)
 
-    @staticmethod
-    def add_bank(db: Session, user_id: str, bank_id: str, nom: str, notes: str = "") -> Optional[Bank]:
+    @handle_exceptions
+    def add_bank(self, db: Session, user_id: str, bank_id: str, nom: str, notes: str = "") -> Optional[Bank]:
         """
         Ajoute une nouvelle banque
 
@@ -65,22 +73,17 @@ class BankService:
             return None
 
         # Créer la nouvelle banque
-        new_bank = Bank(
-            id=bank_id,
-            owner_id=user_id,
-            nom=nom,
-            notes=notes or ""
-        )
+        data = {
+            "id": bank_id,
+            "owner_id": user_id,
+            "nom": nom,
+            "notes": notes or ""
+        }
 
-        # Ajouter et valider
-        db.add(new_bank)
-        db.commit()
-        db.refresh(new_bank)
+        return self.create(db, data)
 
-        return new_bank
-
-    @staticmethod
-    def update_bank(db: Session, bank_id: str, nom: str, notes: str = "") -> Optional[Bank]:
+    @handle_exceptions
+    def update_bank(self, db: Session, bank_id: str, nom: str, notes: str = "") -> Optional[Bank]:
         """
         Met à jour une banque existante
 
@@ -93,23 +96,16 @@ class BankService:
         Returns:
             La banque mise à jour ou None
         """
-        # Récupérer la banque
-        bank = db.query(Bank).filter(Bank.id == bank_id).first()
-        if not bank:
-            return None
+        # Données pour la mise à jour
+        data = {
+            "nom": nom,
+            "notes": notes
+        }
 
-        # Mettre à jour les champs
-        bank.nom = nom
-        bank.notes = notes
+        return self.update(db, bank_id, data)
 
-        # Valider les modifications
-        db.commit()
-        db.refresh(bank)
-
-        return bank
-
-    @staticmethod
-    def delete_bank(db: Session, bank_id: str) -> bool:
+    @handle_exceptions
+    def delete_bank(self, db: Session, bank_id: str) -> bool:
         """
         Supprime une banque si elle n'a pas de comptes associés
 
@@ -120,24 +116,16 @@ class BankService:
         Returns:
             True si la suppression a réussi, False sinon
         """
-        # Récupérer la banque
-        bank = db.query(Bank).filter(Bank.id == bank_id).first()
-        if not bank:
-            return False
-
         # Vérifier si des comptes sont liés à cette banque
         has_accounts = db.query(Account).filter(Account.bank_id == bank_id).first() is not None
         if has_accounts:
             return False
 
         # Supprimer la banque
-        db.delete(bank)
-        db.commit()
+        return self.delete(db, bank_id)
 
-        return True
-
-    @staticmethod
-    def get_banks_dataframe(db: Session, user_id: str) -> pd.DataFrame:
+    @handle_exceptions
+    def get_banks_dataframe(self, db: Session, user_id: str) -> pd.DataFrame:
         """
         Crée un DataFrame Pandas avec les banques d'un utilisateur
 
@@ -151,7 +139,7 @@ class BankService:
         data = []
 
         # Récupérer les banques de l'utilisateur
-        banks = db.query(Bank).filter(Bank.owner_id == user_id).all()
+        banks = self.get_banks(db, user_id)
 
         for bank in banks:
             # Compter les comptes associés à cette banque
@@ -159,3 +147,6 @@ class BankService:
             data.append([bank.id, bank.nom, account_count])
 
         return pd.DataFrame(data, columns=["ID", "Nom", "Nb comptes"])
+
+# Créer une instance singleton du service
+bank_service = BankService()

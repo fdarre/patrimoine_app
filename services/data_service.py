@@ -6,39 +6,43 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 
 from database.models import Asset, HistoryPoint
+from utils.decorators import handle_exceptions
+from utils.logger import get_logger
+from utils.common import safe_float_conversion
+
+logger = get_logger(__name__)
 
 class DataService:
     """Service de gestion des données persistantes avec SQLAlchemy"""
 
     @staticmethod
-    def record_history_entry(db: Session, user_id: str, assets: List[Asset] = None) -> HistoryPoint:
+    @handle_exceptions
+    def record_history_entry(db: Session, user_id: str) -> HistoryPoint:
         """
         Enregistre un point d'historique pour tous les actifs d'un utilisateur
 
         Args:
             db: Session de base de données
             user_id: ID de l'utilisateur
-            assets: Liste des actifs (si None, récupère tous les actifs de l'utilisateur)
 
         Returns:
             Le point d'historique créé
         """
         current_date = datetime.now().strftime("%Y-%m-%d")
 
-        # Si la liste d'actifs n'est pas fournie, récupérer tous les actifs de l'utilisateur
-        if assets is None:
-            assets = db.query(Asset).filter(Asset.owner_id == user_id).all()
+        # Récupérer tous les actifs de l'utilisateur
+        assets = db.query(Asset).filter(Asset.owner_id == user_id).all()
 
         # Vérifier si on a déjà un enregistrement pour aujourd'hui
         existing_entry = db.query(HistoryPoint).filter(HistoryPoint.date == current_date).first()
 
-        # CORRECTION: Utiliser value_eur au lieu de valeur_actuelle pour l'historique
+        # Utiliser value_eur pour l'historique
         assets_dict = {}
         total_value = 0.0
 
         for asset in assets:
             # Utiliser value_eur s'il existe, sinon valeur_actuelle
-            value = asset.value_eur if asset.value_eur is not None else asset.valeur_actuelle
+            value = safe_float_conversion(asset.value_eur) or safe_float_conversion(asset.valeur_actuelle)
             assets_dict[asset.id] = value
             total_value += value
 
@@ -48,6 +52,7 @@ class DataService:
             existing_entry.total = total_value
             db.commit()
             db.refresh(existing_entry)
+            logger.info(f"Point d'historique mis à jour pour {current_date}")
             return existing_entry
         else:
             # Créer une nouvelle entrée
@@ -59,9 +64,11 @@ class DataService:
             db.add(new_entry)
             db.commit()
             db.refresh(new_entry)
+            logger.info(f"Nouveau point d'historique créé pour {current_date}")
             return new_entry
 
     @staticmethod
+    @handle_exceptions
     def get_history(db: Session, days: Optional[int] = None) -> List[HistoryPoint]:
         """
         Récupère l'historique des valeurs
@@ -78,5 +85,9 @@ class DataService:
         if days:
             # Récupérer uniquement les N derniers jours
             query = query.order_by(HistoryPoint.date.desc()).limit(days)
+            result = query.all()
+            # Réordonner par date croissante
+            result.reverse()
+            return result
 
         return query.all()

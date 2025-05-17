@@ -11,50 +11,12 @@ from sqlalchemy.orm import sessionmaker
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from dotenv import load_dotenv
 
-from utils.constants import DATA_DIR
+from config.app_config import SQLALCHEMY_DATABASE_URL, SECRET_KEY, ENCRYPTION_SALT, LOGS_DIR
+from utils.logger import get_logger
 
-# Configurer le logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    filename=os.path.join(DATA_DIR, 'crypto.log')
-)
-logger = logging.getLogger('db_crypto')
-
-# Charger les variables d'environnement depuis .env
-load_dotenv()
-
-# Créer le répertoire de données s'il n'existe pas
-os.makedirs(DATA_DIR, exist_ok=True)
-
-# Récupérer la clé secrète et le sel
-SECRET_KEY = os.getenv("SECRET_KEY")
-ENCRYPTION_SALT = os.getenv("ENCRYPTION_SALT")
-
-# Si le sel n'est pas défini dans .env, essayer de le lire depuis le fichier .salt
-if not ENCRYPTION_SALT:
-    salt_file = os.path.join(DATA_DIR, ".salt")
-    if os.path.exists(salt_file):
-        with open(salt_file, "r") as f:
-            ENCRYPTION_SALT = f.read().strip()
-
-# Si toujours pas de sel, utiliser une valeur par défaut (moins sécurisé)
-if not ENCRYPTION_SALT:
-    logger.warning("Aucun sel personnalisé trouvé, utilisation du sel par défaut")
-    ENCRYPTION_SALT = "Patrimoine_App_Salt"  # Valeur par défaut en dernier recours
-
-# Vérifier que la clé secrète est définie
-if not SECRET_KEY or SECRET_KEY == "replace_with_a_strong_secret_key":
-    logger.error("Clé secrète non définie! Exécutez 'python generate_keys.py' d'abord.")
-    raise ValueError("Clé secrète non définie ou valeur par défaut utilisée. Exécutez 'python generate_keys.py'.")
-
-# Chemin vers la base de données
-DB_PATH = os.path.join(DATA_DIR, "patrimoine.db")
-
-# URI SQLite standard
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
+# Configurer le logger
+logger = get_logger(__name__)
 
 # Créer le moteur SQLAlchemy
 engine = create_engine(
@@ -146,6 +108,7 @@ metadata = MetaData()
 def get_db():
     """
     Fonction utilitaire pour obtenir une session de base de données
+
     Yields:
         Session SQLAlchemy
     """

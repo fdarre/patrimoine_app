@@ -7,18 +7,26 @@ import pandas as pd
 from datetime import datetime
 import uuid
 import json
-from services.currency_service import CurrencyService
-from services.price_service import PriceService
 
 from database.models import Asset, Account, Bank, User
-from sqlalchemy import String
+from services.base_service import BaseService
+from services.currency_service import CurrencyService
+from services.price_service import PriceService
+from utils.decorators import handle_exceptions
+from utils.logger import get_logger
+from utils.common import safe_float_conversion, safe_json_loads
 
-class AssetService:
+logger = get_logger(__name__)
+
+class AssetService(BaseService[Asset]):
     """Service pour la gestion des actifs avec SQLAlchemy"""
 
-    @staticmethod
+    def __init__(self):
+        super().__init__(Asset)
+
+    @handle_exceptions
     def get_assets(
-            db: Session,
+            self, db: Session,
             user_id: str,
             account_id: Optional[str] = None,
             category: Optional[str] = None
@@ -40,15 +48,18 @@ class AssetService:
         if account_id:
             query = query.filter(Asset.account_id == account_id)
 
+        # Récupérer tous les actifs et filtrer par catégorie en Python
+        assets = query.all()
+
         if category:
-            # Filtrer par catégorie (nécessite une analyse JSON)
-            # Note: Cette implémentation peut varier selon la base de données
-            query = query.filter(Asset.allocation.contains({category: {"$exists": True}}))
+            # Filtrer les actifs qui ont cette catégorie dans leur allocation
+            assets = [asset for asset in assets
+                     if asset.allocation and category in asset.allocation]
 
-        return query.all()
+        return assets
 
-    @staticmethod
-    def find_asset_by_id(db: Session, asset_id: str) -> Optional[Asset]:
+    @handle_exceptions
+    def find_asset_by_id(self, db: Session, asset_id: str) -> Optional[Asset]:
         """
         Trouve un actif par son ID
 
@@ -59,11 +70,11 @@ class AssetService:
         Returns:
             L'actif trouvé ou None
         """
-        return db.query(Asset).filter(Asset.id == asset_id).first()
+        return self.get_by_id(db, asset_id)
 
-    @staticmethod
+    @handle_exceptions
     def add_asset(
-            db: Session,
+            self, db: Session,
             user_id: str,
             nom: str,
             compte_id: str,
@@ -76,7 +87,8 @@ class AssetService:
             notes: str = "",
             todo: str = "",
             isin: Optional[str] = None,
-            ounces: Optional[float] = None
+            ounces: Optional[float] = None,
+            composants: Optional[List[Dict[str, Any]]] = None
     ) -> Optional[Asset]:
         """
         Ajoute un nouvel actif
@@ -96,6 +108,7 @@ class AssetService:
             todo: Tâche(s) à faire
             isin: Code ISIN (optionnel)
             ounces: Nombre d'onces pour les métaux précieux (optionnel)
+            composants: Liste de composants (optionnel)
 
         Returns:
             Le nouvel actif créé ou None
@@ -114,49 +127,41 @@ class AssetService:
         if devise != "EUR":
             # Récupérer les taux de change actuels
             try:
-                from services.currency_service import CurrencyService
                 rates = CurrencyService.get_exchange_rates()
                 if devise in rates and rates[devise] > 0:
                     exchange_rate = rates[devise]
                     value_eur = valeur_actuelle / exchange_rate
             except Exception as e:
-                # En cas d'erreur, logger mais continuer avec valeurs par défaut
-                import logging
-                logger = logging.getLogger(__name__)
                 logger.error(f"Erreur lors de la conversion de devise: {str(e)}")
 
-        # Créer le nouvel actif
-        new_asset = Asset(
-            id=str(uuid.uuid4()),
-            owner_id=user_id,
-            account_id=compte_id,
-            nom=nom,
-            type_produit=type_produit,
-            categorie=categorie,
-            allocation=allocation,
-            geo_allocation=geo_allocation,
-            valeur_actuelle=valeur_actuelle,
-            prix_de_revient=prix_de_revient,
-            devise=devise,
-            date_maj=datetime.now().strftime("%Y-%m-%d"),
-            notes=notes,
-            todo=todo,
-            isin=isin,
-            ounces=ounces,
-            exchange_rate=exchange_rate,
-            value_eur=value_eur
-        )
+        # Données pour la création
+        data = {
+            "id": str(uuid.uuid4()),
+            "owner_id": user_id,
+            "account_id": compte_id,
+            "nom": nom,
+            "type_produit": type_produit,
+            "categorie": categorie,
+            "allocation": allocation,
+            "geo_allocation": geo_allocation,
+            "valeur_actuelle": valeur_actuelle,
+            "prix_de_revient": prix_de_revient,
+            "devise": devise,
+            "date_maj": datetime.now().strftime("%Y-%m-%d"),
+            "notes": notes,
+            "todo": todo,
+            "isin": isin,
+            "ounces": ounces,
+            "exchange_rate": exchange_rate,
+            "value_eur": value_eur,
+            "composants": composants or []
+        }
 
-        # Ajouter et valider
-        db.add(new_asset)
-        db.commit()
-        db.refresh(new_asset)
+        return self.create(db, data)
 
-        return new_asset
-
-    @staticmethod
+    @handle_exceptions
     def update_asset(
-            db: Session,
+            self, db: Session,
             asset_id: str,
             nom: str,
             compte_id: str,
@@ -193,11 +198,6 @@ class AssetService:
         Returns:
             L'actif mis à jour ou None
         """
-        # Récupérer l'actif
-        asset = db.query(Asset).filter(Asset.id == asset_id).first()
-        if not asset:
-            return None
-
         # Déterminer la catégorie principale (celle avec le pourcentage le plus élevé)
         categorie = max(allocation.items(), key=lambda x: x[1])[0] if allocation else "autre"
 
@@ -207,42 +207,37 @@ class AssetService:
 
         if devise != "EUR":
             try:
-                from services.currency_service import CurrencyService
                 rates = CurrencyService.get_exchange_rates()
                 if devise in rates and rates[devise] > 0:
                     exchange_rate = rates[devise]
                     value_eur = valeur_actuelle / exchange_rate
             except Exception as e:
-                import logging
-                logger = logging.getLogger(__name__)
                 logger.error(f"Erreur lors de la conversion de devise: {str(e)}")
 
-        # Mettre à jour les champs
-        asset.nom = nom
-        asset.account_id = compte_id
-        asset.type_produit = type_produit
-        asset.categorie = categorie
-        asset.allocation = allocation
-        asset.geo_allocation = geo_allocation
-        asset.valeur_actuelle = float(valeur_actuelle)
-        asset.prix_de_revient = float(prix_de_revient)
-        asset.devise = devise
-        asset.date_maj = datetime.now().strftime("%Y-%m-%d")
-        asset.notes = notes
-        asset.todo = todo
-        asset.isin = isin
-        asset.ounces = ounces
-        asset.exchange_rate = exchange_rate
-        asset.value_eur = value_eur
+        # Données pour la mise à jour
+        data = {
+            "nom": nom,
+            "account_id": compte_id,
+            "type_produit": type_produit,
+            "categorie": categorie,
+            "allocation": allocation,
+            "geo_allocation": geo_allocation,
+            "valeur_actuelle": float(valeur_actuelle),
+            "prix_de_revient": float(prix_de_revient),
+            "devise": devise,
+            "date_maj": datetime.now().strftime("%Y-%m-%d"),
+            "notes": notes,
+            "todo": todo,
+            "isin": isin,
+            "ounces": ounces,
+            "exchange_rate": exchange_rate,
+            "value_eur": value_eur
+        }
 
-        # Valider les modifications
-        db.commit()
-        db.refresh(asset)
+        return self.update(db, asset_id, data)
 
-        return asset
-
-    @staticmethod
-    def delete_asset(db: Session, asset_id: str) -> bool:
+    @handle_exceptions
+    def delete_asset(self, db: Session, asset_id: str) -> bool:
         """
         Supprime un actif
 
@@ -253,20 +248,11 @@ class AssetService:
         Returns:
             True si l'actif a été supprimé, False sinon
         """
-        # Récupérer l'actif
-        asset = db.query(Asset).filter(Asset.id == asset_id).first()
-        if not asset:
-            return False
+        return self.delete(db, asset_id)
 
-        # Supprimer l'actif
-        db.delete(asset)
-        db.commit()
-
-        return True
-
-    @staticmethod
+    @handle_exceptions
     def get_assets_dataframe(
-            db: Session,
+            self, db: Session,
             user_id: str,
             account_id: Optional[str] = None,
             category: Optional[str] = None,
@@ -303,12 +289,15 @@ class AssetService:
         if bank_id:
             query = query.filter(Account.bank_id == bank_id)
 
-        if category:
-            # Filtrer par catégorie (nécessite une analyse JSON)
-            query = query.filter(Asset.allocation.contains({category: {"$exists": True}}))
-
         # Exécuter la requête
         results = query.all()
+
+        # Post-filtrage pour la catégorie (car c'est un champ JSON)
+        if category:
+            results = [
+                (asset, account, bank) for asset, account, bank in results
+                if asset.allocation and category in asset.allocation
+            ]
 
         for asset, account, bank in results:
             # Calculer la plus-value
@@ -338,8 +327,8 @@ class AssetService:
         return pd.DataFrame(data, columns=["ID", "Nom", "Catégorie", "Allocation", "Type", "Valeur",
                                           "Plus-value", "Banque", "Compte"])
 
-    @staticmethod
-    def sync_currency_rates(db: Session, asset_id: Optional[str] = None) -> int:
+    @handle_exceptions
+    def sync_currency_rates(self, db: Session, asset_id: Optional[str] = None) -> int:
         """
         Synchronise les taux de change pour un actif ou tous les actifs
 
@@ -394,8 +383,8 @@ class AssetService:
 
         return updated_count
 
-    @staticmethod
-    def sync_price_by_isin(db: Session, asset_id: Optional[str] = None) -> int:
+    @handle_exceptions
+    def sync_price_by_isin(self, db: Session, asset_id: Optional[str] = None) -> int:
         """
         Synchronise les prix à partir des codes ISIN pour un actif ou tous les actifs
 
@@ -446,8 +435,8 @@ class AssetService:
 
         return updated_count
 
-    @staticmethod
-    def sync_metal_prices(db: Session, asset_id: Optional[str] = None) -> int:
+    @handle_exceptions
+    def sync_metal_prices(self, db: Session, asset_id: Optional[str] = None) -> int:
         """
         Synchronise les prix des métaux précieux pour un actif ou tous les actifs de type métal
 
@@ -510,8 +499,8 @@ class AssetService:
 
         return updated_count
 
-    @staticmethod
-    def update_manual_price(db: Session, asset_id: str, new_price: float) -> bool:
+    @handle_exceptions
+    def update_manual_price(self, db: Session, asset_id: str, new_price: float) -> bool:
         """
         Met à jour manuellement le prix d'un actif
 
@@ -523,7 +512,7 @@ class AssetService:
         Returns:
             True si la mise à jour a réussi, False sinon
         """
-        asset = db.query(Asset).filter(Asset.id == asset_id).first()
+        asset = self.get_by_id(db, asset_id)
         if not asset:
             return False
 
@@ -533,7 +522,7 @@ class AssetService:
             asset.last_price_sync = datetime.now()
             asset.sync_error = None
 
-            # CORRECTION: Mettre à jour la valeur en EUR
+            # Mettre à jour la valeur en EUR
             if asset.devise == "EUR":
                 asset.value_eur = new_price
             elif asset.exchange_rate and asset.exchange_rate > 0:
@@ -541,15 +530,12 @@ class AssetService:
             else:
                 # Si pas de taux de change valide, essayer d'en récupérer un
                 try:
-                    from services.currency_service import CurrencyService
                     rates = CurrencyService.get_exchange_rates()
                     if asset.devise in rates and rates[asset.devise] > 0:
                         asset.exchange_rate = rates[asset.devise]
                         asset.value_eur = new_price / asset.exchange_rate
                         asset.last_rate_sync = datetime.now()
                 except Exception as e:
-                    import logging
-                    logger = logging.getLogger(__name__)
                     logger.error(f"Erreur lors de la conversion de devise: {str(e)}")
                     # En cas d'erreur, utiliser la valeur en devise comme approximation
                     asset.value_eur = new_price
@@ -558,12 +544,13 @@ class AssetService:
             db.commit()
 
             return True
-        except Exception:
+        except Exception as e:
             db.rollback()
+            logger.error(f"Erreur lors de la mise à jour manuelle du prix: {str(e)}")
             return False
 
-    @staticmethod
-    def update_manual_exchange_rate(db: Session, asset_id: str, new_rate: float) -> bool:
+    @handle_exceptions
+    def update_manual_exchange_rate(self, db: Session, asset_id: str, new_rate: float) -> bool:
         """
         Met à jour manuellement le taux de change d'un actif
 
@@ -575,7 +562,7 @@ class AssetService:
         Returns:
             True si la mise à jour a réussi, False sinon
         """
-        asset = db.query(Asset).filter(Asset.id == asset_id).first()
+        asset = self.get_by_id(db, asset_id)
         if not asset:
             return False
 
@@ -592,6 +579,158 @@ class AssetService:
             db.commit()
 
             return True
-        except Exception:
+        except Exception as e:
             db.rollback()
+            logger.error(f"Erreur lors de la mise à jour manuelle du taux de change: {str(e)}")
             return False
+
+    # Méthodes utilitaires pour les actifs composites
+    @handle_exceptions
+    def calculate_effective_allocation(self, db: Session, asset_id: str) -> Dict[str, float]:
+        """
+        Calcule l'allocation effective pour un actif composite
+
+        Args:
+            db: Session de base de données
+            asset_id: ID de l'actif
+
+        Returns:
+            Dictionnaire avec l'allocation effective
+        """
+        asset = self.get_by_id(db, asset_id)
+        if not asset:
+            return {}
+
+        # Si l'actif n'a pas de composants, retourner son allocation
+        composants = safe_json_loads(getattr(asset, 'composants', '[]'), [])
+        if not composants:
+            return asset.allocation.copy() if asset.allocation else {}
+
+        # Initialiser l'allocation effective à 0 pour toutes les catégories
+        effective_allocation = {category: 0.0 for category in asset.allocation} if asset.allocation else {}
+
+        # Calculer la somme des pourcentages des composants
+        total_component_percentage = sum(comp.get('percentage', 0) for comp in composants)
+
+        # Si la somme est supérieure à 100%, normaliser
+        normalization_factor = 100.0 / total_component_percentage if total_component_percentage > 100 else 1.0
+
+        # Pourcentage restant pour l'allocation directe
+        direct_percentage = max(0, 100 - total_component_percentage * normalization_factor)
+
+        # Ajouter l'allocation directe
+        if direct_percentage > 0 and asset.allocation:
+            for category, percentage in asset.allocation.items():
+                effective_allocation[category] = percentage * direct_percentage / 100.0
+
+        # Ajouter l'allocation des composants
+        for comp in composants:
+            comp_id = comp.get('asset_id')
+            comp_percentage = comp.get('percentage', 0) * normalization_factor / 100.0
+
+            if comp_id:
+                # Récupérer l'allocation effective du composant (récursif)
+                comp_allocation = self.calculate_effective_allocation(db, comp_id)
+
+                # Ajouter à l'allocation effective en proportion
+                for category, percentage in comp_allocation.items():
+                    if category not in effective_allocation:
+                        effective_allocation[category] = 0.0
+                    effective_allocation[category] += percentage * comp_percentage
+
+        return effective_allocation
+
+    @handle_exceptions
+    def calculate_effective_geo_allocation(
+            self, db: Session,
+            asset_id: str,
+            category: str
+    ) -> Dict[str, Dict[str, float]]:
+        """
+        Calcule la répartition géographique effective pour une catégorie
+
+        Args:
+            db: Session de base de données
+            asset_id: ID de l'actif
+            category: Catégorie d'actif
+
+        Returns:
+            Dictionnaire de la répartition géographique
+        """
+        asset = self.get_by_id(db, asset_id)
+        if not asset:
+            return {}
+
+        # Si l'actif n'a pas de composants, retourner sa répartition géo
+        composants = safe_json_loads(getattr(asset, 'composants', '[]'), [])
+        if not composants:
+            return asset.geo_allocation.get(category, {}).copy() if asset.geo_allocation else {}
+
+        # Initialiser la répartition effective
+        effective_geo = {}
+
+        # Calculer l'allocation effective pour obtenir le pourcentage de chaque catégorie
+        effective_allocation = self.calculate_effective_allocation(db, asset_id)
+        category_percentage = effective_allocation.get(category, 0.0)
+
+        if category_percentage <= 0:
+            return {}
+
+        # Récupérer les composants qui contribuent à cette catégorie
+        category_components = []
+
+        for comp in composants:
+            comp_id = comp.get('asset_id')
+            comp_percentage = comp.get('percentage', 0)
+
+            comp_asset = self.get_by_id(db, comp_id)
+            if comp_asset and comp_asset.allocation and category in comp_asset.allocation:
+                # Calculer la contribution du composant à cette catégorie
+                comp_contribution = (
+                    comp_percentage *
+                    comp_asset.allocation.get(category, 0.0) / 100.0
+                )
+
+                if comp_contribution > 0:
+                    category_components.append({
+                        'asset_id': comp_id,
+                        'percentage': comp_contribution
+                    })
+
+        # Si aucun composant ne contribue, utiliser la répartition directe
+        if not category_components:
+            return asset.geo_allocation.get(category, {}).copy() if asset.geo_allocation else {}
+
+        # Calculer la contribution directe
+        direct_contribution = category_percentage - sum(comp.get('percentage', 0) for comp in category_components)
+
+        # Ajouter la contribution directe si positive
+        if direct_contribution > 0 and asset.geo_allocation and category in asset.geo_allocation:
+            direct_geo = asset.geo_allocation.get(category, {})
+            for zone, percentage in direct_geo.items():
+                effective_geo[zone] = direct_contribution * percentage / 100.0
+
+        # Ajouter les contributions des composants
+        for comp in category_components:
+            comp_id = comp.get('asset_id')
+            comp_percentage = comp.get('percentage', 0)
+
+            if comp_id:
+                comp_asset = self.get_by_id(db, comp_id)
+                if comp_asset and comp_asset.geo_allocation and category in comp_asset.geo_allocation:
+                    comp_geo = comp_asset.geo_allocation.get(category, {})
+
+                    for zone, percentage in comp_geo.items():
+                        if zone not in effective_geo:
+                            effective_geo[zone] = 0.0
+                        effective_geo[zone] += comp_percentage * percentage / 100.0
+
+        # Normaliser à 100%
+        total = sum(effective_geo.values())
+        if total > 0:
+            effective_geo = {zone: (pct / total * 100.0) for zone, pct in effective_geo.items()}
+
+        return {category: effective_geo}
+
+# Créer une instance singleton du service
+asset_service = AssetService()

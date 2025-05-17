@@ -1,37 +1,65 @@
 """
-Constantes utilisées dans l'application de gestion patrimoniale
+Configuration centralisée de l'application
 """
-
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 # Charger les variables d'environnement
 load_dotenv()
 
-# Types de comptes (enveloppes fiscales)
+# Chemins des dossiers
+BASE_DIR = Path(__file__).parent.parent
+DATA_DIR = os.path.join(BASE_DIR, "data")
+LOGS_DIR = os.path.join(BASE_DIR, "logs")
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+
+# S'assurer que les dossiers existent
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(LOGS_DIR, exist_ok=True)
+
+# Configuration de la base de données
+DB_PATH = os.path.join(DATA_DIR, "patrimoine.db")
+SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
+
+# Clés de sécurité et cryptographie
+SECRET_KEY = os.getenv("SECRET_KEY", "default_key_replace_in_production")
+ENCRYPTION_SALT = os.getenv("ENCRYPTION_SALT", "default_salt_replace_in_production")
+
+# Si le sel n'est pas défini dans l'environnement, essayer de le lire depuis le fichier .salt
+if ENCRYPTION_SALT == "default_salt_replace_in_production":
+    salt_file = os.path.join(DATA_DIR, ".salt")
+    if os.path.exists(salt_file):
+        with open(salt_file, "r") as f:
+            ENCRYPTION_SALT = f.read().strip()
+
+# Configuration JWT
+JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 heures
+
+# Limites de l'application
+MAX_USERS = int(os.getenv("MAX_USERS", "5"))
+
+# Types et catégories (constantes métier)
 ACCOUNT_TYPES = ["courant", "livret", "pea", "titre", "assurance_vie", "autre"]
 
-# Types de produits (forme juridique)
 PRODUCT_TYPES = ["etf", "sicav", "action", "obligation", "scpi", "reits",
                  "fonds_euro", "crypto", "metal", "cash", "immo_direct", "autre"]
 
-# Catégories patrimoniales
 ASSET_CATEGORIES = ["actions", "obligations", "immobilier", "crypto", "metaux", "cash", "autre"]
 
-# Zones géographiques
 GEO_ZONES = [
-    "amerique_nord", 
-    "europe_zone_euro", 
+    "amerique_nord",
+    "europe_zone_euro",
     "europe_hors_zone_euro",
-    "japon", 
-    "chine", 
+    "japon",
+    "chine",
     "inde",
-    "asie_developpee", 
-    "autres_emergents", 
+    "asie_developpee",
+    "autres_emergents",
     "global_non_classe"
 ]
 
-# Description des zones géographiques
 GEO_ZONES_DESCRIPTIONS = {
     "amerique_nord": "États-Unis, Canada",
     "europe_zone_euro": "Allemagne, France, Espagne, Italie, Pays-Bas, etc.",
@@ -44,21 +72,37 @@ GEO_ZONES_DESCRIPTIONS = {
     "global_non_classe": "Pour cas exceptionnels non ventilés"
 }
 
-# Devises
 CURRENCIES = ["EUR", "USD", "GBP", "JPY", "CHF"]
 
-# Chemins des fichiers
-DATA_DIR = "data"
+# Configuration du logging
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        },
+    },
+    "handlers": {
+        "file": {
+            "class": "logging.FileHandler",
+            "filename": os.path.join(LOGS_DIR, "app.log"),
+            "formatter": "standard"
+        },
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard"
+        }
+    },
+    "loggers": {
+        "": {
+            "handlers": ["file", "console"],
+            "level": "INFO",
+        }
+    }
+}
 
-# Clé secrète pour JWT et chiffrement
-SECRET_KEY = os.getenv("SECRET_KEY", "replace_with_a_strong_secret_key")
-JWT_ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 heures
-
-# Nombre maximum d'utilisateurs
-MAX_USERS = int(os.getenv("MAX_USERS", "5"))
-
-# Styles CSS
+# CSS personnalisé pour l'application
 CUSTOM_CSS = """
 <style>
     /* Variables de couleur pour thème sombre */
@@ -138,38 +182,38 @@ CUSTOM_CSS = """
         margin-bottom: 0.5rem;
         color: var(--text-color);
     }
-    
+
     /* Améliorations pour thème sombre */
     .dataframe td, .dataframe th {
         color: var(--text-color);
     }
-    
+
     /* Pour les badges et indicateurs */
     span {
         color: inherit;
     }
-    
+
     /* Pour les éléments de type comptes dans le détail */
     .account-detail {
         color: var(--text-color) !important;
         background-color: var(--light-bg);
     }
-    
+
     /* Pour les tableaux sur fond sombre */
     table {
         color: var(--text-color);
     }
-    
+
     /* Pour les sélecteurs et entrées */
     .stSelectbox, .stTextInput, .stTextArea {
         color: var(--text-color);
     }
-    
+
     /* Renforcer la visibilité des textes */
     p, div, li, span {
         color: var(--text-color);
     }
-    
+
     /* Exception pour les cartes todo */
     .todo-card p, .todo-card div, .todo-card span {
         color: var(--dark-text-color);

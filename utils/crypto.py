@@ -7,6 +7,9 @@ from sqlalchemy import TypeDecorator, String
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 
 from database.db_config import encrypt_data, decrypt_data, encrypt_json, decrypt_json
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 class EncryptedString(TypeDecorator):
     """

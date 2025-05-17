@@ -6,8 +6,11 @@ import streamlit as st
 import os
 from datetime import datetime
 
-from utils.constants import DATA_DIR
+from config.app_config import LOGS_DIR
 from utils.style_loader import load_css, load_js
+from utils.logger import get_logger, setup_file_logging
+from utils.decorators import streamlit_exception_handler
+from utils.exceptions import AppError
 from database.db_config import get_db, engine, Base
 from ui.dashboard import show_dashboard
 from ui.banks_accounts import show_banks_accounts
@@ -17,7 +20,10 @@ from ui.todos import show_todos
 from ui.settings import show_settings
 from ui.auth import show_auth, check_auth, logout, get_current_user_id
 
+# Configurer le logger
+logger = get_logger(__name__)
 
+@streamlit_exception_handler
 def main():
     """Fonction principale de l'application"""
     # Configuration de base de l'application
@@ -45,6 +51,9 @@ def main():
         show_auth()
         return
 
+    # Configurer le logging pour l'utilisateur
+    setup_file_logging(user_id)
+
     # Titre principal avec style moderne
     st.title("Application de Gestion Patrimoniale")
 
@@ -69,26 +78,11 @@ def main():
         key="navigation"
     )
 
-    # Obtenir une session de base de données avec gestion des erreurs
     try:
+        # Obtenir une session de base de données
         db = next(get_db())
-    except Exception as e:
-        st.error(f"Erreur de connexion à la base de données: {str(e)}")
 
-        # Afficher un bouton stylisé pour réessayer
-        if st.button("🔄 Réessayer la connexion", key="retry_connection"):
-            try:
-                db = next(get_db())
-                st.success("Connexion réussie!")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Échec de la reconnexion: {str(e)}")
-                st.info("Veuillez vérifier la configuration de la base de données.")
-                return
-        return
-
-    try:
-        # Afficher la page sélectionnée directement sans transitions artificielles
+        # Afficher la page sélectionnée
         if page == "Dashboard":
             show_dashboard(db, user_id)
         elif page == "Gestion des actifs":
@@ -101,29 +95,16 @@ def main():
             show_todos(db, user_id)
         elif page == "Paramètres":
             show_settings(db, user_id)
+    except AppError as e:
+        st.error(f"Erreur: {e.message}")
+        logger.error(f"Erreur d'application: {e.message}")
     except Exception as e:
-        # Gestion globale des erreurs avec style moderne
-        st.error(f"Une erreur s'est produite: {str(e)}")
-
-        st.markdown("""
-        <div class="card-container" style="background-color: rgba(239, 68, 68, 0.1); padding: 1.5rem;">
-            <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-                <span style="font-size: 2rem; margin-right: 1rem;">⚠️</span>
-                <div>
-                    <h3 style="margin: 0;">Erreur de l'application</h3>
-                    <p>Si le problème persiste, veuillez vérifier vos données ou contacter l'administrateur.</p>
-                </div>
-            </div>
-            <pre style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 0.5rem; overflow: auto;">{str(e)}</pre>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Journalisation de l'erreur
-        import logging
-        logging.error(f"Erreur dans l'application: {str(e)}", exc_info=True)
+        st.error(f"Une erreur inattendue s'est produite. Veuillez consulter les logs pour plus de détails.")
+        logger.exception(f"Exception non gérée: {str(e)}")
     finally:
-        # Toujours fermer la session de base de données
-        db.close()
+        # S'assurer que la session de base de données est fermée
+        if 'db' in locals():
+            db.close()
 
     # Afficher un message d'aide dans la barre latérale
     st.sidebar.markdown("---")
@@ -179,4 +160,9 @@ def main():
 if __name__ == "__main__":
     # S'assurer que les tables existent
     Base.metadata.create_all(bind=engine)
+
+    # S'assurer que les dossiers de logs existent
+    os.makedirs(LOGS_DIR, exist_ok=True)
+
+    # Démarrer l'application
     main()

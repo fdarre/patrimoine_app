@@ -1,18 +1,27 @@
-from sqlalchemy import func
 """
 Service de gestion des comptes avec SQLAlchemy
 """
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 import pandas as pd
 
 from database.models import Account, Asset, Bank
+from services.base_service import BaseService
+from utils.decorators import handle_exceptions
+from utils.logger import get_logger
 
-class AccountService:
+logger = get_logger(__name__)
+
+
+class AccountService(BaseService[Account]):
     """Service pour la gestion des comptes avec SQLAlchemy"""
 
-    @staticmethod
-    def get_accounts(db: Session, user_id: str, bank_id: Optional[str] = None) -> List[Account]:
+    def __init__(self):
+        super().__init__(Account)
+
+    @handle_exceptions
+    def get_accounts(self, db: Session, user_id: str, bank_id: Optional[str] = None) -> List[Account]:
         """
         Récupère tous les comptes d'un utilisateur, optionnellement filtrés par banque
 
@@ -31,8 +40,8 @@ class AccountService:
 
         return query.all()
 
-    @staticmethod
-    def get_account(db: Session, account_id: str) -> Optional[Account]:
+    @handle_exceptions
+    def get_account(self, db: Session, account_id: str) -> Optional[Account]:
         """
         Récupère un compte par son ID
 
@@ -43,11 +52,11 @@ class AccountService:
         Returns:
             Le compte ou None
         """
-        return db.query(Account).filter(Account.id == account_id).first()
+        return self.get_by_id(db, account_id)
 
-    @staticmethod
+    @handle_exceptions
     def add_account(
-            db: Session,
+            self, db: Session,
             account_id: str,
             bank_id: str,
             account_type: str,
@@ -77,24 +86,19 @@ class AccountService:
         if existing_account:
             return None
 
-        # Créer le nouveau compte
-        new_account = Account(
-            id=account_id,
-            bank_id=bank_id,
-            type=account_type,
-            libelle=account_label
-        )
+        # Données pour la création
+        data = {
+            "id": account_id,
+            "bank_id": bank_id,
+            "type": account_type,
+            "libelle": account_label
+        }
 
-        # Ajouter et valider
-        db.add(new_account)
-        db.commit()
-        db.refresh(new_account)
+        return self.create(db, data)
 
-        return new_account
-
-    @staticmethod
+    @handle_exceptions
     def update_account(
-            db: Session,
+            self, db: Session,
             account_id: str,
             bank_id: str,
             account_type: str,
@@ -113,24 +117,17 @@ class AccountService:
         Returns:
             Le compte mis à jour ou None
         """
-        # Récupérer le compte
-        account = db.query(Account).filter(Account.id == account_id).first()
-        if not account:
-            return None
+        # Données pour la mise à jour
+        data = {
+            "bank_id": bank_id,
+            "type": account_type,
+            "libelle": account_label
+        }
 
-        # Mettre à jour les champs
-        account.bank_id = bank_id
-        account.type = account_type
-        account.libelle = account_label
+        return self.update(db, account_id, data)
 
-        # Valider les modifications
-        db.commit()
-        db.refresh(account)
-
-        return account
-
-    @staticmethod
-    def delete_account(db: Session, account_id: str) -> bool:
+    @handle_exceptions
+    def delete_account(self, db: Session, account_id: str) -> bool:
         """
         Supprime un compte s'il n'a pas d'actifs associés
 
@@ -141,25 +138,17 @@ class AccountService:
         Returns:
             True si la suppression a réussi, False sinon
         """
-        # Récupérer le compte
-        account = db.query(Account).filter(Account.id == account_id).first()
-        if not account:
-            return False
-
         # Vérifier si des actifs sont liés à ce compte
         has_assets = db.query(Asset).filter(Asset.account_id == account_id).first() is not None
         if has_assets:
             return False
 
         # Supprimer le compte
-        db.delete(account)
-        db.commit()
+        return self.delete(db, account_id)
 
-        return True
-
-    @staticmethod
+    @handle_exceptions
     def get_accounts_dataframe(
-            db: Session,
+            self, db: Session,
             user_id: str,
             bank_id: Optional[str] = None
     ) -> pd.DataFrame:
@@ -184,7 +173,6 @@ class AccountService:
 
         for account, bank in query.all():
             # Calculer la valeur totale des actifs dans ce compte
-            # MODIFICATION: Utiliser value_eur au lieu de valeur_actuelle
             total_value = db.query(Asset).filter(Asset.account_id == account.id).with_entities(
                 func.sum(func.coalesce(Asset.value_eur, 0.0))
             ).scalar() or 0.0
@@ -198,3 +186,7 @@ class AccountService:
             ])
 
         return pd.DataFrame(data, columns=["ID", "Banque", "Type", "Libellé", "Valeur totale"])
+
+
+# Créer une instance singleton du service
+account_service = AccountService()

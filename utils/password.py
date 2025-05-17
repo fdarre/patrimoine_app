@@ -2,17 +2,10 @@
 Utilitaires pour le hachage et la vérification des mots de passe
 """
 from passlib.context import CryptContext
-import logging
-import os
-from utils.constants import DATA_DIR
+from utils.logger import get_logger
 
-# Configurer le logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    filename=os.path.join(DATA_DIR, 'auth.log')
-)
-logger = logging.getLogger('password')
+# Configurer le logger
+logger = get_logger(__name__)
 
 # Contexte de hachage des mots de passe - augmenté à 12 rounds
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
@@ -40,4 +33,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         True si le mot de passe correspond au hash, False sinon
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception as e:
+        logger.error(f"Erreur lors de la vérification du mot de passe: {str(e)}")
+        return False
