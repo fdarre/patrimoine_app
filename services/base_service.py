@@ -1,12 +1,12 @@
 """
-Service de base générique pour les opérations CRUD
+Service de base générique pour les opérations CRUD avec une approche cohérente
 """
 from typing import List, Optional, TypeVar, Generic, Type, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from database.models import Base
-from utils.exceptions import DatabaseError
+from utils.exceptions import DatabaseError, ValidationError
 from utils.logger import get_logger
 from utils.decorators import handle_exceptions
 
@@ -16,9 +16,18 @@ logger = get_logger(__name__)
 
 
 class BaseService(Generic[T]):
-    """Service de base générique pour les opérations CRUD"""
+    """
+    Service de base générique pour les opérations CRUD
+    Utilise une approche cohérente où toutes les méthodes sont des méthodes d'instance
+    """
 
     def __init__(self, model_class: Type[T]):
+        """
+        Initialise le service avec la classe de modèle
+
+        Args:
+            model_class: Classe de modèle SQLAlchemy
+        """
         self.model_class = model_class
 
     @handle_exceptions
@@ -72,8 +81,16 @@ class BaseService(Generic[T]):
             Nouvel objet créé
 
         Raises:
+            ValidationError: Si les données sont invalides
             DatabaseError: En cas d'erreur lors de la création
         """
+        # Validation des données requises si le modèle a un attribut required_fields
+        if hasattr(self.model_class, 'required_fields'):
+            missing_fields = [field for field in self.model_class.required_fields
+                             if field not in data or data[field] is None]
+            if missing_fields:
+                raise ValidationError(f"Champs obligatoires manquants: {', '.join(missing_fields)}")
+
         try:
             item = self.model_class(**data)
             db.add(item)
