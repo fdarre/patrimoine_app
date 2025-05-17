@@ -80,39 +80,40 @@ def show_analysis(db: Session, user_id: str):
 
     with col2:
         try:
-            # OPTIMISATION: Construire la requête de base une seule fois
-            # Construire la requête de base pour les actifs filtrés
-            base_query = db.query(Asset).filter(Asset.owner_id == user_id)
+            # 1. Récupérer tous les actifs pertinents d'abord (sans filtres JSON)
+            assets_query = db.query(Asset).filter(Asset.owner_id == user_id)
 
-            # Appliquer les filtres de base
+            # Appliquer les filtres non-JSON
             if filter_bank != "Toutes":
-                # OPTIMISATION: Utiliser une jointure au lieu de sous-requêtes
-                base_query = base_query.join(Account, Asset.account_id == Account.id)
-                base_query = base_query.filter(Account.bank_id == filter_bank)
+                assets_query = assets_query.join(Account, Asset.account_id == Account.id)
+                assets_query = assets_query.filter(Account.bank_id == filter_bank)
 
             if filter_account != "Tous":
-                base_query = base_query.filter(Asset.account_id == filter_account)
+                assets_query = assets_query.filter(Asset.account_id == filter_account)
 
-            # Pour le filtre par catégorie, nécessite un traitement spécial
-            filtered_query = base_query
-            if filter_category != "Toutes":
-                # Pour SQLite, utiliser json_extract pour filtrer sur les champs JSON
-                filtered_query = filtered_query.filter(
-                    func.json_extract(Asset.allocation, f'$.{filter_category}').isnot(None)
-                )
+            # Récupérer les actifs - SQLAlchemy déchiffrera les JSON automatiquement
+            assets = assets_query.all()
 
-            # Calculer la valeur totale des actifs filtrés
-            total_filtered = filtered_query.with_entities(
-                func.sum(func.coalesce(Asset.value_eur, 0.0))
-            ).scalar() or 0.0
+            # 2. Filtrer en Python après déchiffrement
+            filtered_assets = []
+            total_filtered = 0.0
 
-            # Calculer la valeur totale de tous les actifs
-            total_all = db.query(func.sum(
-                func.coalesce(Asset.value_eur, 0.0)
-            )).filter(
-                Asset.owner_id == user_id
-            ).scalar() or 0.0
+            for asset in assets:
+                # Appliquer filtre par catégorie si nécessaire
+                if filter_category != "Toutes":
+                    if not asset.allocation or not isinstance(asset.allocation, dict) or filter_category not in asset.allocation:
+                        continue
 
+                # Ajouter l'actif à la liste filtrée
+                filtered_assets.append(asset)
+
+                # Calculer la valeur totale
+                value = asset.value_eur if asset.value_eur is not None else asset.valeur_actuelle
+                if value:
+                    total_filtered += value
+
+            # Calculer le pourcentage
+            total_all = sum(asset.value_eur or asset.valeur_actuelle or 0.0 for asset in assets)
             percentage = (total_filtered / total_all * 100) if total_all > 0 else 0
 
             st.markdown(
@@ -228,9 +229,9 @@ def show_analysis(db: Session, user_id: str):
                     bank_values_query = bank_values_query.filter(Account.id == filter_account)
 
                 if filter_category != "Toutes":
-                    bank_values_query = bank_values_query.filter(
-                        func.json_extract(Asset.allocation, f'$.{filter_category}').isnot(None)
-                    )
+                    # Cette partie utilise JSON qui est problématique, on ne l'applique pas ici
+                    # Nous filtrerons manuellement après
+                    pass
 
                 # Grouper par banque et exécuter la requête
                 bank_values_query = bank_values_query.group_by(Bank.nom)
@@ -238,6 +239,22 @@ def show_analysis(db: Session, user_id: str):
 
                 # Convertir le résultat en dictionnaire pour le graphique
                 bank_values = {row[0]: row[1] for row in bank_values_result}
+
+                # Si un filtre de catégorie est actif, nous devons refiltrer manuellement
+                if filter_category != "Toutes":
+                    # Calcul manuel des valeurs par banque pour la catégorie sélectionnée
+                    corrected_bank_values = {}
+                    for asset in filtered_assets:
+                        # Trouver la banque de cet actif
+                        account = next((acc for acc in assets_query.all() if acc.id == asset.account_id), None)
+                        if account:
+                            bank = next((b for b in banks if b.id == account.bank_id), None)
+                            if bank:
+                                value = asset.value_eur if asset.value_eur is not None else asset.valeur_actuelle
+                                if bank.nom not in corrected_bank_values:
+                                    corrected_bank_values[bank.nom] = 0
+                                corrected_bank_values[bank.nom] += value
+                    bank_values = corrected_bank_values
 
                 if bank_values:
                     # Créer le graphique en camembert
@@ -279,9 +296,9 @@ def show_analysis(db: Session, user_id: str):
                     account_values_query = account_values_query.filter(Account.bank_id == filter_bank)
 
                 if filter_category != "Toutes":
-                    account_values_query = account_values_query.filter(
-                        func.json_extract(Asset.allocation, f'$.{filter_category}').isnot(None)
-                    )
+                    # Cette partie utilise JSON qui est problématique, on ne l'applique pas ici
+                    # Nous filtrerons manuellement après
+                    pass
 
                 # Grouper par compte et exécuter la requête
                 account_values_query = account_values_query.group_by(Account.libelle)
@@ -289,6 +306,20 @@ def show_analysis(db: Session, user_id: str):
 
                 # Convertir le résultat en dictionnaire pour le graphique
                 account_values = {row[0]: row[1] for row in account_values_result}
+
+                # Si un filtre de catégorie est actif, nous devons refiltrer manuellement
+                if filter_category != "Toutes":
+                    # Calcul manuel des valeurs par compte pour la catégorie sélectionnée
+                    corrected_account_values = {}
+                    for asset in filtered_assets:
+                        # Trouver le compte de cet actif
+                        account = next((acc for acc in db.query(Account).all() if acc.id == asset.account_id), None)
+                        if account:
+                            value = asset.value_eur if asset.value_eur is not None else asset.valeur_actuelle
+                            if account.libelle not in corrected_account_values:
+                                corrected_account_values[account.libelle] = 0
+                            corrected_account_values[account.libelle] += value
+                    account_values = corrected_account_values
 
                 if account_values:
                     # Créer le graphique en camembert
@@ -332,9 +363,9 @@ def show_analysis(db: Session, user_id: str):
                     type_values_query = type_values_query.filter(Asset.account_id == filter_account)
 
                 if filter_category != "Toutes":
-                    type_values_query = type_values_query.filter(
-                        func.json_extract(Asset.allocation, f'$.{filter_category}').isnot(None)
-                    )
+                    # Cette partie utilise JSON qui est problématique, on ne l'applique pas ici
+                    # Nous filtrerons manuellement après
+                    pass
 
                 # Grouper par type de produit et exécuter la requête
                 type_values_query = type_values_query.group_by(Asset.type_produit)
@@ -342,6 +373,18 @@ def show_analysis(db: Session, user_id: str):
 
                 # Convertir le résultat en dictionnaire pour le graphique, avec type capitalisé
                 type_values = {row[0].capitalize(): row[1] for row in type_values_result}
+
+                # Si un filtre de catégorie est actif, nous devons refiltrer manuellement
+                if filter_category != "Toutes":
+                    # Calcul manuel des valeurs par type pour la catégorie sélectionnée
+                    corrected_type_values = {}
+                    for asset in filtered_assets:
+                        type_name = asset.type_produit.capitalize()
+                        value = asset.value_eur if asset.value_eur is not None else asset.valeur_actuelle
+                        if type_name not in corrected_type_values:
+                            corrected_type_values[type_name] = 0
+                        corrected_type_values[type_name] += value
+                    type_values = corrected_type_values
 
                 if type_values:
                     # Créer le graphique en camembert
