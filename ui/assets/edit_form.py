@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from config.app_config import PRODUCT_TYPES, CURRENCIES
 from database.models import Asset, Account, Bank
+from services.asset_service import asset_service
 from services.data_service import DataService
 from .components import apply_button_styling
 from .geo_allocation_form import edit_geo_allocation_form
