@@ -1,0 +1,221 @@
+/* 
+ * components/tables.css
+ * Styles pour les tableaux et grilles de données
+ */
+
+/* Style de base des tableaux */
+table, 
+.dataframe, 
+[data-testid="stTable"] table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 1.5rem;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* En-têtes de tableaux */
+th, 
+.dataframe th, 
+[data-testid="stTable"] th {
+    background-color: rgba(30, 41, 59, 0.8);
+    color: var(--text-light);
+    font-weight: 600;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+/* Lignes de tableau */
+tr, 
+.dataframe tr, 
+[data-testid="stTable"] tr {
+    transition: background-color var(--transition-fast) var(--ease-out);
+}
+
+/* Cellules de tableau */
+td, 
+.dataframe td, 
+[data-testid="stTable"] td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--text-light);
+    font-size: 0.875rem;
+    vertical-align: middle;
+}
+
+/* Survol des lignes */
+tr:hover td, 
+.dataframe tr:hover td, 
+[data-testid="stTable"] tr:hover td {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Dernière ligne */
+tr:last-child td, 
+.dataframe tr:last-child td, 
+[data-testid="stTable"] tr:last-child td {
+    border-bottom: none;
+}
+
+/* Pied de tableau */
+tfoot tr td, 
+.dataframe tfoot tr td, 
+[data-testid="stTable"] tfoot tr td {
+    background-color: rgba(30, 41, 59, 0.6);
+    font-weight: 600;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 1rem;
+    gap: 0.5rem;
+}
+
+.pagination-button {
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-sm);
+    background-color: var(--card-bg);
+    color: var(--text-light);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: background-color var(--transition-fast) var(--ease-out);
+}
+
+.pagination-button:hover {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.pagination-button:disabled {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--text-muted);
+    cursor: not-allowed;
+}
+
+.pagination-info {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+/* Tableaux compacts */
+.table-compact th {
+    padding: 0.5rem;
+    font-size: 0.7rem;
+}
+
+.table-compact td {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+}
+
+/* Tableaux responsives */
+.table-responsive {
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+/* Colonnes triables */
+.sortable-header {
+    cursor: pointer;
+    position: relative;
+}
+
+.sortable-header::after {
+    content: "↕";
+    position: absolute;
+    right: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.sortable-header.asc::after {
+    content: "↑";
+    color: var(--primary-color);
+}
+
+.sortable-header.desc::after {
+    content: "↓";
+    color: var(--primary-color);
+}
+
+/* Table avec lignes alternées */
+.table-striped tr:nth-child(even) td {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Cellules numériques */
+.numeric-cell {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Colonnes avec état */
+.status-cell {
+    text-align: center;
+}
+
+.status-indicator {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    margin-right: 0.25rem;
+}
+
+.status-active {
+    background-color: var(--success-color);
+}
+
+.status-pending {
+    background-color: var(--warning-color);
+}
+
+.status-inactive {
+    background-color: var(--danger-color);
+}
+
+/* Adaptations pour le thème clair */
+.light-theme table,
+.light-theme .dataframe,
+.light-theme [data-testid="stTable"] table {
+    border: 1px solid var(--gray-200);
+}
+
+.light-theme th,
+.light-theme .dataframe th,
+.light-theme [data-testid="stTable"] th {
+    background-color: var(--gray-100);
+    color: var(--text-dark);
+    border-bottom: 1px solid var(--gray-300);
+}
+
+.light-theme td,
+.light-theme .dataframe td,
+.light-theme [data-testid="stTable"] td {
+    border-bottom: 1px solid var(--gray-200);
+    color: var(--text-dark);
+}
+
+.light-theme tr:hover td,
+.light-theme .dataframe tr:hover td,
+.light-theme [data-testid="stTable"] tr:hover td {
+    background-color: var(--gray-50);
+}
+
+.light-theme .table-striped tr:nth-child(even) td {
+    background-color: var(--gray-50);
+}

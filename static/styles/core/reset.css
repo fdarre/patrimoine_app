@@ -1,0 +1,79 @@
+/*
+ * core/reset.css
+ * Reset et normalisation des styles
+ */
+
+/* Reset de base */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body, h1, h2, h3, h4, h5, h6, p, ul, ol, dl, figure, blockquote {
+    margin: 0;
+    padding: 0;
+}
+
+/* Amélioration du rendu des textes */
+html {
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+}
+
+/* Amélioration du rendu sur les appareils mobiles */
+html, body {
+    min-height: 100%;
+    overflow-x: hidden;
+}
+
+/* Base pour Streamlit */
+.stApp {
+    height: 100%;
+    width: 100%;
+}
+
+/* Correction des inputs */
+input,
+button,
+textarea,
+select {
+    font: inherit;
+    margin: 0;
+}
+
+/* Accessibilité: focus visible */
+:focus-visible {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Élimination des styles par défaut des listes */
+ul, ol {
+    list-style: none;
+}
+
+/* Amélioration des images */
+img, svg {
+    max-width: 100%;
+    height: auto;
+    vertical-align: middle;
+}
+
+/* Amélioration des tableaux */
+table {
+    border-collapse: collapse;
+    border-spacing: 0;
+    width: 100%;
+}
+
+/* Normalisation des liens */
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+/* Amélioration des contrastes pour les sélections */
+::selection {
+    background-color: var(--primary-color);
+    color: white;
+}

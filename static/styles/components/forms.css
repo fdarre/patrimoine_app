@@ -1,0 +1,250 @@
+/*
+ * components/forms.css
+ * Styles pour les formulaires et éléments interactifs
+ */
+
+/* Inputs de base */
+.stTextInput > div > div > input,
+.stNumberInput > div > div > input,
+.stFileUploader > div > input {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 0.625rem 0.75rem !important;
+    color: var(--text-light) !important;
+    transition: all var(--transition-fast) var(--ease-out);
+}
+
+.stTextInput > div > div > input:focus,
+.stNumberInput > div > div > input:focus,
+.stFileUploader > div > input:focus {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2) !important;
+}
+
+/* Zone de texte */
+.stTextArea > div > div > textarea {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 0.625rem 0.75rem !important;
+    color: var(--text-light) !important;
+    min-height: 100px;
+    transition: all var(--transition-fast) var(--ease-out);
+}
+
+.stTextArea > div > div > textarea:focus {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2) !important;
+}
+
+/* Sélecteurs */
+.stSelectbox > div > div {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: var(--radius-md) !important;
+}
+
+.stMultiSelect > div > div {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: var(--radius-md) !important;
+}
+
+/* Cases à cocher et boutons radio */
+.stCheckbox > div > label,
+.stRadio > div > label {
+    color: var(--text-light) !important;
+}
+
+.stCheckbox > div > label > div[role="checkbox"],
+.stRadio > div > label > div[role="radio"] {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.stCheckbox > div > label > div[role="checkbox"][data-baseweb="checkbox"]:checked,
+.stRadio > div > label > div[role="radio"][data-baseweb="radio"]:checked {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+/* Sliders */
+.stSlider > div > div > div > div {
+    background-color: var(--primary-color) !important;
+}
+
+.stSlider > div > div > div > div > div {
+    background-color: white !important;
+    border: 2px solid var(--primary-color) !important;
+}
+
+/* Uploader de fichiers */
+.stFileUploader > div {
+    width: 100% !important;
+}
+
+.stFileUploader > div > button {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border: 1px dashed rgba(255, 255, 255, 0.2) !important;
+    border-radius: var(--radius-md) !important;
+    color: var(--text-light) !important;
+    transition: all var(--transition-fast) var(--ease-out);
+}
+
+.stFileUploader > div > button:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-color: var(--primary-color) !important;
+}
+
+/* Datepicker */
+.stDateInput > div > div {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: var(--radius-md) !important;
+}
+
+/* Boutons Streamlit */
+.stButton > button {
+    background: linear-gradient(90deg, var(--primary-color), var(--primary-dark)) !important;
+    color: white !important;
+    font-weight: 500 !important;
+    padding: 0.625rem 1.25rem !important;
+    border-radius: var(--radius-md) !important;
+    border: none !important;
+    transition: transform var(--transition-fast) var(--ease-out),
+                box-shadow var(--transition-fast) var(--ease-out) !important;
+    box-shadow: var(--shadow-md) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    font-size: 0.875rem !important;
+}
+
+.stButton > button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+                0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.stButton > button:active {
+    transform: translateY(0) !important;
+}
+
+/* Bouton de soumission de formulaire */
+.stFormSubmitter > button {
+    background-color: var(--primary-color) !important;
+    color: white !important;
+}
+
+/* Bouton de téléchargement */
+.stDownloadButton > button {
+    background-color: var(--success-color) !important;
+    color: white !important;
+}
+
+/* Bouton de danger */
+.danger-button > button {
+    background: linear-gradient(90deg, var(--danger-color), #c81e1e) !important;
+}
+
+/* Bouton de succès */
+.success-button > button {
+    background: linear-gradient(90deg, var(--success-color), #059669) !important;
+}
+
+/* Bouton d'avertissement */
+.warning-button > button {
+    background: linear-gradient(90deg, var(--warning-color), #d97706) !important;
+}
+
+/* Bouton secondaire */
+.secondary-button > button {
+    background: linear-gradient(90deg, var(--secondary-color), var(--secondary-dark)) !important;
+}
+
+/* Bouton désactivé */
+.stButton > button:disabled {
+    background: linear-gradient(90deg, #6b7280, #4b5563) !important;
+    cursor: not-allowed !important;
+    opacity: 0.7 !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Message d'erreur de form */
+.form-error-message {
+    color: var(--danger-color);
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+/* Étiquettes de formulaire */
+.stTextInput > label,
+.stTextArea > label,
+.stNumberInput > label,
+.stSelectbox > label,
+.stMultiSelect > label,
+.stRadio > label,
+.stSlider > label,
+.stFileUploader > label,
+.stDateInput > label {
+    color: var(--text-light) !important;
+    font-weight: 500 !important;
+    font-size: 0.875rem !important;
+    margin-bottom: 0.25rem !important;
+}
+
+/* Groupes de formulaire */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+/* Helptext */
+.stTextInput > div[data-baseweb="form-control-counter"] > div,
+.stSelectbox > div[data-baseweb="form-control-counter"] > div {
+    color: var(--text-muted) !important;
+    font-size: 0.75rem !important;
+}
+
+/* Adaptations pour le thème clair */
+.light-theme .stTextInput > div > div > input,
+.light-theme .stNumberInput > div > div > input,
+.light-theme .stTextArea > div > div > textarea,
+.light-theme .stFileUploader > div > input {
+    background-color: white !important;
+    border: 1px solid var(--gray-300) !important;
+    color: var(--text-dark) !important;
+}
+
+.light-theme .stSelectbox > div > div,
+.light-theme .stMultiSelect > div > div {
+    background-color: white !important;
+    border: 1px solid var(--gray-300) !important;
+}
+
+.light-theme .stCheckbox > div > label,
+.light-theme .stRadio > div > label {
+    color: var(--text-dark) !important;
+}
+
+.light-theme .stCheckbox > div > label > div[role="checkbox"],
+.light-theme .stRadio > div > label > div[role="radio"] {
+    border-color: var(--gray-400) !important;
+}
+
+.light-theme .stFileUploader > div > button {
+    background-color: var(--gray-50) !important;
+    border: 1px dashed var(--gray-300) !important;
+    color: var(--text-dark) !important;
+}
+
+.light-theme .stTextInput > label,
+.light-theme .stTextArea > label,
+.light-theme .stNumberInput > label,
+.light-theme .stSelectbox > label,
+.light-theme .stMultiSelect > label,
+.light-theme .stRadio > label,
+.light-theme .stSlider > label,
+.light-theme .stFileUploader > label,
+.light-theme .stDateInput > label {
+    color: var(--text-dark) !important;
+}

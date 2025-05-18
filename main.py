@@ -7,7 +7,7 @@ import os
 from datetime import datetime
 
 from config.app_config import LOGS_DIR
-from utils.style_loader import create_theme_selector
+from utils.style_manager import initialize_styles, create_theme_selector
 from utils.logger import get_logger, setup_file_logging
 from utils.decorators import streamlit_exception_handler
 from utils.exceptions import AppError
@@ -20,7 +20,6 @@ from ui.todos import show_todos
 from ui.settings import show_settings
 from ui.auth import show_auth, check_auth, logout, get_current_user_id
 from ui.templates.template_management import show_template_management
-from utils.theme_manager import initialize_theme
 
 # Configurer le logger
 logger = get_logger(__name__)
@@ -37,7 +36,7 @@ def main():
     )
 
     # Initialiser les styles - IMPORTANT : doit être appelé avant tout autre rendu
-    initialize_theme()
+    initialize_styles()
 
     # Ajouter le sélecteur de thème dans la barre latérale
     create_theme_selector()
@@ -144,25 +143,18 @@ def main():
         current_date = datetime.now().strftime("%d %b %Y")
 
         st.sidebar.markdown(f"""
-        <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(30, 41, 59, 0.4)); 
-                    padding: 1rem; border-radius: 0.5rem; border: 1px solid rgba(255, 255, 255, 0.05);">
-            <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
-                <div style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #ec4899); 
-                          display: flex; align-items: center; justify-content: center; margin-right: 0.75rem;">
-                    <span style="color: white; font-size: 1.25rem;">👤</span>
-                </div>
-                <div>
-                    <div style="font-weight: 600; font-size: 1rem;">{user}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">{current_date}</div>
-                </div>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
-                <span>Version 3.0</span>
-                <span>Pro</span>
+        <div class="user-profile">
+            <div class="user-avatar">👤</div>
+            <div class="user-info">
+                <div class="user-name">{user}</div>
+                <div class="user-date">{current_date}</div>
             </div>
         </div>
+        <div class="user-status">
+            <span>Version 3.0</span>
+            <span>Pro</span>
+        </div>
         """, unsafe_allow_html=True)
-
 
 # Point d'entrée
 if __name__ == "__main__":

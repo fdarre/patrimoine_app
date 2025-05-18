@@ -1,9 +1,10 @@
+
 """
-Composants UI réutilisables utilisant le système de style centralisé
+Composants UI réutilisables utilisant le nouveau système de style
 """
 import streamlit as st
 from typing import Optional, Dict, Any, List, Callable, Tuple, Union
-from utils.theme_manager import get_theme_color
+from utils.style_manager import get_theme_color
 
 def styled_metric(label: str, value: str, delta: Optional[str] = None,
                   delta_color: str = "normal", icon: str = "") -> None:
@@ -200,3 +201,43 @@ def allocation_chart(allocations: Dict[str, float], key: Optional[str] = None) -
 
     allocation_html += '</div>'
     st.markdown(allocation_html, unsafe_allow_html=True)
+
+def get_button_style(button_type: str) -> str:
+    """
+    Retourne le style CSS pour un type de bouton spécifique
+
+    Args:
+        button_type: Type de bouton ('primary', 'success', 'warning', 'danger', 'secondary')
+
+    Returns:
+        Style CSS pour le bouton
+    """
+    colors = {
+        'primary': ('var(--primary-color)', 'var(--primary-dark)'),
+        'success': ('var(--success-color)', '#059669'),
+        'warning': ('var(--warning-color)', '#d97706'),
+        'danger': ('var(--danger-color)', '#c81e1e'),
+        'secondary': ('var(--secondary-color)', 'var(--secondary-dark)')
+    }
+
+    color, hover_color = colors.get(button_type, colors['primary'])
+
+    return f"""
+    <style>
+    div.stButton > button {{
+        background: linear-gradient(90deg, {color}, {hover_color}) !important;
+        color: white !important;
+    }}
+    </style>
+    """
+
+def apply_theme_class() -> None:
+    """
+    Applique la classe de thème au body - utile pour les composants qui n'utilisent pas le système de thème intégré
+    """
+    theme = st.session_state.get("theme", "dark")
+    st.markdown(f"""
+    <script>
+        document.documentElement.className = '{theme}-theme';
+    </script>
+    """, unsafe_allow_html=True)

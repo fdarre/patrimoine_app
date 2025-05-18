@@ -1,0 +1,296 @@
+/*
+ * components/cards.css
+ * Styles pour les cartes et conteneurs
+ */
+
+/* Carte de base */
+.card {
+    background: linear-gradient(135deg, var(--card-bg), rgba(30, 41, 59, 0.8));
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 1.5rem;
+    transition: transform var(--transition-normal) var(--ease-out),
+                box-shadow var(--transition-normal) var(--ease-out);
+    overflow: hidden;
+}
+
+/* Effet de survol des cartes */
+.card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+                0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* En-tête de carte */
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+/* Titre de carte */
+.card-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-light);
+}
+
+/* Corps de carte */
+.card-body {
+    color: var(--text-light);
+}
+
+/* Pied de carte */
+.card-footer {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+/* Variantes de cartes */
+.card-primary {
+    border-left: 4px solid var(--primary-color);
+}
+
+.card-secondary {
+    border-left: 4px solid var(--secondary-color);
+}
+
+.card-success {
+    border-left: 4px solid var(--success-color);
+}
+
+.card-warning {
+    border-left: 4px solid var(--warning-color);
+}
+
+.card-danger {
+    border-left: 4px solid var(--danger-color);
+}
+
+.card-info {
+    border-left: 4px solid var(--info-color);
+}
+
+/* Tailles de cartes */
+.card-sm {
+    padding: 1rem;
+}
+
+.card-lg {
+    padding: 2rem;
+}
+
+/* Carte avec action */
+.card-action {
+    cursor: pointer;
+}
+
+/* Carte avec média */
+.card-media-top img {
+    width: 100%;
+    border-top-left-radius: calc(var(--radius-lg) - 1px);
+    border-top-right-radius: calc(var(--radius-lg) - 1px);
+    margin-bottom: 1rem;
+    margin-top: -1.5rem;
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+}
+
+.card-media-bottom img {
+    width: 100%;
+    border-bottom-left-radius: calc(var(--radius-lg) - 1px);
+    border-bottom-right-radius: calc(var(--radius-lg) - 1px);
+    margin-top: 1rem;
+    margin-bottom: -1.5rem;
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+}
+
+/* Carte horizontale */
+.card-horizontal {
+    display: flex;
+}
+
+.card-horizontal .card-media {
+    width: 33.333%;
+    flex-shrink: 0;
+}
+
+.card-horizontal .card-content {
+    padding-left: 1rem;
+    flex-grow: 1;
+}
+
+/* Grille de cartes */
+.cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+/* Carte d'actif */
+.asset-card {
+    background: linear-gradient(135deg, var(--card-bg), rgba(30, 41, 59, 0.8));
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease-out;
+}
+
+.asset-card:hover {
+    transform: translateY(-3px);
+}
+
+.asset-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.asset-icon {
+    font-size: 1.5rem;
+    margin-right: 0.75rem;
+}
+
+.asset-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-light);
+}
+
+.asset-badge {
+    background: linear-gradient(90deg, var(--primary-color), var(--primary-dark));
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: auto;
+}
+
+.asset-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.asset-stat {
+    padding: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+}
+
+.stat-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.asset-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+/* Carte de tâche */
+.todo-card {
+    background-color: rgba(254, 240, 138, 0.1);
+    border-left: 4px solid var(--warning-color);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.todo-header {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text-light);
+}
+
+.todo-content {
+    color: var(--text-light);
+    padding: 0.5rem 0;
+}
+
+.todo-footer {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+}
+
+/* Carte de bannière */
+.banner-card {
+    padding: 1.25rem;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    border-radius: var(--radius-lg);
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow-lg);
+}
+
+.banner-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.banner-content {
+    opacity: 0.9;
+}
+
+/* Adaptations pour le thème clair */
+.light-theme .card {
+    background: white;
+    border: 1px solid var(--gray-200);
+    box-shadow: var(--shadow-md);
+}
+
+.light-theme .card-title {
+    color: var(--text-dark);
+}
+
+.light-theme .card-body {
+    color: var(--text-dark);
+}
+
+.light-theme .card-footer {
+    border-top: 1px solid var(--gray-200);
+    color: var(--text-muted);
+}
+
+.light-theme .asset-card {
+    background: white;
+    border: 1px solid var(--gray-200);
+}
+
+.light-theme .asset-title {
+    color: var(--text-dark);
+}
+
+.light-theme .todo-card {
+    background-color: rgba(254, 240, 138, 0.1);
+    border-left: 4px solid var(--warning-color);
+}
+
+.light-theme .todo-header {
+    color: var(--text-dark);
+}
+
+.light-theme .todo-content {
+    color: var(--text-dark);
+}
