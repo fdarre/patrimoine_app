@@ -1,14 +1,13 @@
 """
 Script de configuration initiale de l'application
 """
-import os
 import getpass
-from sqlalchemy.orm import Session
+import os
 
+from config.app_config import DATA_DIR
 from database.db_config import engine, SessionLocal, Base
 from database.models import User
 from utils.password import hash_password
-from config.app_config import DATA_DIR, MAX_USERS
 
 
 def setup():

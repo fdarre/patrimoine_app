@@ -1,12 +1,11 @@
 """
 Gestionnaire d'erreurs centralisé pour l'application
 """
-from typing import Dict, List, Optional, Any, Callable, Union
-import streamlit as st
 import traceback
-import logging
-import sys
 from functools import wraps
+from typing import Callable
+
+import streamlit as st
 
 from utils.exceptions import AppError, DatabaseError, ValidationError, AuthenticationError
 from utils.logger import get_logger

@@ -1,13 +1,10 @@
 """
 Système de validation des formulaires amélioré
 """
-from typing import Dict, List, Optional, Any, Callable, Union, TypeVar, Generic
-from dataclasses import dataclass, field
 import re
+from dataclasses import dataclass, field
 from enum import Enum
-from datetime import datetime, date
-
-from utils.exceptions import ValidationError
+from typing import Dict, List, Optional, Any, Union, TypeVar, Generic
 
 # Type pour les validateurs
 T = TypeVar('T')

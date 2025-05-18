@@ -3,10 +3,8 @@ Fonctions utilitaires communes réutilisables
 """
 import json
 import uuid
-import os
-import time
-from typing import Dict, List, Any, Optional
-from datetime import datetime
+from typing import Dict, List, Any
+
 import pandas as pd
 
 from utils.exceptions import ValidationError

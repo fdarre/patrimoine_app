@@ -4,12 +4,12 @@ Script de création de fixtures pour l'utilisateur 'fredfred' avec banques et co
 """
 import uuid
 from datetime import datetime
+
 from sqlalchemy.orm import Session
 
 from database.db_config import get_db, engine, Base
-from database.models import User, Bank, Account, Asset
+from database.models import User, Bank, Account
 from utils.password import hash_password
-from config.app_config import ACCOUNT_TYPES, PRODUCT_TYPES, ASSET_CATEGORIES
 
 
 def create_user_fixtures():

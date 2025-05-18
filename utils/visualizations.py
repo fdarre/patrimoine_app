@@ -2,9 +2,8 @@
 Fonctions utilitaires pour les visualisations
 """
 
-import matplotlib.pyplot as plt
-import numpy as np
-from typing import Dict, List, Optional, Any
+from typing import List, Any
+
 import streamlit as st
 
 

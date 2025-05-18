@@ -1,14 +1,14 @@
 """
 Interface utilisateur pour la gestion des modèles d'actifs
 """
-import streamlit as st
+from datetime import datetime
+
 import pandas as pd
+import streamlit as st
 from sqlalchemy.orm import Session
 
-from database.models import Asset, Account, Bank
+from database.models import Asset
 from services.template_service import template_service
-from utils.ui_helpers import show_message
-from datetime import datetime
 from utils.calculations import get_default_geo_zones
 
 

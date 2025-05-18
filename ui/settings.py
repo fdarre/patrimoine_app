@@ -2,17 +2,16 @@
 Interface des paramètres de l'application
 """
 
-import streamlit as st
-import pandas as pd
-import json
 import os
-from datetime import datetime
+
+import streamlit as st
 from sqlalchemy.orm import Session
 
-from database.models import User, Bank, Account, Asset, HistoryPoint
-from database.db_config import engine
-from services.backup_service import BackupService
 from config.app_config import DATA_DIR, MAX_USERS
+from database.db_config import engine
+from database.models import User, Bank, Asset
+from services.backup_service import BackupService
+
 
 def show_settings(db: Session, user_id: str):
     """

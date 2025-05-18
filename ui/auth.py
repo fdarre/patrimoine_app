@@ -1,14 +1,14 @@
 """
 Interface d'authentification
 """
-import streamlit as st
-from datetime import datetime, timedelta
 from typing import Optional
 
-from database.db_config import get_db
-from database.models import User
-from services.auth_service import AuthService
+import streamlit as st
+
 from config.app_config import MAX_USERS
+from database.db_config import get_db
+from services.auth_service import AuthService
+
 
 def show_login():
     """

@@ -2,15 +2,15 @@
 Interface de gestion des actifs, incluant les actifs composites
 """
 
-import streamlit as st
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 
+import pandas as pd
+import streamlit as st
+
+from config.app_config import PRODUCT_TYPES, ASSET_CATEGORIES, CURRENCIES
 from database.models import Asset
 from services.asset_service import AssetService
 from services.data_service import DataService
-from config.app_config import ACCOUNT_TYPES, PRODUCT_TYPES, ASSET_CATEGORIES, GEO_ZONES, CURRENCIES
 from utils.calculations import get_default_geo_zones, is_circular_reference
 
 

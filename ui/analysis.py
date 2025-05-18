@@ -2,17 +2,16 @@
 Interface d'analyse et visualisations
 """
 
-import streamlit as st
 import pandas as pd
-import json
-from datetime import datetime
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, or_, and_
+import streamlit as st
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
-from database.models import Bank, Account, Asset, HistoryPoint
+from config.app_config import ASSET_CATEGORIES, GEO_ZONES
+from database.models import Bank, Account, Asset
 from services.visualization_service import VisualizationService
-from config.app_config import ASSET_CATEGORIES, GEO_ZONES, GEO_ZONES_DESCRIPTIONS
 from utils.visualizations import get_geo_zone_display_name
+
 
 def show_analysis(db: Session, user_id: str):
     """

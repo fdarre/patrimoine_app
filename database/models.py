@@ -1,13 +1,14 @@
 """
 Modèles SQLAlchemy pour la base de données avec chiffrement au niveau des champs
 """
-from sqlalchemy import Column, String, Float, Boolean, ForeignKey, DateTime, Text, Index
-from sqlalchemy.ext.mutable import MutableDict, MutableList
 import datetime
 import uuid
 
+from sqlalchemy import Column, String, Float, Boolean, ForeignKey, DateTime, Index
+
 from database.db_config import Base
-from utils.crypto import EncryptedJSON, EncryptedString, EncryptedDict, EncryptedList
+from utils.crypto import EncryptedJSON, EncryptedString
+
 
 class User(Base):
     __tablename__ = "users"

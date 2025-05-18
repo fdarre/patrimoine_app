@@ -2,17 +2,15 @@
 Interface de gestion des banques et comptes
 """
 
-import streamlit as st
 import pandas as pd
+import streamlit as st
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
-from database.models import Bank, Account, Asset
-from services.bank_service import bank_service
-from services.account_service import account_service
-from services.data_service import DataService
 from config.app_config import ACCOUNT_TYPES
-from utils.ui_helpers import show_message
+from database.models import Bank, Account, Asset
+from services.account_service import account_service
+from services.bank_service import bank_service
+
 
 def show_banks_accounts(db: Session, user_id: str):
     """

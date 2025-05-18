@@ -1,12 +1,14 @@
 """
 Service spécialisé pour les calculs d'allocation des actifs
 """
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional
+
 from sqlalchemy.orm import Session, joinedload
+
 from database.models import Asset
+from utils.common import safe_json_loads
 from utils.decorators import handle_exceptions
 from utils.logger import get_logger
-from utils.common import safe_json_loads
 
 logger = get_logger(__name__)
 

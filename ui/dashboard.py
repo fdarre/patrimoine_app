@@ -2,16 +2,14 @@
 Interface du dashboard principal avec styles centralisés
 """
 
-import streamlit as st
-import pandas as pd
-from sqlalchemy import func
-from sqlalchemy.orm import Session
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import streamlit as st
+from sqlalchemy.orm import Session
 
 from database.models import Bank, Account, Asset, HistoryPoint
 from services.visualization_service import VisualizationService
-from services.asset_service import asset_service
 
 # Customize Matplotlib
 plt.style.use('dark_background')

@@ -1,12 +1,11 @@
 """
 Système de composants UI modulaires pour l'application Streamlit
 """
-from typing import Dict, List, Optional, Union, Any, Callable
-import streamlit as st
-import pandas as pd
-from dataclasses import dataclass
-import re
 import uuid
+from typing import Dict, List, Optional, Any, Callable
+
+import streamlit as st
+
 
 class UIComponent:
     """

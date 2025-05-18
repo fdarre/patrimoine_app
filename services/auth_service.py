@@ -1,17 +1,18 @@
 """
 Service d'authentification et de gestion des utilisateurs avec protections améliorées
 """
-from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
+from typing import Dict, Optional, Any
+
 import jwt
 from sqlalchemy.orm import Session
 
+from config.app_config import SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from database.models import User
-from config.app_config import SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, MAX_USERS
-from utils.password import hash_password, verify_password
-from utils.logger import get_logger
-from utils.exceptions import AuthenticationError, ValidationError
 from utils.decorators import handle_exceptions
+from utils.exceptions import AuthenticationError, ValidationError
+from utils.logger import get_logger
+from utils.password import hash_password, verify_password
 
 # Configurer le logger
 logger = get_logger(__name__)

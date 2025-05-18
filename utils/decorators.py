@@ -3,8 +3,9 @@ Décorateurs utilitaires pour l'application
 """
 import functools
 import time
+from typing import Callable
+
 import streamlit as st
-from typing import Callable, Any
 from sqlalchemy.exc import SQLAlchemyError
 
 from utils.exceptions import AppError, DatabaseError

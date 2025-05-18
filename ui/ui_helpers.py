@@ -1,10 +1,11 @@
 """
 Helpers pour l'interface utilisateur Streamlit
 """
-import streamlit as st
-import pandas as pd
-from typing import List, Dict, Any, Optional, Callable, Tuple
 import math
+from typing import List, Any, Optional, Callable, Tuple
+
+import pandas as pd
+import streamlit as st
 
 from utils.logger import get_logger
 

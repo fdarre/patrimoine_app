@@ -1,8 +1,9 @@
 """
 Utilitaires pour la validation des formulaires
 """
+from typing import Dict, Any
+
 import streamlit as st
-from typing import Dict, Any, List
 
 
 def validate_asset_form(asset_info: Dict[str, Any], allocation: Dict[str, float],

@@ -1,8 +1,6 @@
 """
 Utilitaires pour le chiffrement et déchiffrement
 """
-from cryptography.fernet import Fernet
-import json
 from sqlalchemy import TypeDecorator, String
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 

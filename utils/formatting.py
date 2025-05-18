@@ -1,10 +1,8 @@
 """
 Fonctions utilitaires de formatage centralisées
 """
-from typing import Optional, Dict, Any, Union
-import locale
-import re
 from datetime import datetime, date
+from typing import Any, Union
 
 
 def format_currency(

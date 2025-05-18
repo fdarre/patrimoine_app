@@ -2,18 +2,16 @@
 Script pour générer des fixtures de test pour l'application de gestion patrimoniale.
 Ce script va créer un jeu complet de données de test pour l'utilisateur 'fred'.
 """
-import os
 import random
 import uuid
 from datetime import datetime, timedelta
-from sqlalchemy.orm import Session
 from typing import Dict, List
 
-from database.db_config import get_db, engine, Base
+from config.app_config import ASSET_CATEGORIES
+from database.db_config import get_db
 from database.models import User, Bank, Account, Asset
-from utils.password import hash_password
-from config.app_config import ACCOUNT_TYPES, PRODUCT_TYPES, ASSET_CATEGORIES
 from utils.calculations import get_default_geo_zones
+from utils.password import hash_password
 
 
 # Fonction pour obtenir une distribution aléatoire totalisant 100%

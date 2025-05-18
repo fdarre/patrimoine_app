@@ -1,10 +1,11 @@
 """
 Utilitaires pour les indicateurs de chargement et les notifications - Version Streamlit
 """
-import streamlit as st
 import time
-from typing import Optional, Callable, Any
 from contextlib import contextmanager
+from typing import Optional
+
+import streamlit as st
 
 
 @contextmanager

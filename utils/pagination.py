@@ -1,10 +1,11 @@
 """
 Utilitaire de pagination centralisé pour les tableaux de données et autres collections
 """
-from typing import List, Optional, Dict, Any, Tuple, TypeVar, Generic, Callable
-import streamlit as st
-import pandas as pd
 import math
+from typing import List, Optional, Dict, Tuple, TypeVar, Generic
+
+import pandas as pd
+import streamlit as st
 from sqlalchemy.orm import Query
 
 T = TypeVar('T')

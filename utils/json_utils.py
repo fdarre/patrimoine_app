@@ -3,7 +3,7 @@ Utilitaires pour la manipulation et la validation de données JSON
 """
 import json
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Union
 
 logger = logging.getLogger(__name__)
 

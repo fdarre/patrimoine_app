@@ -11,29 +11,23 @@ class AppError(Exception):
 
 class DatabaseError(AppError):
     """Exception levée lors d'erreurs de base de données"""
-    pass
 
 
 class ValidationError(AppError):
     """Exception levée lors d'erreurs de validation"""
-    pass
 
 
 class AuthenticationError(AppError):
     """Exception levée lors d'erreurs d'authentification"""
-    pass
 
 
 class ConfigurationError(AppError):
     """Exception levée lors d'erreurs de configuration"""
-    pass
 
 
 class SyncError(AppError):
     """Exception levée lors d'erreurs de synchronisation"""
-    pass
 
 
 class FileError(AppError):
     """Exception levée lors d'erreurs de manipulation de fichiers"""
-    pass

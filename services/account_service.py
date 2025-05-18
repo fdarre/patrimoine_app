@@ -1,10 +1,11 @@
 """
 Service de gestion des comptes avec SQLAlchemy
 """
-from typing import List, Optional, Dict, Any, Tuple
-from sqlalchemy.orm import Session
-from sqlalchemy import func
+from typing import List, Optional, Tuple
+
 import pandas as pd
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from database.models import Account, Asset, Bank
 from services.base_service import BaseService
