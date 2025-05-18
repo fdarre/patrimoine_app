@@ -8,8 +8,8 @@ import streamlit as st
 from sqlalchemy.orm import Session
 
 from database.models import Asset, Account, Bank
+from ui.components import create_asset_card
 from utils.pagination import render_pagination_controls
-from utils.ui_components import create_asset_card
 
 
 def display_assets_table(db: Session, assets):

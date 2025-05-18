@@ -2,23 +2,25 @@
 Point d'entrée principal de l'application de gestion patrimoniale
 """
 
-import streamlit as st
 import os
 from datetime import datetime
 
-from utils.style_manager import initialize_styles
-from utils.logger import get_logger, setup_file_logging
+import streamlit as st
+
+from config.app_config import LOGS_DIR
+from database.db_config import get_db, engine, Base
+from ui.analysis import show_analysis
+from ui.assets import show_asset_management
+from ui.auth import show_auth, check_auth, logout, get_current_user_id
+from ui.banks_accounts import show_banks_accounts
+from ui.dashboard import show_dashboard
+from ui.settings import show_settings
+from ui.templates.template_management import show_template_management
+from ui.todos import show_todos
 from utils.decorators import streamlit_exception_handler
 from utils.exceptions import AppError
-from database.db_config import get_db, engine, Base
-from ui.dashboard import show_dashboard
-from ui.banks_accounts import show_banks_accounts
-from ui.assets import show_asset_management
-from ui.analysis import show_analysis
-from ui.todos import show_todos
-from ui.settings import show_settings
-from ui.auth import show_auth, check_auth, logout, get_current_user_id
-from ui.templates.template_management import show_template_management
+from utils.logger import get_logger, setup_file_logging
+from utils.style_manager import initialize_styles
 
 # Configurer le logger
 logger = get_logger(__name__)

@@ -234,3 +234,40 @@ def create_paginated_table(
     paginator.render_controls(total_pages, current_page)
 
     return df_paginated
+
+
+def render_pagination_controls(n_pages: int, page_key: str = "pagination"):
+    """
+    Affiche les contrôles de pagination
+
+    Args:
+        n_pages: Nombre total de pages
+        page_key: Clé pour la pagination dans st.session_state
+    """
+    import streamlit as st
+
+    if n_pages <= 1:
+        return
+
+    # Initialiser l'index de page dans session_state si nécessaire
+    if page_key not in st.session_state:
+        st.session_state[page_key] = 0
+
+    current_page = st.session_state[page_key] + 1  # Convert to 1-indexed for display
+
+    cols = st.columns([1, 3, 1])
+
+    with cols[0]:
+        if st.button("⏮️ Précédent", key=f"{page_key}_prev",
+                     disabled=current_page <= 1):
+            st.session_state[page_key] = max(0, st.session_state[page_key] - 1)
+            st.rerun()
+
+    with cols[1]:
+        st.write(f"Page {current_page} sur {n_pages}")
+
+    with cols[2]:
+        if st.button("Suivant ⏭️", key=f"{page_key}_next",
+                     disabled=current_page >= n_pages):
+            st.session_state[page_key] = min(n_pages - 1, st.session_state[page_key] + 1)
+            st.rerun()
