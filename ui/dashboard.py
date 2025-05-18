@@ -4,21 +4,19 @@ Interface du dashboard principal avec styles centralisés
 
 import streamlit as st
 import pandas as pd
-from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database.models import Bank, Account, Asset, HistoryPoint
 from services.visualization_service import VisualizationService
-from ui.components.ui_components import styled_metric, styled_info_box, styled_progress
-from utils.style_loader import create_card, create_badge, get_theme_color
+from utils.ui_helpers import show_message
 
-# Couleurs fixes pour les graphiques Matplotlib (au format hex)
+# Couleurs fixes pour les graphiques Matplotlib
 CHART_COLORS = {
-    'text_light': '#f8fafc',  # Correspondant à --text-light
-    'text_muted': '#94a3b8',  # Correspondant à --text-muted
-    'gray-700': '#374151',    # Correspondant à --gray-700
-    'background': 'none'      # Fond transparent
+    'text_light': '#f8fafc',
+    'text_muted': '#94a3b8',
+    'gray-700': '#374151',
+    'background': 'none'
 }
 
 def show_dashboard(db: Session, user_id: str):
@@ -36,27 +34,30 @@ def show_dashboard(db: Session, user_id: str):
     with col1:
         # Calculer la valeur totale directement
         total_value = sum(asset.value_eur or 0.0 for asset in assets)
-        styled_metric(
-            label="Valeur totale du patrimoine",
-            value=f"{total_value:,.2f} €".replace(",", " "),
-            icon="💰"
-        )
+        st.markdown(f"""
+        <div class="metric-card">
+            <div style="font-size:14px;color:var(--text-muted);">Valeur totale du patrimoine</div>
+            <div style="font-size:24px;font-weight:bold;">{total_value:,.2f} €</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     with col2:
         asset_count = len(assets)
-        styled_metric(
-            label="Nombre d'actifs",
-            value=str(asset_count),
-            icon="📦"
-        )
+        st.markdown(f"""
+        <div class="metric-card">
+            <div style="font-size:14px;color:var(--text-muted);">Nombre d'actifs</div>
+            <div style="font-size:24px;font-weight:bold;">{asset_count}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     with col3:
         account_count = db.query(Account).join(Bank).filter(Bank.owner_id == user_id).count()
-        styled_metric(
-            label="Nombre de comptes",
-            value=str(account_count),
-            icon="🏦"
-        )
+        st.markdown(f"""
+        <div class="metric-card">
+            <div style="font-size:14px;color:var(--text-muted);">Nombre de comptes</div>
+            <div style="font-size:24px;font-weight:bold;">{account_count}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     # Graphiques principaux (si des actifs existent)
     if assets:
@@ -73,14 +74,22 @@ def show_dashboard(db: Session, user_id: str):
             category_values_display = {k.capitalize(): v for k, v in category_values.items() if v > 0}
 
             if category_values_display:
-                fig = VisualizationService.create_pie_chart(category_values_display)
+                fig = VisualizationService.create_pie_chart(category_values_display, figsize=(8, 8))
                 if fig:
-                    # Appliquer un style adapté au thème de l'app
+                    # Ajustements spécifiques pour éviter les chevauchements
+                    fig.tight_layout(pad=3.0)
                     fig.patch.set_facecolor(CHART_COLORS['background'])
+
                     for ax in fig.get_axes():
                         ax.set_facecolor(CHART_COLORS['background'])
+
+                        # Ajustement des textes
                         for text in ax.texts:
                             text.set_color(CHART_COLORS['text_light'])
+                            text.set_fontsize(10)
+
+                        # Déplacer la légende en dehors du graphique
+                        ax.legend(loc='upper left', bbox_to_anchor=(1.05, 1), fontsize=9)
 
                     st.pyplot(fig)
 
@@ -95,14 +104,22 @@ def show_dashboard(db: Session, user_id: str):
             geo_values_display = {k.capitalize(): v for k, v in geo_values.items() if v > 0}
 
             if geo_values_display:
-                fig = VisualizationService.create_pie_chart(geo_values_display)
+                fig = VisualizationService.create_pie_chart(geo_values_display, figsize=(8, 8))
                 if fig:
-                    # Appliquer un style adapté au thème
+                    # Ajustements pour éviter les chevauchements
+                    fig.tight_layout(pad=3.0)
                     fig.patch.set_facecolor(CHART_COLORS['background'])
+
                     for ax in fig.get_axes():
                         ax.set_facecolor(CHART_COLORS['background'])
+
+                        # Ajustement des textes
                         for text in ax.texts:
                             text.set_color(CHART_COLORS['text_light'])
+                            text.set_fontsize(10)
+
+                        # Déplacer la légende en dehors du graphique
+                        ax.legend(loc='upper left', bbox_to_anchor=(1.05, 1), fontsize=9)
 
                     st.pyplot(fig)
 
@@ -113,18 +130,24 @@ def show_dashboard(db: Session, user_id: str):
             fig = VisualizationService.create_time_series_chart(db)
             if fig:
                 # Stylisation du graphique
+                fig.tight_layout(pad=2.0)
                 fig.patch.set_facecolor(CHART_COLORS['background'])
+
                 for ax in fig.get_axes():
                     ax.set_facecolor(CHART_COLORS['background'])
+
                     for text in ax.get_xticklabels() + ax.get_yticklabels():
                         text.set_color(CHART_COLORS['text_light'])
+                        text.set_fontsize(9)
+
                     ax.grid(color=CHART_COLORS['gray-700'], linestyle='--', alpha=0.7)
+
                     for spine in ax.spines.values():
                         spine.set_color(CHART_COLORS['gray-700'])
 
                 st.pyplot(fig)
         else:
-            styled_info_box("L'historique d'évolution sera disponible après plusieurs mises à jour d'actifs.", "info")
+            st.info("L'historique d'évolution sera disponible après plusieurs mises à jour d'actifs.")
 
         # Top 5 des actifs avec style moderne
         top_assets = sorted(assets, key=lambda x: x.value_eur if x.value_eur is not None else 0.0, reverse=True)[:5]
@@ -136,26 +159,35 @@ def show_dashboard(db: Session, user_id: str):
                 account = db.query(Account).filter(Account.id == asset.account_id).first()
                 bank = db.query(Bank).filter(Bank.id == account.bank_id).first() if account else None
 
-                # Utiliser les composants natifs de Streamlit
-                st.markdown(f"### {asset.nom} {asset.type_produit.upper()}")
+                # Calculer la plus-value
+                pv = asset.valeur_actuelle - asset.prix_de_revient
+                pv_percent = (pv / asset.prix_de_revient) * 100 if asset.prix_de_revient > 0 else 0
+                pv_class = "positive" if pv >= 0 else "negative"
+                pv_icon = "📈" if pv >= 0 else "📉"
 
-                cols = st.columns(2)
-                with cols[0]:
-                    st.markdown("**Valeur:**")
-                    st.markdown(f"### {asset.valeur_actuelle:,.2f} {asset.devise}".replace(",", " "))
-
-                with cols[1]:
-                    # Calculer les métriques
-                    pv = asset.valeur_actuelle - asset.prix_de_revient
-                    pv_percent = (pv / asset.prix_de_revient) * 100 if asset.prix_de_revient > 0 else 0
-                    pv_class = "positive" if pv >= 0 else "negative"
-                    pv_icon = "📈" if pv >= 0 else "📉"
-
-                    st.markdown("**Performance:**")
-                    st.markdown(f"### <span class='{pv_class}'>{pv_icon} {pv_percent:+.2f}%</span>", unsafe_allow_html=True)
-
-                st.markdown(f"**Compte:** {account.libelle} ({bank.nom})" if account and bank else "Compte non disponible")
-                st.markdown("---")
+                # Utiliser une structure HTML plus sûre mais qui conserve le style
+                st.markdown(f"""
+                <div class="asset-card">
+                    <div class="asset-header">
+                        <span class="asset-icon">💰</span>
+                        <span class="asset-title">{asset.nom}</span>
+                        <span class="asset-badge">{asset.type_produit.upper()}</span>
+                    </div>
+                    <div class="asset-stats">
+                        <div class="asset-stat">
+                            <div class="stat-label">Valeur</div>
+                            <div class="stat-value">{asset.valeur_actuelle:,.2f} {asset.devise}</div>
+                        </div>
+                        <div class="asset-stat">
+                            <div class="stat-label">Performance</div>
+                            <div class="stat-value {pv_class}">{pv_icon} {pv_percent:+.2f}%</div>
+                        </div>
+                    </div>
+                    <div class="asset-footer">
+                        <span class="asset-account">🏦 {account.libelle} ({bank.nom})</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
         # Tâches à faire - Style moderne
         todos = db.query(Asset).filter(Asset.owner_id == user_id).filter(Asset.todo != "").all()
@@ -164,20 +196,18 @@ def show_dashboard(db: Session, user_id: str):
             for asset in todos:
                 account = db.query(Account).filter(Account.id == asset.account_id).first()
 
-                st.markdown(f"### ✅ {asset.nom}")
-                st.markdown(asset.todo)
-                st.markdown(f"*Compte: {account.libelle if account else 'Compte inconnu'}*")
-                st.markdown("---")
+                st.markdown(f"""
+                <div class="todo-card">
+                    <div class="todo-header">✅ {asset.nom}</div>
+                    <div class="todo-content">{asset.todo}</div>
+                    <div class="todo-footer">Compte: {account.libelle if account else 'Compte inconnu'}</div>
+                </div>
+                """, unsafe_allow_html=True)
     else:
-        # Affichage pour le cas sans actif avec style unifié
-        styled_info_box(
-            "Aucun actif n'a encore été ajouté. Commencez par ajouter des banques, des comptes, puis des actifs.",
-            "info"
-        )
+        # Affichage pour le cas sans actif
+        st.info("Aucun actif n'a encore été ajouté. Commencez par ajouter des banques, des comptes, puis des actifs.")
 
-        # Bouton stylisé pour ajouter une banque - utiliser le composant natif
-        st.markdown("### Commencer")
-        if st.button("➕ Ajouter une banque", key="add_bank_btn"):
-            # Changer la page via session_state
+        # Bouton pour ajouter une banque
+        if st.button("➕ Ajouter une banque"):
             st.session_state["navigation"] = "Banques & Comptes"
             st.rerun()
