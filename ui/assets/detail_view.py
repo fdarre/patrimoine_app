@@ -7,17 +7,13 @@ import matplotlib.pyplot as plt
 from sqlalchemy.orm import Session
 
 from database.models import Asset, Account, Bank
-from services.asset_service import AssetService
+from services.asset_service import asset_service
 from datetime import datetime
 
 
 def display_asset_details(db: Session, asset_id: str):
     """
     Affiche les détails complets d'un actif
-
-    Args:
-        db: Session de base de données
-        asset_id: ID de l'actif à afficher
     """
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if not asset:
@@ -29,38 +25,32 @@ def display_asset_details(db: Session, asset_id: str):
     bank = db.query(Bank).filter(Bank.id == account.bank_id).first() if account else None
 
     # Afficher le fil d'ariane (breadcrumb)
-    st.markdown(f"""
-    <div style="margin-bottom:15px;font-size:14px;color:#6c757d;">
-        {bank.nom if bank else "N/A"} > {account.libelle if account else "N/A"} > <strong>{asset.nom}</strong>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        f"**Navigation:** {bank.nom if bank else 'N/A'} > {account.libelle if account else 'N/A'} > **{asset.nom}**")
 
     # En-tête avec les informations essentielles
     col1, col2 = st.columns([2, 1])
 
     with col1:
         st.subheader(asset.nom)
-        st.markdown(f"""
-        <div style="margin-bottom:10px;">
-            <span style="background:#e9ecef;border-radius:3px;padding:2px 8px;font-size:14px;font-weight:bold;">{asset.type_produit.upper()}</span>
-            {f'<span style="margin-left:10px;font-family:monospace;background:#f8f9fa;padding:2px 8px;border-radius:3px;">{asset.isin}</span>' if asset.isin else ''}
-        </div>
-        """, unsafe_allow_html=True)
+        asset_type_html = f'<span style="background:#e9ecef;border-radius:3px;padding:2px 8px;font-size:14px;font-weight:bold;">{asset.type_produit.upper()}</span>'
+        isin_html = f'<span style="margin-left:10px;font-family:monospace;background:#f8f9fa;padding:2px 8px;border-radius:3px;">{asset.isin}</span>' if asset.isin else ''
+        st.markdown(f"{asset_type_html} {isin_html}", unsafe_allow_html=True)
 
     with col2:
         # Calculer la plus-value
         pv = asset.valeur_actuelle - asset.prix_de_revient
         pv_percent = (pv / asset.prix_de_revient) * 100 if asset.prix_de_revient > 0 else 0
-        pv_class = "positive" if pv >= 0 else "negative"
+        pv_color = "green" if pv >= 0 else "red"
 
-        # MODIFICATION: Ajout de l'affichage de la valeur en EUR pour les devises étrangères
-        st.markdown(f"""
-        <div style="text-align:right;">
-            <div style="font-size:24px;font-weight:bold;">{asset.valeur_actuelle:,.2f} {asset.devise}</div>
-            {"" if asset.devise == "EUR" else f'<div style="font-size:14px;color:#adb5bd;">(≈ {asset.value_eur or 0.0:,.2f} €)</div>'}
-            <div class="{pv_class}" style="font-size:16px;">{pv:+,.2f} {asset.devise} ({pv_percent:+.2f}%)</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.write(f"**Valeur actuelle:** {asset.valeur_actuelle:,.2f} {asset.devise}".replace(",", " "))
+
+        if asset.devise != "EUR" and asset.value_eur:
+            st.write(f"**Valeur en EUR:** {asset.value_eur:,.2f} €".replace(",", " "))
+
+        st.markdown(
+            f"**Performance:** <span style='color:{pv_color}'>{pv:+,.2f} {asset.devise} ({pv_percent:+.2f}%)</span>".replace(
+                ",", " "), unsafe_allow_html=True)
 
     # Onglets pour les différentes sections de détails
     detail_tabs = st.tabs(["📊 Allocations", "💰 Valorisation", "📋 Informations", "✏️ Édition"])
@@ -80,19 +70,14 @@ def display_asset_details(db: Session, asset_id: str):
             st.session_state[f'edit_asset_{asset.id}'] = True
 
         if f'edit_asset_{asset.id}' in st.session_state and st.session_state[f'edit_asset_{asset.id}']:
-            # Utiliser une référence à la fonction d'édition existante
             st.info("Formulaire d'édition avancé de l'actif")
-            # Rediriger vers le formulaire d'édition
             st.session_state['edit_asset'] = asset.id
             st.rerun()
 
 
 def display_asset_allocations(asset):
     """
-    Affiche les allocations par catégorie et répartition géographique d'un actif
-
-    Args:
-        asset: Actif à afficher
+    Affiche les allocations par catégorie et répartition géographique
     """
     st.subheader("Allocation par catégorie")
 
@@ -104,8 +89,8 @@ def display_asset_allocations(asset):
 
         # Créer le graphique
         fig, ax = plt.subplots(figsize=(8, 5))
-        bars = ax.bar(categories, percentages,
-                      color=['#4e79a7', '#f28e2c', '#e15759', '#76b7b2', '#59a14f', '#edc949', '#af7aa1'])
+        colors = ['#4e79a7', '#f28e2c', '#e15759', '#76b7b2', '#59a14f', '#edc949', '#af7aa1']
+        bars = ax.bar(categories, percentages, color=colors[:len(categories)])
 
         # Ajouter les pourcentages sur les barres
         for bar in bars:
@@ -116,6 +101,7 @@ def display_asset_allocations(asset):
         ax.set_ylabel('Pourcentage (%)')
         ax.set_ylim(0, 100)
         ax.grid(axis='y', linestyle='--', alpha=0.7)
+        plt.xticks(rotation=45, ha='right')
 
         st.pyplot(fig)
 
@@ -165,10 +151,6 @@ def display_asset_allocations(asset):
 def display_asset_valuation(asset, db: Session):
     """
     Affiche les données de valorisation d'un actif
-
-    Args:
-        asset: Actif à afficher
-        db: Session de base de données pour les mises à jour
     """
     st.subheader("Données de valorisation")
 
@@ -178,7 +160,6 @@ def display_asset_valuation(asset, db: Session):
         st.metric("Valeur actuelle", f"{asset.valeur_actuelle:,.2f} {asset.devise}".replace(",", " "))
         st.metric("Prix de revient", f"{asset.prix_de_revient:,.2f} {asset.devise}".replace(",", " "))
 
-        # MODIFICATION: Ajout d'infos plus détaillées sur la devise et la conversion en EUR
         if asset.devise != "EUR":
             if asset.exchange_rate and asset.exchange_rate > 0:
                 st.metric("Taux de change", f"1 {asset.devise} = {asset.exchange_rate:,.4f} EUR".replace(",", " "))
@@ -222,8 +203,7 @@ def display_asset_valuation(asset, db: Session):
                                     format="%.2f")
     with col2:
         if st.button("Mettre à jour", key=f"update_price_{asset.id}"):
-            # Code pour la mise à jour du prix
-            if AssetService.update_manual_price(db, asset.id, new_price):  # Ajout du paramètre db
+            if asset_service.update_manual_price(db, asset.id, new_price):
                 st.success("Prix mis à jour avec succès")
                 st.rerun()
             else:
@@ -233,11 +213,6 @@ def display_asset_valuation(asset, db: Session):
 def display_asset_information(asset, account, bank):
     """
     Affiche les informations générales d'un actif
-
-    Args:
-        asset: Actif à afficher
-        account: Compte associé
-        bank: Banque associée
     """
     st.subheader("Informations générales")
 
@@ -259,13 +234,8 @@ def display_asset_information(asset, account, bank):
     # Notes et tâches
     if asset.notes:
         st.subheader("Notes")
-        st.markdown(f'<div style="background:#f8f9fa;padding:10px;border-radius:5px;">{asset.notes}</div>',
-                    unsafe_allow_html=True)
+        st.text_area("", value=asset.notes, height=100, disabled=True, label_visibility="collapsed")
 
     if asset.todo:
         st.subheader("Tâches à faire")
-        st.markdown(f"""
-        <div class="todo-card" style="background-color:#fff3cd;border-left:4px solid #ffc107;padding:1rem;border-radius:0.25rem;">
-            {asset.todo}
-        </div>
-        """, unsafe_allow_html=True)
+        st.warning(asset.todo)

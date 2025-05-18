@@ -430,6 +430,26 @@ class AssetService(BaseService[Asset]):
 
         return updated_count
 
+    @staticmethod
+    def calculate_performance(asset):
+        """
+        Calcule la performance d'un actif de manière standardisée
+
+        Args:
+            asset: Actif à évaluer
+
+        Returns:
+            Dictionnaire contenant la valeur, le pourcentage et le signe de la plus-value
+        """
+        pv = asset.valeur_actuelle - asset.prix_de_revient
+        pv_percent = (pv / asset.prix_de_revient * 100) if asset.prix_de_revient > 0 else 0
+
+        return {
+            "value": pv,
+            "percent": pv_percent,
+            "is_positive": pv_percent >= 0
+        }
+
     @handle_exceptions
     def update_manual_price(self, db: Session, asset_id: str, new_price: float) -> bool:
         """
