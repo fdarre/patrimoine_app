@@ -168,29 +168,3 @@
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
 }
-
-/* Adaptations pour le thème clair */
-.light-theme .stButton > button {
-    background: linear-gradient(90deg, var(--primary-color), var(--primary-dark));
-    color: white;
-}
-
-.light-theme .text-button > button {
-    background: none;
-    color: var(--text-dark);
-}
-
-.light-theme .text-button > button:hover {
-    background: rgba(0, 0, 0, 0.05);
-}
-
-.light-theme .pagination-button {
-    background-color: white;
-    border: 1px solid var(--gray-300);
-    color: var(--text-dark);
-}
-
-.light-theme .pagination-button:hover {
-    background-color: var(--primary-color);
-    color: white;
-}

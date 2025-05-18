@@ -39,7 +39,7 @@ def main():
     initialize_styles()  # Utilisation du gestionnaire unifié
 
     # Ajouter le sélecteur de thème dans la barre latérale
-    create_theme_selector()
+    #create_theme_selector()
 
     # Vérifier l'authentification
     is_authenticated = check_auth()

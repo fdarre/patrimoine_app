@@ -19,12 +19,6 @@ THEMES = {
         "icon": "🌙",
         "file": "dark-theme.css",
         "is_default": True
-    },
-    "light": {
-        "name": "Clair",
-        "icon": "☀️",
-        "file": "light-theme.css",
-        "is_default": False
     }
 }
 
@@ -130,7 +124,7 @@ def initialize_styles() -> None:
         // S'assurer que le script est exécuté après le chargement de la page
         (function() {{
             // Supprimer d'abord toutes les classes de thème
-            document.documentElement.classList.remove('dark-theme', 'light-theme');
+            document.documentElement.classList.remove('dark-theme');
             // Ajouter la classe de thème actuelle
             document.documentElement.classList.add('{st.session_state["theme"]}-theme');
         }})();
@@ -141,27 +135,8 @@ def create_theme_selector() -> None:
     """
     Crée un sélecteur de thème dans la barre latérale
     """
-    with st.sidebar:
-        # Créer les options de thème avec icônes
-        theme_options = {
-            k: f"{v['icon']} {v['name']}" for k, v in THEMES.items()
-        }
-
-        current_theme = st.session_state.get("theme", "dark")
-        theme_index = list(theme_options.keys()).index(current_theme) if current_theme in theme_options else 0
-
-        selected_theme = st.selectbox(
-            "Thème",
-            options=list(theme_options.keys()),
-            format_func=lambda x: theme_options[x],
-            index=theme_index,
-            key="theme_selector"
-        )
-
-        if selected_theme != current_theme:
-            # Force Streamlit to fully reload the app when theme changes
-            st.session_state["theme"] = selected_theme
-            st.rerun()  # Utiliser st.rerun() au lieu de st.experimental_rerun()
+    # Cette fonction peut être supprimée ou simplifiée s'il n'y a qu'un seul thème
+    pass
 
 def get_theme_color(color_name: str) -> str:
     """

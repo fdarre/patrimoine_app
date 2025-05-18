@@ -101,17 +101,3 @@
 .sync-button:hover {
     background-color: var(--primary-dark);
 }
-
-/* Adaptations pour le thème clair */
-.light-theme .sync-card {
-    background: white;
-    border: 1px solid var(--gray-200);
-}
-
-.light-theme .sync-card h3 {
-    color: var(--text-dark);
-}
-
-.light-theme .sync-card p {
-    color: var(--text-muted);
-}

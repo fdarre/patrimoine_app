@@ -149,20 +149,3 @@
 .neutral {
     color: var(--text-muted) !important;
 }
-
-/* Adaptations pour le thème clair */
-.light-theme .metric-card {
-    background: linear-gradient(135deg, white, #fafafa);
-    border: 1px solid var(--gray-200);
-    box-shadow: var(--shadow-md);
-}
-
-.light-theme .metric-value {
-    background: linear-gradient(90deg, var(--text-dark), var(--primary-color));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.light-theme .metric-label {
-    color: var(--text-muted) !important;
-}

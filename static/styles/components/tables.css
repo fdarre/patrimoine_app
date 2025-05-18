@@ -187,35 +187,3 @@ tfoot tr td,
 .status-inactive {
     background-color: var(--danger-color);
 }
-
-/* Adaptations pour le thème clair */
-.light-theme table,
-.light-theme .dataframe,
-.light-theme [data-testid="stTable"] table {
-    border: 1px solid var(--gray-200);
-}
-
-.light-theme th,
-.light-theme .dataframe th,
-.light-theme [data-testid="stTable"] th {
-    background-color: var(--gray-100);
-    color: var(--text-dark);
-    border-bottom: 1px solid var(--gray-300);
-}
-
-.light-theme td,
-.light-theme .dataframe td,
-.light-theme [data-testid="stTable"] td {
-    border-bottom: 1px solid var(--gray-200);
-    color: var(--text-dark);
-}
-
-.light-theme tr:hover td,
-.light-theme .dataframe tr:hover td,
-.light-theme [data-testid="stTable"] tr:hover td {
-    background-color: var(--gray-50);
-}
-
-.light-theme .table-striped tr:nth-child(even) td {
-    background-color: var(--gray-50);
-}

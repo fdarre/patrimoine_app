@@ -106,15 +106,6 @@
     margin-bottom: 10px;
 }
 
-/* Adaptations pour le thème clair */
-.light-theme .allocation-bar-bg {
-    background: rgba(0, 0, 0, 0.05);
-}
-
-.light-theme .allocation-total-bar-bg {
-    background: rgba(0, 0, 0, 0.05);
-}
-
 /* Pills d'allocation */
 .allocation-pill {
     display: inline-block;
