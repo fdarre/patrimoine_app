@@ -9,8 +9,44 @@ from sqlalchemy.orm import Session
 
 from database.models import Bank, Account, Asset, HistoryPoint
 from services.visualization_service import VisualizationService
-from ui.components.ui_components import styled_metric, styled_info_box, styled_progress
+from ui.components.ui_components import styled_metric, styled_info_box
 from utils.style_loader import create_card, create_badge, get_theme_color
+
+# Définir la fonction styled_progress localement pour éviter le problème d'importation
+def styled_progress(value: float, max_value: float = 100.0, color: str = "primary",
+                   height: str = "10px", label: Optional[str] = None) -> None:
+    """
+    Affiche une barre de progression stylisée
+
+    Args:
+        value: Valeur actuelle
+        max_value: Valeur maximale
+        color: Couleur de la barre ('primary', 'success', 'warning', 'danger')
+        height: Hauteur de la barre
+        label: Libellé à afficher (optionnel)
+    """
+    # Calculer le pourcentage
+    percentage = min(100, max(0, (value / max_value) * 100))
+
+    # Obtenir la couleur
+    color_code = get_theme_color(color)
+
+    # Construire le label
+    label_html = f'<div style="margin-bottom:5px;">{label}</div>' if label else ''
+
+    # Construire la barre de progression
+    progress_html = f"""
+    {label_html}
+    <div style="background:var(--gray-700);border-radius:4px;height:{height};width:100%;">
+        <div style="background:{color_code};border-radius:4px;height:{height};width:{percentage}%;"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:3px;">
+        <span>{value}</span>
+        <span>{max_value}</span>
+    </div>
+    """
+
+    st.markdown(progress_html, unsafe_allow_html=True)
 
 def show_dashboard(db: Session, user_id: str):
     """
