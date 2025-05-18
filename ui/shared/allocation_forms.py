@@ -377,3 +377,140 @@ def edit_allocation_form(asset, asset_id: str) -> Tuple[Dict[str, float], bool]:
         st.success("Allocation valide (100%)")
 
     return new_allocation, allocation_valid
+
+
+def edit_geo_allocation_form(asset, asset_id, new_allocation):
+    """
+    Crée un formulaire pour l'édition de la répartition géographique d'un actif
+
+    Args:
+        asset: Actif à éditer
+        asset_id: ID de l'actif
+        new_allocation: Allocation mise à jour
+
+    Returns:
+        Tuple (dictionnaire de répartition géographique, validité)
+    """
+    st.subheader("Répartition géographique par catégorie")
+
+    # Initialiser le stockage pour les allocations géographiques et la validité
+    geo_allocation = {}
+    all_geo_valid = True
+
+    # Utiliser les allocations fournies pour les catégories
+    if new_allocation:
+        geo_tabs = st.tabs([cat.capitalize() for cat in new_allocation.keys()])
+
+        # Pour chaque catégorie avec allocation > 0, créer une interface de répartition géo
+        for i, (category, allocation_pct) in enumerate(new_allocation.items()):
+            with geo_tabs[i]:
+                # Afficher les infos de la catégorie
+                st.info(
+                    f"Configuration de la répartition géographique pour la partie '{category}' ({allocation_pct}% de l'actif)")
+
+                # Obtenir la répartition géo actuelle pour cette catégorie ou utiliser la valeur par défaut
+                current_geo = {}
+                if asset.geo_allocation and category in asset.geo_allocation:
+                    current_geo = asset.geo_allocation[category]
+                else:
+                    # Utiliser les valeurs par défaut si pas d'allocation existante
+                    from utils.calculations import get_default_geo_zones
+                    current_geo = get_default_geo_zones(category)
+
+                # Initialiser le stockage pour les zones géo de cette catégorie
+                geo_zones = {}
+                geo_total = 0
+
+                # Créer des onglets pour différents groupes de régions
+                geo_zone_tabs = st.tabs(["Principales", "Secondaires", "Autres"])
+
+                with geo_zone_tabs[0]:
+                    # Zones géo principales
+                    main_zones = ["amerique_nord", "europe_zone_euro", "europe_hors_zone_euro", "japon"]
+                    cols = st.columns(2)
+                    for j, zone in enumerate(main_zones):
+                        with cols[j % 2]:
+                            pct = st.slider(
+                                f"{zone.capitalize()} (%)",
+                                min_value=0.0,
+                                max_value=100.0,
+                                value=float(current_geo.get(zone, 0.0)),
+                                step=1.0,
+                                key=f"edit_asset_geo_{asset_id}_{category}_{zone}"
+                            )
+                            if pct > 0:
+                                geo_zones[zone] = pct
+                                geo_total += pct
+
+                with geo_zone_tabs[1]:
+                    # Zones géo secondaires
+                    secondary_zones = ["chine", "inde", "asie_developpee", "autres_emergents"]
+                    cols = st.columns(2)
+                    for j, zone in enumerate(secondary_zones):
+                        with cols[j % 2]:
+                            pct = st.slider(
+                                f"{zone.capitalize()} (%)",
+                                min_value=0.0,
+                                max_value=100.0,
+                                value=float(current_geo.get(zone, 0.0)),
+                                step=1.0,
+                                key=f"edit_asset_geo_{asset_id}_{category}_{zone}"
+                            )
+                            if pct > 0:
+                                geo_zones[zone] = pct
+                                geo_total += pct
+
+                with geo_zone_tabs[2]:
+                    # Autres zones géo
+                    other_zones = ["global_non_classe"]
+                    cols = st.columns(2)
+                    for j, zone in enumerate(other_zones):
+                        with cols[j % 2]:
+                            pct = st.slider(
+                                f"{zone.capitalize()} (%)",
+                                min_value=0.0,
+                                max_value=100.0,
+                                value=float(current_geo.get(zone, 0.0)),
+                                step=1.0,
+                                key=f"edit_asset_geo_{asset_id}_{category}_{zone}"
+                            )
+                            if pct > 0:
+                                geo_zones[zone] = pct
+                                geo_total += pct
+
+                # Valider le total pour cette catégorie
+                progress_class = "allocation-total-valid"
+                if geo_total < 100:
+                    progress_class = "allocation-total-warning"
+                elif geo_total > 100:
+                    progress_class = "allocation-total-error"
+
+                st.markdown(f"""
+                <div class="allocation-total">
+                    <h4 class="allocation-total-label">Total: {geo_total}%</h4>
+                    <div class="allocation-total-bar-bg">
+                        <div class="allocation-total-bar {progress_class}" style="width:{min(geo_total, 100)}%;"></div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Afficher le message de validation
+                geo_valid = geo_total == 100
+                if not geo_valid:
+                    all_geo_valid = False
+                    if geo_total < 100:
+                        st.warning(
+                            f"Le total de la répartition géographique pour '{category}' doit être de 100%. Actuellement: {geo_total}%")
+                    else:
+                        st.error(
+                            f"Le total de la répartition géographique pour '{category}' ne doit pas dépasser 100%. Actuellement: {geo_total}%")
+                else:
+                    st.success(f"Répartition géographique pour '{category}' valide (100%)")
+
+                # Sauvegarder la répartition géo pour cette catégorie
+                geo_allocation[category] = geo_zones
+    else:
+        st.warning("Veuillez d'abord définir l'allocation par catégorie.")
+        all_geo_valid = False
+
+    return geo_allocation, all_geo_valid
