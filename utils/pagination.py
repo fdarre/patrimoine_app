@@ -1,5 +1,5 @@
 """
-Utilitaire de pagination pour les tableaux de données
+Utilitaire de pagination centralisé pour les tableaux de données
 """
 from typing import List, Optional, Dict, Any, Tuple
 import streamlit as st
@@ -86,44 +86,56 @@ def paginate_dataframe(
 
 def render_pagination_controls(
     total_pages: int,
+    current_page: int,
     page_key: str = "pagination_page",
     max_visible_pages: int = 5
 ) -> None:
     """
-    Affiche les contrôles de pagination
+    Affiche les contrôles de pagination standard
 
     Args:
         total_pages: Nombre total de pages
+        current_page: Page courante (1-indexed)
         page_key: Clé pour la session_state de Streamlit
         max_visible_pages: Nombre maximum de boutons de page à afficher
     """
     if total_pages <= 1:
         return
 
-    current_page = st.session_state[page_key]
-
-    # Fonction de callback pour changer de page
-    def change_page(page_num):
+    # Fonctions de callback
+    def goto_page(page_num):
         st.session_state[page_key] = page_num
+        st.rerun()
 
-    # Interface de pagination améliorée
-    col1, col2, col3 = st.columns([1, 3, 1])
+    def next_page():
+        st.session_state[page_key] = min(total_pages, current_page + 1)
+        st.rerun()
 
-    with col1:
-        if st.button("◀ Précédent", key=f"{page_key}_prev", disabled=current_page <= 1):
-            st.session_state[page_key] = current_page - 1
-            st.rerun()
+    def prev_page():
+        st.session_state[page_key] = max(1, current_page - 1)
+        st.rerun()
 
-    with col2:
+    # UI des contrôles de pagination
+    cols = st.columns([1, 3, 1])
+
+    with cols[0]:
+        if st.button("◀ Précédent", key=f"{page_key}_prev", disabled=current_page <= 1, on_click=prev_page):
+            pass  # L'action est dans le on_click
+
+    with cols[1]:
         st.write(f"Page {current_page} sur {total_pages}")
 
-    with col3:
-        if st.button("Suivant ▶", key=f"{page_key}_next", disabled=current_page >= total_pages):
-            st.session_state[page_key] = current_page + 1
-            st.rerun()
+    with cols[2]:
+        if st.button("Suivant ▶", key=f"{page_key}_next", disabled=current_page >= total_pages, on_click=next_page):
+            pass  # L'action est dans le on_click
 
-def paginated_table(df: pd.DataFrame, page_size: int = 10, key_prefix: str = "table",
-                    with_search: bool = False, with_filters: Dict[str, List[str]] = None):
+def paginated_table(
+    df: pd.DataFrame,
+    page_size: int = 10,
+    key_prefix: str = "table",
+    with_search: bool = False,
+    with_filters: Dict[str, List[str]] = None
+) -> pd.DataFrame:
     """
     Composant de tableau avec pagination, recherche et filtres
 
@@ -167,6 +179,38 @@ def paginated_table(df: pd.DataFrame, page_size: int = 10, key_prefix: str = "ta
     st.dataframe(df_paginated, use_container_width=True)
 
     # Afficher les contrôles de pagination
-    render_pagination_controls(total_pages, f"{key_prefix}_page")
+    render_pagination_controls(total_pages, current_page, f"{key_prefix}_page")
 
     return df_paginated
+
+def paginate_items(
+    items: List[Any],
+    page_size: int = 10,
+    page_key: str = "pagination"
+) -> Tuple[List[Any], int, int]:
+    """
+    Pagine une liste d'éléments de tout type
+
+    Args:
+        items: Liste d'éléments à paginer
+        page_size: Nombre d'éléments par page
+        page_key: Clé pour la pagination dans st.session_state
+
+    Returns:
+        Tuple (liste paginée, nombre de pages, page courante)
+    """
+    # Calculer le nombre total de pages
+    total_items = len(items)
+    total_pages = max(1, (total_items + page_size - 1) // page_size)
+
+    # Initialiser l'index de page dans session_state si nécessaire
+    if page_key not in st.session_state:
+        st.session_state[page_key] = 0
+
+    # Calculer les indices de début et fin
+    current_page = st.session_state[page_key]
+    start_idx = current_page * page_size
+    end_idx = min(start_idx + page_size, total_items)
+
+    # Retourner la page courante
+    return items[start_idx:end_idx], total_pages, current_page + 1

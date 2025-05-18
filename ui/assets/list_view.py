@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 
 from database.models import Asset, Account, Bank
-from utils.pagination import paginate_query, render_pagination_controls
+from utils.pagination import paginate_query
 from utils.ui_components import create_allocation_pills, styled_todo_card, create_asset_card
 
 

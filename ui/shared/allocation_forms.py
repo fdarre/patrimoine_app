@@ -24,9 +24,6 @@ def create_allocation_form(prefix: str, existing_allocation: Dict[str, float] = 
     allocation = {}
     allocation_total = 0
 
-    # Interface améliorée pour l'allocation avec barres de progression
-    col1, col2 = st.columns(2)
-
     # Définition des couleurs par catégorie
     category_colors = {
         "actions": "#4e79a7",
@@ -37,6 +34,9 @@ def create_allocation_form(prefix: str, existing_allocation: Dict[str, float] = 
         "cash": "#edc949",
         "autre": "#af7aa1"
     }
+
+    # Interface améliorée pour l'allocation avec barres de progression
+    col1, col2 = st.columns(2)
 
     # Première colonne: principaux types d'actifs
     with col1:
@@ -109,6 +109,110 @@ def create_allocation_form(prefix: str, existing_allocation: Dict[str, float] = 
         st.success("Allocation valide (100%)")
 
     return allocation
+
+
+def edit_allocation_form(asset, asset_id: str) -> Tuple[Dict[str, float], bool]:
+    """
+    Crée un formulaire pour l'édition de l'allocation par catégorie d'un actif existant
+
+    Args:
+        asset: Actif à éditer
+        asset_id: ID de l'actif
+
+    Returns:
+        Tuple (dictionnaire des allocations {catégorie: pourcentage}, validité de l'allocation)
+    """
+    st.subheader("Allocation par catégorie")
+    st.info("Répartissez la valeur de l'actif entre les différentes catégories (total 100%)")
+
+    # Créer un conteneur pour les sliders d'allocation
+    allocation_col1, allocation_col2 = st.columns(2)
+
+    # Variables pour stocker les nouvelles allocations
+    new_allocation = {}
+    allocation_total = 0
+
+    # Définition des couleurs par catégorie
+    category_colors = {
+        "actions": "#4e79a7",
+        "obligations": "#f28e2c",
+        "immobilier": "#e15759",
+        "crypto": "#76b7b2",
+        "metaux": "#59a14f",
+        "cash": "#edc949",
+        "autre": "#af7aa1"
+    }
+
+    # Première colonne: principaux types d'actifs
+    with allocation_col1:
+        for category in ["actions", "obligations", "immobilier", "cash"]:
+            percentage = st.slider(
+                f"{category.capitalize()} (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(asset.allocation.get(category, 0.0)),
+                step=1.0,
+                key=f"edit_asset_alloc_{asset_id}_{category}"
+            )
+            if percentage > 0:
+                new_allocation[category] = percentage
+                allocation_total += percentage
+
+                # Afficher une barre de progression colorée
+                st.markdown(f"""
+                <div style="display:flex;align-items:center;margin-bottom:8px;">
+                    <div style="width:80px;">{category.capitalize()}</div>
+                    <div style="background:#f8f9fa;height:8px;width:70%;margin:0 10px;">
+                        <div style="background:{category_colors[category]};height:8px;width:{percentage}%;"></div>
+                    </div>
+                    <div>{percentage}%</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # Deuxième colonne: autres types d'actifs
+    with allocation_col2:
+        for category in ["crypto", "metaux", "autre"]:
+            percentage = st.slider(
+                f"{category.capitalize()} (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(asset.allocation.get(category, 0.0)),
+                step=1.0,
+                key=f"edit_asset_alloc_{asset_id}_{category}"
+            )
+            if percentage > 0:
+                new_allocation[category] = percentage
+                allocation_total += percentage
+
+                # Afficher une barre de progression colorée
+                st.markdown(f"""
+                <div style="display:flex;align-items:center;margin-bottom:8px;">
+                    <div style="width:80px;">{category.capitalize()}</div>
+                    <div style="background:#f8f9fa;height:8px;width:70%;margin:0 10px;">
+                        <div style="background:{category_colors[category]};height:8px;width:{percentage}%;"></div>
+                    </div>
+                    <div>{percentage}%</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # Barre de progression pour le total
+    st.markdown(f"""
+    <div style="margin-top:20px;">
+        <h4 style="margin-bottom:5px;">Total: {allocation_total}%</h4>
+        <div style="background:#f8f9fa;height:10px;width:100%;border-radius:5px;">
+            <div style="background:{('#28a745' if allocation_total == 100 else '#ffc107' if allocation_total < 100 else '#dc3545')};height:10px;width:{min(allocation_total, 100)}%;border-radius:5px;"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    allocation_valid = allocation_total == 100
+
+    if not allocation_valid:
+        st.warning(f"Le total des allocations doit être de 100%. Actuellement: {allocation_total}%")
+    else:
+        st.success("Allocation valide (100%)")
+
+    return new_allocation, allocation_valid
 
 
 def create_geo_allocation_form(
@@ -206,12 +310,14 @@ def create_geo_allocation_form(
                         geo_zones[zone] = pct
                         geo_total += pct
 
-            # Visualisation du total
+            # Visualisation du total avec classes CSS
+            progress_color = "#28a745" if geo_total == 100 else "#ffc107" if geo_total < 100 else "#dc3545"
+
             st.markdown(f"""
             <div style="margin-top:20px;">
                 <h4 style="margin-bottom:5px;">Total: {geo_total}%</h4>
                 <div style="background:#f8f9fa;height:10px;width:100%;border-radius:5px;">
-                    <div style="background:{('#28a745' if geo_total == 100 else '#ffc107' if geo_total < 100 else '#dc3545')};height:10px;width:{min(geo_total, 100)}%;border-radius:5px;"></div>
+                    <div style="background:{progress_color};height:10px;width:{min(geo_total, 100)}%;border-radius:5px;"></div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -233,6 +339,127 @@ def create_geo_allocation_form(
             geo_allocation[category] = geo_zones
 
     return geo_allocation, all_geo_valid
+
+
+def edit_geo_allocation_form(asset, asset_id: str, new_allocation: Dict[str, float]) -> Tuple[
+    Dict[str, Dict[str, float]], bool]:
+    """
+    Crée un formulaire pour l'édition de la répartition géographique d'un actif existant
+
+    Args:
+        asset: Actif à éditer
+        asset_id: ID de l'actif
+        new_allocation: Nouvelle allocation par catégorie
+
+    Returns:
+        Tuple (dict des répartitions géographiques, validité de toutes les répartitions)
+    """
+    st.subheader("Répartition géographique par catégorie")
+
+    # Créer un objet pour stocker les nouvelles répartitions géographiques
+    new_geo_allocation = {}
+    all_geo_valid = True
+
+    # Utiliser des onglets pour chaque catégorie ayant une allocation > 0
+    geo_tabs = st.tabs([cat.capitalize() for cat in new_allocation.keys()])
+
+    for i, (category, allocation_pct) in enumerate(new_allocation.items()):
+        with geo_tabs[i]:
+            st.info(
+                f"Configuration de la répartition géographique pour la partie '{category}' ({allocation_pct}% de l'actif)")
+
+            # Obtenir la répartition actuelle ou une répartition par défaut
+            current_geo = asset.geo_allocation.get(category, get_default_geo_zones(category))
+
+            # Interface pour éditer les pourcentages
+            geo_zones = {}
+            geo_total = 0
+
+            # Créer des onglets pour faciliter la saisie
+            geo_zone_tabs = st.tabs(["Principales", "Secondaires", "Autres"])
+
+            with geo_zone_tabs[0]:
+                # Zones principales
+                main_zones = ["amerique_nord", "europe_zone_euro", "europe_hors_zone_euro", "japon"]
+                cols = st.columns(2)
+                for j, zone in enumerate(main_zones):
+                    with cols[j % 2]:
+                        pct = st.slider(
+                            f"{zone.capitalize()} (%)",
+                            min_value=0.0,
+                            max_value=100.0,
+                            value=float(current_geo.get(zone, 0.0)),
+                            step=1.0,
+                            key=f"edit_asset_geo_{asset_id}_{category}_{zone}"
+                        )
+                        if pct > 0:
+                            geo_zones[zone] = pct
+                            geo_total += pct
+
+            with geo_zone_tabs[1]:
+                # Zones secondaires
+                secondary_zones = ["chine", "inde", "asie_developpee", "autres_emergents"]
+                cols = st.columns(2)
+                for j, zone in enumerate(secondary_zones):
+                    with cols[j % 2]:
+                        pct = st.slider(
+                            f"{zone.capitalize()} (%)",
+                            min_value=0.0,
+                            max_value=100.0,
+                            value=float(current_geo.get(zone, 0.0)),
+                            step=1.0,
+                            key=f"edit_asset_geo_{asset_id}_{category}_{zone}"
+                        )
+                        if pct > 0:
+                            geo_zones[zone] = pct
+                            geo_total += pct
+
+            with geo_zone_tabs[2]:
+                # Autres zones
+                other_zones = ["global_non_classe"]
+                cols = st.columns(2)
+                for j, zone in enumerate(other_zones):
+                    with cols[j % 2]:
+                        pct = st.slider(
+                            f"{zone.capitalize()} (%)",
+                            min_value=0.0,
+                            max_value=100.0,
+                            value=float(current_geo.get(zone, 0.0)),
+                            step=1.0,
+                            key=f"edit_asset_geo_{asset_id}_{category}_{zone}"
+                        )
+                        if pct > 0:
+                            geo_zones[zone] = pct
+                            geo_total += pct
+
+            # Visualisation du total
+            progress_color = "#28a745" if geo_total == 100 else "#ffc107" if geo_total < 100 else "#dc3545"
+
+            st.markdown(f"""
+            <div style="margin-top:20px;">
+                <h4 style="margin-bottom:5px;">Total: {geo_total}%</h4>
+                <div style="background:#f8f9fa;height:10px;width:100%;border-radius:5px;">
+                    <div style="background:{progress_color};height:10px;width:{min(geo_total, 100)}%;border-radius:5px;"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            geo_valid = geo_total == 100
+            if not geo_valid:
+                all_geo_valid = False
+                if geo_total < 100:
+                    st.warning(
+                        f"Le total de la répartition géographique pour '{category}' doit être de 100%. Actuellement: {geo_total}%")
+                else:
+                    st.error(
+                        f"Le total de la répartition géographique pour '{category}' ne doit pas dépasser 100%. Actuellement: {geo_total}%")
+            else:
+                st.success(f"Répartition géographique pour '{category}' valide (100%)")
+
+            # Enregistrer la répartition géographique pour cette catégorie
+            new_geo_allocation[category] = geo_zones
+
+    return new_geo_allocation, all_geo_valid
 
 
 def get_existing_value(prefix: str, category: str, existing_allocation: Dict[str, float] = None) -> float:
