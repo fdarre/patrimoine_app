@@ -9,6 +9,7 @@ import time
 from database.models import Bank, Account, Asset
 from services.asset_service import asset_service
 from services.data_service import DataService
+from utils.ui_components import styled_todo_card
 
 def show_todos(db: Session, user_id: str):
     """
@@ -41,12 +42,13 @@ def show_todos(db: Session, user_id: str):
             account = db.query(Account).filter(Account.id == asset.account_id).first()
             bank = db.query(Bank).filter(Bank.id == account.bank_id).first() if account else None
 
-            st.markdown(f"""
-            <div class="todo-card">
-            <strong style="color: #333;">{asset.nom}</strong> ({account.libelle if account else "N/A"} - {bank.nom if bank else "N/A"})
-            <p style="color: #444;">{asset.todo}</p>
-            </div>
-            """, unsafe_allow_html=True)
+            # Afficher la tâche avec la classe CSS
+            footer_text = f"{account.libelle if account else 'N/A'} - {bank.nom if bank else 'N/A'}"
+            styled_todo_card(
+                title=asset.nom,
+                content=asset.todo,
+                footer=footer_text
+            )
 
             # Bouton pour marquer comme terminée
             col1, col2 = st.columns([4, 1])

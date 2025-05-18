@@ -16,7 +16,7 @@
 }
 
 .allocation-bar-bg {
-    background: #f8f9fa;
+    background: rgba(255, 255, 255, 0.1);
     height: 8px;
     width: 70%;
     margin: 0 10px;
@@ -38,9 +38,28 @@
 .allocation-cash { background-color: #edc949; }
 .allocation-autre { background-color: #af7aa1; }
 
+/* Graphique d'allocation */
+.allocation-chart {
+    margin-top: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.allocation-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.allocation-value {
+    width: 50px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
 /* Total de l'allocation */
 .allocation-total {
     margin-top: 20px;
+    margin-bottom: 10px;
 }
 
 .allocation-total-label {
@@ -49,7 +68,7 @@
 }
 
 .allocation-total-bar-bg {
-    background: #f8f9fa;
+    background: rgba(255, 255, 255, 0.1);
     height: 10px;
     width: 100%;
     border-radius: 5px;
@@ -62,15 +81,15 @@
 }
 
 .allocation-total-valid {
-    background-color: #28a745;
+    background-color: var(--success-color);
 }
 
 .allocation-total-warning {
-    background-color: #ffc107;
+    background-color: var(--warning-color);
 }
 
 .allocation-total-error {
-    background-color: #dc3545;
+    background-color: var(--danger-color);
 }
 
 /* Zones géographiques */
@@ -86,3 +105,30 @@
     font-weight: 600;
     margin-bottom: 10px;
 }
+
+/* Adaptations pour le thème clair */
+.light-theme .allocation-bar-bg {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.light-theme .allocation-total-bar-bg {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+/* Pills d'allocation */
+.allocation-pill {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    margin: 0 0.2rem 0.2rem 0;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    color: white;
+}
+
+.allocation-pill.actions { background-color: #4e79a7; }
+.allocation-pill.obligations { background-color: #f28e2c; }
+.allocation-pill.immobilier { background-color: #e15759; }
+.allocation-pill.crypto { background-color: #76b7b2; }
+.allocation-pill.metaux { background-color: #59a14f; }
+.allocation-pill.cash { background-color: #edc949; }
+.allocation-pill.autre { background-color: #af7aa1; }

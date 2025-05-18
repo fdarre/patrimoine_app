@@ -1,21 +1,53 @@
-# ui/assets/sync_view.py - Exemple des cartes de synchronisation
-# Extrait de code avec corrections pour les cartes de synchronisation
+# ui/assets/sync_view.py
+"""
+Interface de synchronisation des actifs
+"""
+import streamlit as st
+from sqlalchemy.orm import Session
+
+from database.models import Asset
+from services.asset_service import AssetService
+from services.data_service import DataService
+
+
+def show_sync_options(db: Session, user_id: str):
+    """
+    Affiche les options de synchronisation des actifs
+    """
+    st.subheader("Synchronisation des actifs")
+
+    # Calculer le nombre d'actifs par type
+    isin_count = db.query(Asset).filter(
+        Asset.owner_id == user_id,
+        Asset.isin.is_not(None),
+        Asset.isin != ""
+    ).count()
+
+    forex_count = db.query(Asset).filter(
+        Asset.owner_id == user_id,
+        Asset.devise != "EUR"
+    ).count()
+
+    metal_count = db.query(Asset).filter(
+        Asset.owner_id == user_id,
+        Asset.type_produit == "metal"
+    ).count()
+
+    # Afficher les informations de synchronisation
+    st.info(
+        f"Actifs disponibles pour synchronisation: {isin_count} avec ISIN, {forex_count} en devise étrangère, {metal_count} de type métal")
+
+    # Afficher les cartes de synchronisation
+    show_sync_cards(db, user_id, isin_count, forex_count, metal_count)
+
 
 def show_sync_cards(db, user_id, isin_count, forex_count, metal_count):
     """
     Affiche les cartes de synchronisation pour les différents types d'actifs
-
-    Args:
-        db: Session de base de données
-        user_id: ID de l'utilisateur
-        isin_count: Nombre d'actifs avec ISIN
-        forex_count: Nombre d'actifs en devise étrangère
-        metal_count: Nombre d'actifs de type métal
     """
     col1, col2 = st.columns(2)
 
     with col1:
-        # Utilisation de classe CSS au lieu de style inline
         st.markdown("""
         <div class="sync-card">
             <h3>💱 Taux de change</h3>

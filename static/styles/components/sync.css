@@ -1,0 +1,117 @@
+/*
+ * components/sync.css
+ * Styles pour les cartes de synchronisation et composants connexes
+ */
+
+/* Cartes de synchronisation */
+.sync-card {
+    background: linear-gradient(135deg, var(--card-bg), rgba(30, 41, 59, 0.8));
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: var(--shadow-md);
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+.sync-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+}
+
+.sync-card h3 {
+    margin-top: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text-light);
+}
+
+.sync-card p {
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+}
+
+/* Variantes de cartes de synchronisation */
+.sync-card-primary {
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary-color));
+    border: none;
+}
+
+.sync-card-primary h3,
+.sync-card-primary p {
+    color: white;
+}
+
+.sync-card-success {
+    background: linear-gradient(135deg, var(--success-color), #059669);
+    border: none;
+}
+
+.sync-card-success h3,
+.sync-card-success p {
+    color: white;
+}
+
+.sync-card-warning {
+    background: linear-gradient(135deg, var(--warning-color), #d97706);
+    border: none;
+}
+
+.sync-card-warning h3,
+.sync-card-warning p {
+    color: white;
+}
+
+/* Indicateurs de synchronisation */
+.sync-status {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.sync-status-pending {
+    background-color: rgba(var(--warning-color), 0.2);
+    color: var(--warning-color);
+}
+
+.sync-status-success {
+    background-color: rgba(var(--success-color), 0.2);
+    color: var(--success-color);
+}
+
+.sync-status-error {
+    background-color: rgba(var(--danger-color), 0.2);
+    color: var(--danger-color);
+}
+
+/* Boutons de synchronisation */
+.sync-button {
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.sync-button:hover {
+    background-color: var(--primary-dark);
+}
+
+/* Adaptations pour le thème clair */
+.light-theme .sync-card {
+    background: white;
+    border: 1px solid var(--gray-200);
+}
+
+.light-theme .sync-card h3 {
+    color: var(--text-dark);
+}
+
+.light-theme .sync-card p {
+    color: var(--text-muted);
+}

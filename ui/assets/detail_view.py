@@ -48,8 +48,9 @@ def display_asset_details(db: Session, asset_id: str):
         if asset.devise != "EUR" and asset.value_eur:
             st.write(f"**Valeur en EUR:** {asset.value_eur:,.2f} €".replace(",", " "))
 
+        pv_class = "positive" if pv >= 0 else "negative"
         st.markdown(
-            f"**Performance:** <span style='color:{pv_color}'>{pv:+,.2f} {asset.devise} ({pv_percent:+.2f}%)</span>".replace(
+            f"**Performance:** <span class='{pv_class}'>{pv:+,.2f} {asset.devise} ({pv_percent:+.2f}%)</span>".replace(
                 ",", " "), unsafe_allow_html=True)
 
     # Onglets pour les différentes sections de détails

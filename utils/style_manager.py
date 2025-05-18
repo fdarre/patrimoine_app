@@ -1,4 +1,3 @@
-# utils/style_manager.py
 """
 Gestionnaire unifié de styles pour l'application
 """
@@ -19,13 +18,49 @@ THEMES = {
         "name": "Sombre",
         "icon": "🌙",
         "file": "dark-theme.css",
-        "is_default": True
+        "is_default": True,
+        "colors": {
+            "primary_color": "#6366f1",
+            "primary_light": "#818cf8",
+            "primary_dark": "#4f46e5",
+            "secondary_color": "#ec4899",
+            "secondary_light": "#f472b6",
+            "secondary_dark": "#db2777",
+            "success_color": "#10b981",
+            "warning_color": "#f59e0b",
+            "danger_color": "#ef4444",
+            "info_color": "#0ea5e9",
+            "bg_color": "#0f172a",
+            "card_bg": "#1e293b",
+            "sidebar_bg": "#0f172a",
+            "text_light": "#f8fafc",
+            "text_muted": "#94a3b8",
+            "text_dark": "#1e293b"
+        }
     },
     "light": {
         "name": "Clair",
         "icon": "☀️",
         "file": "light-theme.css",
-        "is_default": False
+        "is_default": False,
+        "colors": {
+            "primary_color": "#4f46e5",
+            "primary_light": "#5e78ff",
+            "primary_dark": "#2b4acb",
+            "secondary_color": "#db2777",
+            "secondary_light": "#ff5a6a",
+            "secondary_dark": "#c62f3a",
+            "success_color": "#059669",
+            "warning_color": "#d97706",
+            "danger_color": "#dc2626",
+            "info_color": "#0284c7",
+            "bg_color": "#f8fafc",
+            "card_bg": "#ffffff",
+            "sidebar_bg": "#f1f5f9",
+            "text_light": "#0f172a",
+            "text_muted": "#64748b",
+            "text_dark": "#0f172a"
+        }
     }
 }
 
@@ -160,9 +195,9 @@ def get_theme_color(color_name: str) -> str:
         "warning": "var(--warning-color)",
         "danger": "var(--danger-color)",
         "info": "var(--info-color)",
-        "text_light": "var(--text-light)",
-        "text_muted": "var(--text-muted)",
-        "text_dark": "var(--text-dark)",
+        "text-light": "var(--text-light)",
+        "text-muted": "var(--text-muted)",
+        "text-dark": "var(--text-dark)",
         "bg": "var(--bg-color)",
         "card": "var(--card-bg)"
     }
@@ -176,3 +211,12 @@ def get_theme_color(color_name: str) -> str:
         return f"var({color_name})"
     else:
         return f"var(--{color_name})"
+
+def get_current_theme() -> str:
+    """
+    Récupère le thème actif
+
+    Returns:
+        Clé du thème actif
+    """
+    return st.session_state.get("theme", next((k for k, v in THEMES.items() if v["is_default"]), "dark"))

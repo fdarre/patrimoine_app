@@ -10,6 +10,7 @@ from sqlalchemy import func
 
 from database.models import Asset, Account, Bank
 from utils.pagination import paginate_query, render_pagination_controls
+from utils.ui_components import create_allocation_pills, styled_todo_card, create_asset_card
 
 
 def display_assets_table(db: Session, assets):
@@ -55,21 +56,20 @@ def display_assets_table(db: Session, assets):
         allocation_html = create_allocation_html(asset.allocation)
 
         # Mini indicateur de performance
-        perf_indicator = f'<span class="{pv_class}-indicator" style="margin-left:5px;padding:0 3px;">{pv_percent:+.1f}%</span>'
+        perf_indicator = f'<span class="{pv_class}-indicator">{pv_percent:+.1f}%</span>'
 
-        # Créer un badge pour le type de produit avec texte blanc sur fond foncé
+        # Créer un badge pour le type de produit
         product_type_badge = f'<span class="badge">{asset.type_produit}</span>'
 
         data.append({
             "ID": asset.id,
-            "Nom": f'<span style="color:#fff;">{asset.nom}</span>',
+            "Nom": f'<span class="asset-name">{asset.nom}</span>',
             "Type": product_type_badge,
-            "Valeur": f'<span style="color:#fff;">{asset.valeur_actuelle:,.2f} {asset.devise}</span>'.replace(",", " "),
-            "Performance": f'<span class="{pv_class}">{pv:,.2f} {asset.devise}</span>{perf_indicator}'.replace(",",
-                                                                                                               " "),
+            "Valeur": f'<span class="asset-value">{asset.valeur_actuelle:,.2f} {asset.devise}</span>'.replace(",", " "),
+            "Performance": f'<span class="{pv_class}">{pv:,.2f} {asset.devise}</span>{perf_indicator}'.replace(",", " "),
             "Allocation": allocation_html,
-            "Compte": f'<span style="color:#ddd;">{account.libelle} ({bank.nom})</span>' if account and bank else "N/A",
-            "Dernière MAJ": f'<span style="color:#ddd;">{asset.date_maj}</span>'
+            "Compte": f'<span class="account-name">{account.libelle} ({bank.nom})</span>' if account and bank else "N/A",
+            "Dernière MAJ": f'<span class="update-date">{asset.date_maj}</span>'
         })
 
     # Créer le DataFrame
@@ -82,9 +82,6 @@ def display_assets_table(db: Session, assets):
     # Afficher le nombre total d'éléments et la pagination actuelle
     st.write(
         f"Affichage de {(current_page - 1) * page_size + 1}-{min(current_page * page_size, len(df))} sur {len(df)} actifs")
-
-    # CSS pour le tableau amélioré
-    apply_table_styling()
 
     # Afficher le tableau sans la colonne ID
     st.write(df_paginated.drop(columns=["ID"]).to_html(escape=False, index=False), unsafe_allow_html=True)
@@ -107,8 +104,7 @@ def display_assets_table(db: Session, assets):
             "Sélectionner un actif",
             options=[asset["ID"] for asset in data],
             format_func=lambda x: next(
-                (a["Nom"].replace('<span style="color:#fff;">', '').replace('</span>', '') for a in data if
-                 a["ID"] == x),
+                (a["Nom"].replace('<span class="asset-name">', '').replace('</span>', '') for a in data if a["ID"] == x),
                 "")
         )
 
@@ -177,24 +173,17 @@ def display_assets_cards(db: Session, assets):
             # Calculer la plus-value
             pv = asset.valeur_actuelle - asset.prix_de_revient
             pv_percent = (pv / asset.prix_de_revient) * 100 if asset.prix_de_revient > 0 else 0
-            pv_class = "positive" if pv >= 0 else "negative"
 
-            # Créer la carte avec le type de produit
-            st.markdown(f"""
-            <div class="sync-card">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <h3 style="margin-top:0;font-size:18px;color:#fff;">{asset.nom}</h3>
-                    <span class="badge">{asset.type_produit}</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:5px;color:#ddd;">
-                    <div><strong>Valeur:</strong> {asset.valeur_actuelle:,.2f} {asset.devise}</div>
-                    <div class="{pv_class}">{pv_percent:+.1f}%</div>
-                </div>
-                <div style="margin-bottom:8px;font-size:12px;color:#adb5bd;">
-                    {account.libelle if account else "N/A"} | {bank.nom if bank else "N/A"}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Utiliser le composant de carte d'actif
+            create_asset_card(
+                name=asset.nom,
+                asset_type=asset.type_produit,
+                value=asset.valeur_actuelle,
+                currency=asset.devise,
+                performance=pv_percent,
+                account=account.libelle if account else "N/A",
+                bank=bank.nom if bank else "N/A"
+            )
 
             # Boutons d'action dans la carte
             col1, col2 = st.columns(2)
@@ -273,34 +262,29 @@ def display_assets_compact(db: Session, assets):
         # Calculer le pourcentage du portefeuille
         portfolio_percent = (asset.valeur_actuelle / total_value * 100) if total_value > 0 else 0
 
-        # Créer une barre de progression proportionnelle à la valeur
-        progress_html = f'<div style="background:#495057;height:4px;width:100%;margin-top:3px;"><div style="background:#4e79a7;height:4px;width:{portfolio_percent}%;"></div></div>'
-
-        # Créer la ligne compacte
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.markdown(f"""
-            <div style="padding:8px 0;border-bottom:1px solid #495057;">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div>
-                        <strong style="color:#fff;">{asset.nom}</strong>
-                        <span class="badge">{asset.type_produit}</span>
-                    </div>
-                    <div style="color:#fff;">{asset.valeur_actuelle:,.2f} {asset.devise}</div>
-                </div>
-                <div style="display:flex;justify-content:space-between;font-size:12px;">
-                    <div style="color:#adb5bd;">{account.libelle if account else "N/A"} | {bank.nom if bank else "N/A"}</div>
-                    <div class="{pv_class}">{pv_percent:+.1f}%</div>
-                </div>
-                {progress_html}
+        # Créer la ligne compacte avec des classes CSS
+        st.markdown(f"""
+        <div class="asset-compact">
+            <div class="asset-compact-header">
+                <div class="asset-compact-name">{asset.nom}</div>
+                <span class="badge">{asset.type_produit}</span>
+                <div class="asset-compact-value">{asset.valeur_actuelle:,.2f} {asset.devise}</div>
             </div>
-            """, unsafe_allow_html=True)
+            <div class="asset-compact-details">
+                <div class="asset-compact-account">{account.libelle if account else "N/A"} | {bank.nom if bank else "N/A"}</div>
+                <div class="asset-compact-perf {pv_class}">{pv_percent:+.1f}%</div>
+            </div>
+            <div class="asset-compact-progress-bg">
+                <div class="asset-compact-progress" style="width:{portfolio_percent}%;"></div>
+            </div>
+        </div>
+        """.replace(",", " "), unsafe_allow_html=True)
 
-        with col2:
-            if st.button("Détails", key=f"compact_details_{asset.id}"):
-                with st.spinner("Chargement des détails..."):
-                    st.session_state['view_asset_details'] = asset.id
-                    st.success("Détails chargés")
+        # Bouton de détails
+        if st.button("Détails", key=f"compact_details_{asset.id}"):
+            with st.spinner("Chargement des détails..."):
+                st.session_state['view_asset_details'] = asset.id
+                st.success("Détails chargés")
 
     # Afficher les contrôles de pagination
     render_pagination_controls(total_pages, "assets_compact_page")
@@ -308,44 +292,14 @@ def display_assets_compact(db: Session, assets):
 
 def create_allocation_html(allocation):
     """
-    Crée une représentation HTML des allocations
-
-    Args:
-        allocation: Dictionnaire d'allocations
-
-    Returns:
-        Chaîne HTML représentant les allocations
+    Crée une représentation HTML des allocations en utilisant des classes CSS
     """
-    # Définition des couleurs par catégorie
-    category_colors = {
-        "actions": "#4e79a7",
-        "obligations": "#f28e2c",
-        "immobilier": "#e15759",
-        "crypto": "#76b7b2",
-        "metaux": "#59a14f",
-        "cash": "#edc949",
-        "autre": "#af7aa1"
-    }
-
     allocation_html = ""
     if allocation:
         for cat, pct in sorted(allocation.items(), key=lambda x: x[1], reverse=True)[:3]:
-            color = category_colors.get(cat, "#bab0ab")
-            allocation_html += f'<div style="display:inline-block;margin-right:4px;"><span style="background:{color};width:10px;height:10px;display:inline-block;margin-right:2px;"></span><span style="color:#fff;">{cat[:3].capitalize()} {pct}%</span></div>'
+            allocation_html += f'<span class="allocation-pill {cat}">{cat[:3].capitalize()} {pct}%</span>'
 
     return allocation_html
-
-
-def apply_table_styling():
-    """
-    Applique le style CSS pour les tableaux
-    Note: Cette fonction sera remplacée par l'utilisation du fichier CSS centralisé
-    """
-    st.markdown("""
-    <style>
-    /* Cette fonction est conservée pour compatibilité, mais les styles sont dans main.css */
-    </style>
-    """, unsafe_allow_html=True)
 
 
 def paginate_dataframe(df, page_size=10, page_key="pagination_page"):
