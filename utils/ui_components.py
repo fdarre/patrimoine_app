@@ -179,49 +179,49 @@ def styled_data_table(data: List[Dict[str, Any]], columns: Optional[List[str]] =
         page_data = data
         total_pages = 1
 
-        # Construire l'en-tête du tableau
-        header_html = "<tr>"
+    # Construire l'en-tête du tableau
+    header_html = "<tr>"
+    for col in columns:
+        header_html += f'<th class="{get_class("table_header")}">{col}</th>'
+    header_html += "</tr>"
+
+    # Construire les lignes du tableau
+    rows_html = ""
+    for row in page_data:
+        rows_html += f'<tr class="{get_class("table_row")}">'
         for col in columns:
-            header_html += f'<th class="{get_class("table_header")}">{col}</th>'
-        header_html += "</tr>"
+            rows_html += f"<td>{row.get(col, '')}</td>"
+        rows_html += "</tr>"
 
-        # Construire les lignes du tableau
-        rows_html = ""
-        for row in page_data:
-            rows_html += f'<tr class="{get_class("table_row")}">'
-            for col in columns:
-                rows_html += f"<td>{row.get(col, '')}</td>"
-            rows_html += "</tr>"
+    # Construire le tableau complet
+    table_html = f"""
+    <div class="{get_class('table')}">
+        <table style="width:100%;border-collapse:collapse;">
+            <thead>{header_html}</thead>
+            <tbody>{rows_html}</tbody>
+        </table>
+    </div>
+    """
 
-        # Construire le tableau complet
-        table_html = f"""
-        <div class="{get_class('table')}">
-            <table style="width:100%;border-collapse:collapse;">
-                <thead>{header_html}</thead>
-                <tbody>{rows_html}</tbody>
-            </table>
-        </div>
-        """
+    st.markdown(table_html, unsafe_allow_html=True)
 
-        st.markdown(table_html, unsafe_allow_html=True)
+    # Ajouter les contrôles de pagination
+    if use_pagination and total_pages > 1:
+        cols = st.columns([1, 3, 1])
 
-        # Ajouter les contrôles de pagination
-        if use_pagination and total_pages > 1:
-            cols = st.columns([1, 3, 1])
+        with cols[0]:
+            if st.button("◀ Précédent", key=f"{key}_prev", disabled=st.session_state[f"{key}_page"] <= 0):
+                st.session_state[f"{key}_page"] -= 1
+                st.rerun()
 
-            with cols[0]:
-                if st.button("◀ Précédent", key=f"{key}_prev", disabled=st.session_state[f"{key}_page"] <= 0):
-                    st.session_state[f"{key}_page"] -= 1
-                    st.rerun()
+        with cols[1]:
+            st.write(f"Page {st.session_state[f'{key}_page'] + 1} sur {total_pages}")
 
-            with cols[1]:
-                st.write(f"Page {st.session_state[f'{key}_page'] + 1} sur {total_pages}")
-
-            with cols[2]:
-                if st.button("Suivant ▶", key=f"{key}_next",
-                             disabled=st.session_state[f"{key}_page"] >= total_pages - 1):
-                    st.session_state[f"{key}_page"] += 1
-                    st.rerun()
+        with cols[2]:
+            if st.button("Suivant ▶", key=f"{key}_next",
+                         disabled=st.session_state[f"{key}_page"] >= total_pages - 1):
+                st.session_state[f"{key}_page"] += 1
+                st.rerun()
 
 
 def styled_button(label: str, button_type: str = "primary", on_click: Optional[Callable] = None,
@@ -267,142 +267,6 @@ def styled_button(label: str, button_type: str = "primary", on_click: Optional[C
 
     # Créer le bouton
     return st.button(display_label, key=key, on_click=on_click, args=args, disabled=disabled)
-
-
-def create_tabs_style(active_color: str = "primary") -> None:
-    """
-    Applique un style personnalisé aux onglets Streamlit
-
-    Args:
-        active_color: Couleur de l'onglet actif
-    """
-    color = get_theme_color(active_color)
-
-    st.markdown(f"""
-    <style>
-    .stTabs [data-baseweb="tab-list"] {{
-        gap: 1rem;
-    }}
-    .stTabs [data-baseweb="tab"] {{
-        height: 3rem;
-        white-space: nowrap;
-        font-size: 0.9rem;
-        color: var(--text-muted);
-        border-radius: 0.375rem 0.375rem 0 0;
-    }}
-    .stTabs [aria-selected="true"] {{
-        background-color: rgba(0, 0, 0, 0.05);
-        color: {color} !important;
-        border-bottom-color: {color} !important;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def timeline(items: List[Dict[str, Any]], key: Optional[str] = None) -> None:
-    """
-    Affiche une timeline d'événements
-
-    Args:
-        items: Liste d'événements à afficher avec au moins 'date', 'title' et 'description'
-        key: Clé unique pour le composant
-    """
-    if not items:
-        return
-
-    # Générer une clé si nécessaire
-    if key is None:
-        import hashlib
-        key = f"timeline_{hashlib.md5(str(items).encode()).hexdigest()[:8]}"
-
-    # Construire la timeline
-    timeline_html = f'<div class="{get_class("timeline")}">'
-
-    for i, item in enumerate(items):
-        date = item.get('date', '')
-        title = item.get('title', '')
-        description = item.get('description', '')
-        icon = item.get('icon', '•')
-        color = item.get('color', 'primary')
-
-        # Déterminer la couleur
-        color_code = get_theme_color(color)
-
-        # Construire l'élément de timeline
-        timeline_html += f"""
-        <div class="{get_class("timeline-item")}">
-            <div class="{get_class("timeline-marker")}" style="background-color:{color_code};">
-                <div class="{get_class("timeline-icon")}">{icon}</div>
-            </div>
-            <div class="{get_class("timeline-content")}">
-                <div class="{get_class("timeline-date")}">{date}</div>
-                <div class="{get_class("timeline-title")}">{title}</div>
-                <div class="{get_class("timeline-description")}">{description}</div>
-            </div>
-        </div>
-        """
-
-    timeline_html += '</div>'
-
-    # Appliquer le style
-    st.markdown(f"""
-    <style>
-    .{get_class("timeline")} {{
-        position: relative;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-    }}
-
-    .{get_class("timeline-item")} {{
-        position: relative;
-        padding-left: 2.5rem;
-        margin-bottom: 1.5rem;
-    }}
-
-    .{get_class("timeline-marker")} {{
-        position: absolute;
-        left: 0;
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        text-align: center;
-        line-height: 20px;
-        font-size: 12px;
-        color: white;
-        z-index: 1;
-    }}
-
-    .{get_class("timeline-icon")} {{
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-    }}
-
-    .{get_class("timeline-content")} {{
-        position: relative;
-    }}
-
-    .{get_class("timeline-date")} {{
-        font-size: 0.85rem;
-        color: {get_theme_color('text_muted')};
-        margin-bottom: 0.25rem;
-    }}
-
-    .{get_class("timeline-title")} {{
-        font-weight: bold;
-        margin-bottom: 0.5rem;
-    }}
-
-    .{get_class("timeline-description")} {{
-        color: {get_theme_color('text_light')};
-        font-size: 0.95rem;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown(timeline_html, unsafe_allow_html=True)
 
 
 def allocation_chart(allocations: Dict[str, float], key: Optional[str] = None) -> None:
@@ -497,60 +361,3 @@ def allocation_chart(allocations: Dict[str, float], key: Optional[str] = None) -
     """, unsafe_allow_html=True)
 
     st.markdown(allocation_html, unsafe_allow_html=True)
-
-
-def asset_card(asset, account=None, bank=None, key=None):
-    """
-    Affiche une carte d'actif stylisée
-
-    Args:
-        asset: Objet actif à afficher
-        account: Objet compte associé (optionnel)
-        bank: Objet banque associée (optionnel)
-        key: Clé unique pour le composant
-    """
-    if key is None:
-        import hashlib
-        key = f"asset_{asset.id}"
-
-    # Calculer les métriques
-    pv = asset.valeur_actuelle - asset.prix_de_revient
-    pv_percent = (pv / asset.prix_de_revient) * 100 if asset.prix_de_revient > 0 else 0
-    pv_class = "positive" if pv >= 0 else "negative"
-    pv_icon = "📈" if pv >= 0 else "📉"
-
-    # Créer le badge pour le type de produit
-    badge_html = create_badge(asset.type_produit.upper(), "primary")
-
-    # Créer le contenu principal
-    content = f"""
-    <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
-        <div>
-            <div style="color: {get_theme_color('text_muted')}; font-size: 0.875rem;">Valeur</div>
-            <div style="font-size: 1.5rem; font-weight: 700;">{asset.valeur_actuelle:,.2f} {asset.devise}</div>
-        </div>
-        <div>
-            <div style="color: {get_theme_color('text_muted')}; font-size: 0.875rem;">Performance</div>
-            <div class="{pv_class}" style="font-size: 1.5rem; font-weight: 700;">
-                {pv_icon} {pv_percent:+.2f}%
-            </div>
-        </div>
-    </div>
-    """
-
-    # Créer le pied de page
-    footer = ""
-    if account:
-        footer += f"Compte: {account.libelle}"
-        if bank:
-            footer += f" ({bank.nom})"
-
-    # Créer la carte complète
-    card_html = create_card(
-        title=f"{asset.nom} {badge_html}",
-        content=content,
-        footer=footer,
-        extra_classes=f"asset-card-{key}"
-    )
-
-    return card_html
