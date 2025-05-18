@@ -1,7 +1,9 @@
 # ui/components/pagination.py
-import streamlit as st
-import pandas as pd
 import math
+from typing import Dict, List
+
+import pandas as pd
+import streamlit as st
 
 
 def paginated_table(df: pd.DataFrame, page_size: int = 10, key_prefix: str = "table",

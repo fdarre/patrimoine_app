@@ -5,13 +5,12 @@ Module pour l'édition d'actifs existants
 import streamlit as st
 from sqlalchemy.orm import Session
 
-from database.models import Asset, Account, Bank
-from services.asset_service import AssetService
-from services.data_service import DataService
 from config.app_config import PRODUCT_TYPES, CURRENCIES
-from .allocation_form import edit_allocation_form
-from .geo_allocation_form import edit_geo_allocation_form
+from database.models import Asset, Account, Bank
+from services.data_service import DataService
 from .components import apply_button_styling
+from .geo_allocation_form import edit_geo_allocation_form
+from ..shared.allocation_forms import edit_allocation_form
 
 
 def show_edit_asset_form(db: Session, asset_id: str, user_id: str):
@@ -65,8 +64,8 @@ def show_edit_asset_form(db: Session, asset_id: str, user_id: str):
         if st.button("Enregistrer les modifications", key=f"btn_save_asset_{asset_id}", disabled=not form_valid):
             try:
                 # Mettre à jour l'actif
-                updated_asset = AssetService.update_asset(
-                    db=db,  # Ajout du paramètre db
+                updated_asset = asset_service.update_asset(
+                    db=db,
                     asset_id=asset_id,
                     nom=asset_info["name"],
                     compte_id=asset_info["account_id"],

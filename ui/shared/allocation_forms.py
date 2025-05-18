@@ -1,8 +1,10 @@
 """
 Module centralisé pour les formulaires d'allocation et de répartition géographique
 """
-import streamlit as st
 from typing import Dict, Tuple, Optional
+
+import streamlit as st
+
 from utils.calculations import get_default_geo_zones
 
 
@@ -276,3 +278,102 @@ def get_existing_geo_value(
 
     # Enfin utiliser la valeur par défaut
     return float(default_geo.get(zone, 0.0))
+
+
+def edit_allocation_form(asset, asset_id: str) -> Tuple[Dict[str, float], bool]:
+    """
+    Crée un formulaire pour l'édition de l'allocation par catégorie d'un actif existant
+
+    Args:
+        asset: Actif à éditer
+        asset_id: ID de l'actif
+
+    Returns:
+        Tuple (dictionnaire des allocations {catégorie: pourcentage}, validité de l'allocation)
+    """
+    st.subheader("Allocation par catégorie")
+    st.info("Répartissez la valeur de l'actif entre les différentes catégories (total 100%)")
+
+    # Créer un conteneur pour les sliders d'allocation
+    allocation_col1, allocation_col2 = st.columns(2)
+
+    # Variables pour stocker les nouvelles allocations
+    new_allocation = {}
+    allocation_total = 0
+
+    # Première colonne: principaux types d'actifs
+    with allocation_col1:
+        for category in ["actions", "obligations", "immobilier", "cash"]:
+            percentage = st.slider(
+                f"{category.capitalize()} (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(asset.allocation.get(category, 0.0)),
+                step=1.0,
+                key=f"edit_asset_alloc_{asset_id}_{category}"
+            )
+            if percentage > 0:
+                new_allocation[category] = percentage
+                allocation_total += percentage
+
+                # Afficher barre de progression avec classes CSS
+                st.markdown(f"""
+                <div class="allocation-container">
+                    <div class="allocation-label">{category}</div>
+                    <div class="allocation-bar-bg">
+                        <div class="allocation-bar allocation-{category}" style="width:{percentage}%;"></div>
+                    </div>
+                    <div>{percentage}%</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # Deuxième colonne: autres types d'actifs
+    with allocation_col2:
+        for category in ["crypto", "metaux", "autre"]:
+            percentage = st.slider(
+                f"{category.capitalize()} (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(asset.allocation.get(category, 0.0)),
+                step=1.0,
+                key=f"edit_asset_alloc_{asset_id}_{category}"
+            )
+            if percentage > 0:
+                new_allocation[category] = percentage
+                allocation_total += percentage
+
+                # Afficher barre de progression avec classes CSS
+                st.markdown(f"""
+                <div class="allocation-container">
+                    <div class="allocation-label">{category}</div>
+                    <div class="allocation-bar-bg">
+                        <div class="allocation-bar allocation-{category}" style="width:{percentage}%;"></div>
+                    </div>
+                    <div>{percentage}%</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # Barre de progression pour le total
+    progress_class = "allocation-total-valid"
+    if allocation_total < 100:
+        progress_class = "allocation-total-warning"
+    elif allocation_total > 100:
+        progress_class = "allocation-total-error"
+
+    st.markdown(f"""
+    <div class="allocation-total">
+        <h4 class="allocation-total-label">Total: {allocation_total}%</h4>
+        <div class="allocation-total-bar-bg">
+            <div class="allocation-total-bar {progress_class}" style="width:{min(allocation_total, 100)}%;"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    allocation_valid = allocation_total == 100
+
+    if not allocation_valid:
+        st.warning(f"Le total des allocations doit être de 100%. Actuellement: {allocation_total}%")
+    else:
+        st.success("Allocation valide (100%)")
+
+    return new_allocation, allocation_valid
