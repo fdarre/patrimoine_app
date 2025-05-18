@@ -7,7 +7,7 @@ import os
 from datetime import datetime
 
 from config.app_config import LOGS_DIR
-from utils.style_loader import load_css, load_js
+from utils.style_loader import initialize_styles, create_theme_selector
 from utils.logger import get_logger, setup_file_logging
 from utils.decorators import streamlit_exception_handler
 from utils.exceptions import AppError
@@ -20,7 +20,6 @@ from ui.todos import show_todos
 from ui.settings import show_settings
 from ui.auth import show_auth, check_auth, logout, get_current_user_id
 from ui.templates.template_management import show_template_management
-from utils.style_loader import initialize_styles, create_theme_selector
 
 # Configurer le logger
 logger = get_logger(__name__)
@@ -36,10 +35,10 @@ def main():
         initial_sidebar_state="expanded"
     )
 
-    # Initialiser les styles
+    # Initialiser les styles - IMPORTANT : doit être appelé avant tout autre rendu
     initialize_styles()
 
-    # Ajouter le sélecteur de thème dans la barre latérale (optionnel)
+    # Ajouter le sélecteur de thème dans la barre latérale
     create_theme_selector()
 
     # Vérifier l'authentification

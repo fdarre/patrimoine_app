@@ -36,7 +36,10 @@ def initialize_styles():
     """
     Initialise les styles globaux de l'application
     """
-    # Charger le CSS principal
+    # Charger les variables CSS en premier
+    load_css("variables.css")
+
+    # Charger le CSS principal ensuite
     load_css("main.css")
 
     # Appliquer les styles de base supplémentaires pour Streamlit
@@ -206,6 +209,7 @@ def create_card(title, content, footer=None, extra_classes=None):
     if footer:
         footer_html = f"""<div class="{get_class('card-footer')}">{footer}</div>"""
 
+    # Retourne une chaîne HTML bien formée avec chaque balise correctement fermée
     return f"""
     <div class="{' '.join([get_class(cls) for cls in classes])}">
         <div class="{get_class('card-header')}">
