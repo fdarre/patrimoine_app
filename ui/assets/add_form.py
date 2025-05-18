@@ -1,18 +1,18 @@
-# ui/assets/add_form.py
 """
 Module contenant le formulaire d'ajout d'actifs
 """
+# Imports de bibliothèques tierces
 import streamlit as st
 from sqlalchemy.orm import Session
 
+# Imports de l'application
 from config.app_config import PRODUCT_TYPES, CURRENCIES
 from database.models import Bank, Account
 from services.asset_service import asset_service
 from services.data_service import DataService
 from services.template_service import template_service
 from ui.components import apply_button_styling
-from .geo_allocation_form import create_geo_allocation_form
-from ..shared.allocation_forms import create_allocation_form
+from ui.shared.allocation_forms import create_allocation_form, create_geo_allocation_form
 
 
 def show_add_asset_form(db: Session, user_id: str):

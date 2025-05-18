@@ -1,18 +1,21 @@
 """
 Service spécialisé pour la synchronisation des prix des actifs
 """
-from typing import Optional, Callable
-from sqlalchemy.orm import Session
 from datetime import datetime
+# Imports de la bibliothèque standard
+from typing import Optional, Callable
 
+# Imports de bibliothèques tierces
+from sqlalchemy.orm import Session
+
+# Imports de l'application
 from database.models import Asset
-from services.price_service import PriceService
 from services.currency_service import CurrencyService
+from services.price_service import PriceService
 from utils.decorators import handle_exceptions
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
-
 
 class AssetSyncService:
     """
@@ -21,7 +24,6 @@ class AssetSyncService:
     Ce service isole les fonctionnalités de synchronisation qui étaient auparavant
     dans AssetService, suivant ainsi le principe de responsabilité unique.
     """
-
     def __init__(self):
         """Initialise le service avec les dépendances nécessaires"""
         self.price_service = PriceService()

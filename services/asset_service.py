@@ -1,12 +1,16 @@
 """
 Service de gestion des actifs - Responsabilités de base
 """
-from typing import List, Optional, Dict, Any
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
-from datetime import datetime
 import uuid
+from datetime import datetime
+# Imports de la bibliothèque standard
+from typing import List, Optional, Dict, Any
 
+from sqlalchemy import func
+# Imports de bibliothèques tierces
+from sqlalchemy.orm import Session, joinedload
+
+# Imports de l'application
 from database.models import Asset, Account
 from services.base_service import BaseService
 from utils.decorators import handle_exceptions

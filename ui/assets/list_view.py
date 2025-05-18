@@ -3,10 +3,12 @@
 Fonctions d'affichage des actifs sous différentes formes (tableau, cartes, compact)
 avec pagination et interface améliorée
 """
+# Imports de bibliothèques tierces
 import pandas as pd
 import streamlit as st
 from sqlalchemy.orm import Session
 
+# Imports de l'application
 from database.models import Asset, Account, Bank
 from ui.components import create_asset_card
 from utils.pagination import PaginationManager

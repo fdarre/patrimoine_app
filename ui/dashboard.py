@@ -1,13 +1,16 @@
 """
 Interface du dashboard principal avec styles centralisés
 """
+# Imports de la bibliothèque standard
 
+# Imports de bibliothèques tierces
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
 from sqlalchemy.orm import Session
 
+# Imports de l'application
 from database.models import Bank, Account, Asset, HistoryPoint
 from services.visualization_service import VisualizationService
 

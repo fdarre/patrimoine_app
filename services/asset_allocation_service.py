@@ -1,17 +1,19 @@
 """
 Service spécialisé pour les calculs d'allocation des actifs
 """
+# Imports de la bibliothèque standard
 from typing import List, Dict, Optional
 
+# Imports de bibliothèques tierces
 from sqlalchemy.orm import Session, joinedload
 
+# Imports de l'application
 from database.models import Asset
 from utils.common import safe_json_loads
 from utils.decorators import handle_exceptions
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
-
 
 class AssetAllocationService:
     """
@@ -20,7 +22,6 @@ class AssetAllocationService:
     Ce service isole les fonctionnalités de calcul d'allocation qui étaient
     auparavant dans AssetService, suivant ainsi le principe de responsabilité unique.
     """
-
     @handle_exceptions
     def calculate_effective_allocation(self, db: Session, asset_id: str) -> Dict[str, float]:
         """

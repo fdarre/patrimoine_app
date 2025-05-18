@@ -1,3 +1,4 @@
+# ui/assets/assets_management.py
 """
 Interface de gestion des actifs, incluant les actifs composites
 """

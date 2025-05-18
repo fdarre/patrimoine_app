@@ -1,17 +1,17 @@
-# ui/assets/edit_form.py
 """
 Module pour l'édition d'actifs existants
 """
+# Imports de bibliothèques tierces
 import streamlit as st
 from sqlalchemy.orm import Session
 
+# Imports de l'application
 from config.app_config import PRODUCT_TYPES, CURRENCIES
 from database.models import Asset, Account, Bank
 from services.asset_service import asset_service
 from services.data_service import DataService
 from ui.components import apply_button_styling
-from .geo_allocation_form import edit_geo_allocation_form
-from ..shared.allocation_forms import edit_allocation_form
+from ui.shared.allocation_forms import edit_allocation_form, edit_geo_allocation_form
 
 
 def show_edit_asset_form(db: Session, asset_id: str, user_id: str):

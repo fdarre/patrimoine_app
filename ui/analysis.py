@@ -1,12 +1,13 @@
 """
 Interface d'analyse et visualisations
 """
-
+# Imports de bibliothèques tierces
 import pandas as pd
 import streamlit as st
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+# Imports de l'application
 from config.app_config import ASSET_CATEGORIES, GEO_ZONES
 from database.models import Bank, Account, Asset
 from services.visualization_service import VisualizationService

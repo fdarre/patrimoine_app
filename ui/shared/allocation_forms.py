@@ -414,7 +414,6 @@ def edit_geo_allocation_form(asset, asset_id, new_allocation):
                     current_geo = asset.geo_allocation[category]
                 else:
                     # Utiliser les valeurs par défaut si pas d'allocation existante
-                    from utils.calculations import get_default_geo_zones
                     current_geo = get_default_geo_zones(category)
 
                 # Initialiser le stockage pour les zones géo de cette catégorie

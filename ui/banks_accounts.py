@@ -1,11 +1,12 @@
 """
 Interface de gestion des banques et comptes
 """
-
+# Imports de bibliothèques tierces
 import pandas as pd
 import streamlit as st
 from sqlalchemy.orm import Session
 
+# Imports de l'application
 from config.app_config import ACCOUNT_TYPES
 from database.models import Bank, Account, Asset
 from services.account_service import account_service
