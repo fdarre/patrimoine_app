@@ -36,6 +36,7 @@ def display_assets_table_with_actions(db: Session, assets, user_id):
     """
     # Préparation des données
     data = []
+    assets_map = {}  # Pour stocker les objets asset par ID
 
     # OPTIMISATION: Récupérer tous les comptes et banques en une seule requête
     asset_ids = [asset.id for asset in assets]
@@ -57,6 +58,9 @@ def display_assets_table_with_actions(db: Session, assets, user_id):
 
     # Créer les données pour le dataframe
     for asset in assets:
+        # Stocker l'actif pour référence ultérieure
+        assets_map[asset.id] = asset
+
         # Utiliser le mapping au lieu de faire une requête à chaque itération
         account, bank = account_bank_map.get(asset.id, (None, None))
 
@@ -64,9 +68,8 @@ def display_assets_table_with_actions(db: Session, assets, user_id):
         pv = asset.valeur_actuelle - asset.prix_de_revient
         pv_percent = (pv / asset.prix_de_revient) * 100 if asset.prix_de_revient > 0 else 0
 
-        # Créer une représentation textuelle de l'allocation
-        allocation_text = ", ".join([f"{cat.capitalize()}: {pct}%" for cat, pct in
-                                     sorted(asset.allocation.items(), key=lambda x: x[1], reverse=True)[:2]])
+        # Créer une représentation HTML des allocations
+        allocation_html = create_allocation_html(asset.allocation)
 
         data.append({
             "ID": asset.id,
@@ -74,7 +77,7 @@ def display_assets_table_with_actions(db: Session, assets, user_id):
             "Type": asset.type_produit,
             "Valeur": f"{asset.valeur_actuelle:,.2f} {asset.devise}".replace(",", " "),
             "Performance": f"{pv_percent:+.2f}%" if pv_percent != 0 else "0.00%",
-            "Allocation": allocation_text,
+            "Allocation": allocation_html,
             "Compte": f"{account.libelle} ({bank.nom})" if account and bank else "N/A",
             "MAJ": asset.date_maj
         })
@@ -109,17 +112,19 @@ def display_assets_table_with_actions(db: Session, assets, user_id):
     # Afficher le nombre total d'éléments et la pagination actuelle
     st.write(f"Affichage de {start_idx + 1 if not df.empty else 0}-{end_idx} sur {len(df)} actifs")
 
-    # Afficher le tableau
-    st.dataframe(df_paginated.drop(columns=["ID"]), use_container_width=True)
+    # Afficher le tableau avec HTML non échappé
+    st.markdown(df_paginated.drop(columns=["ID"]).to_html(escape=False, index=False), unsafe_allow_html=True)
 
     # Section actions sous le tableau
     col1, col2, col3 = st.columns([2, 1, 1])
 
     with col1:
+        paginated_ids = df_paginated["ID"].tolist() if not df_paginated.empty else []
+
         selected_asset_id = st.selectbox(
             "Sélectionner un actif pour action",
-            options=[asset["ID"] for asset in data],
-            format_func=lambda x: next((a["Nom"] for a in data if a["ID"] == x), "")
+            options=paginated_ids,
+            format_func=lambda x: assets_map[x].nom if x in assets_map else ""
         )
 
     with col2:
@@ -134,7 +139,7 @@ def display_assets_table_with_actions(db: Session, assets, user_id):
 
     # Confirmation de suppression
     if selected_asset_id and f'confirm_delete_{selected_asset_id}' in st.session_state:
-        selected_asset = next((a for a in assets if a.id == selected_asset_id), None)
+        selected_asset = assets_map.get(selected_asset_id)
 
         if selected_asset:
             st.warning(f"Êtes-vous sûr de vouloir supprimer l'actif '{selected_asset.nom}' ?")
@@ -142,8 +147,8 @@ def display_assets_table_with_actions(db: Session, assets, user_id):
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Oui, supprimer", key=f"confirm_yes_{selected_asset_id}"):
-                    # Suppression de l'actif
-                    if asset_service.delete_asset(db, selected_asset_id):
+                    # Utiliser la méthode delete() du service
+                    if asset_service.delete(db, selected_asset_id):
                         # Mise à jour de l'historique
                         DataService.record_history_entry(db, user_id)
                         st.success(f"Actif '{selected_asset.nom}' supprimé avec succès.")
