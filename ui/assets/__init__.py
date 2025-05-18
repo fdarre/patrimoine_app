@@ -3,18 +3,17 @@
 Point d'entrée principal pour l'interface de gestion des actifs
 """
 import streamlit as st
-from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
+from sqlalchemy.orm import Session
 
+from config.app_config import ASSET_CATEGORIES, PRODUCT_TYPES
 # Importer les modèles de base de données nécessaires
 from database.models import Asset, Bank, Account
-from config.app_config import ASSET_CATEGORIES, PRODUCT_TYPES
-
-# Importer les fonctions des sous-modules
-from .list_view import display_assets_table, display_assets_cards, display_assets_compact
-from .detail_view import display_asset_details
 from .add_form import show_add_asset_form
+from .detail_view import display_asset_details
 from .edit_form import show_edit_asset_form
+# Importer les fonctions des sous-modules - Modifier cet import pour inclure la nouvelle fonction
+from .list_view import display_assets_table_with_actions
 from .sync_view import show_sync_options
 
 
@@ -46,25 +45,14 @@ def show_asset_management(db: Session, user_id: str):
             # Exécute la requête seulement maintenant, après tous les filtres appliqués
             filtered_assets = filtered_query.all()
 
-            # Sélection de la vue
-            view_type = st.radio("Type d'affichage", ["Tableau", "Cartes", "Compact"], horizontal=True)
-
             # Afficher le nombre de résultats
             st.write(f"**{len(filtered_assets)}** actifs correspondent à vos critères")
 
             if filtered_assets:
-                if view_type == "Tableau":
-                    display_assets_table(db, filtered_assets)
-                elif view_type == "Cartes":
-                    display_assets_cards(db, filtered_assets)
-                else:
-                    display_assets_compact(db, filtered_assets)
+                # Utiliser notre nouvelle fonction avec options de modification/suppression
+                display_assets_table_with_actions(db, filtered_assets, user_id)
             else:
                 st.info("Aucun actif ne correspond aux filtres sélectionnés.")
-
-            # Gestion des détails d'un actif sélectionné
-            if 'view_asset_details' in st.session_state:
-                display_asset_details(db, st.session_state['view_asset_details'])
 
             # Gestion de l'édition d'un actif
             if 'edit_asset' in st.session_state:
