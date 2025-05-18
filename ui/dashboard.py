@@ -6,10 +6,11 @@ import streamlit as st
 import pandas as pd
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+import matplotlib.pyplot as plt
 
 from database.models import Bank, Account, Asset, HistoryPoint
 from services.visualization_service import VisualizationService
-from utils.ui_helpers import show_message
+from utils.ui_components import styled_metric, asset_card, todo_card
 
 # Couleurs fixes pour les graphiques Matplotlib
 CHART_COLORS = {
@@ -34,30 +35,15 @@ def show_dashboard(db: Session, user_id: str):
     with col1:
         # Calculer la valeur totale directement
         total_value = sum(asset.value_eur or 0.0 for asset in assets)
-        st.markdown(f"""
-        <div class="metric-card">
-            <div style="font-size:14px;color:var(--text-muted);">Valeur totale du patrimoine</div>
-            <div style="font-size:24px;font-weight:bold;">{total_value:,.2f} €</div>
-        </div>
-        """, unsafe_allow_html=True)
+        styled_metric("Valeur totale du patrimoine", f"{total_value:,.2f} €", icon="💰")
 
     with col2:
         asset_count = len(assets)
-        st.markdown(f"""
-        <div class="metric-card">
-            <div style="font-size:14px;color:var(--text-muted);">Nombre d'actifs</div>
-            <div style="font-size:24px;font-weight:bold;">{asset_count}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        styled_metric("Nombre d'actifs", f"{asset_count}", icon="📊")
 
     with col3:
         account_count = db.query(Account).join(Bank).filter(Bank.owner_id == user_id).count()
-        st.markdown(f"""
-        <div class="metric-card">
-            <div style="font-size:14px;color:var(--text-muted);">Nombre de comptes</div>
-            <div style="font-size:24px;font-weight:bold;">{account_count}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        styled_metric("Nombre de comptes", f"{account_count}", icon="🏦")
 
     # Graphiques principaux (si des actifs existent)
     if assets:
@@ -149,7 +135,7 @@ def show_dashboard(db: Session, user_id: str):
         else:
             st.info("L'historique d'évolution sera disponible après plusieurs mises à jour d'actifs.")
 
-        # Top 5 des actifs avec style moderne
+        # Top 5 des actifs avec le composant centralisé
         top_assets = sorted(assets, key=lambda x: x.value_eur if x.value_eur is not None else 0.0, reverse=True)[:5]
 
         if top_assets:
@@ -162,47 +148,35 @@ def show_dashboard(db: Session, user_id: str):
                 # Calculer la plus-value
                 pv = asset.valeur_actuelle - asset.prix_de_revient
                 pv_percent = (pv / asset.prix_de_revient) * 100 if asset.prix_de_revient > 0 else 0
-                pv_class = "positive" if pv >= 0 else "negative"
-                pv_icon = "📈" if pv >= 0 else "📉"
 
-                # Utiliser une structure HTML plus sûre mais qui conserve le style
-                st.markdown(f"""
-                <div class="asset-card">
-                    <div class="asset-header">
-                        <span class="asset-icon">💰</span>
-                        <span class="asset-title">{asset.nom}</span>
-                        <span class="asset-badge">{asset.type_produit.upper()}</span>
-                    </div>
-                    <div class="asset-stats">
-                        <div class="asset-stat">
-                            <div class="stat-label">Valeur</div>
-                            <div class="stat-value">{asset.valeur_actuelle:,.2f} {asset.devise}</div>
-                        </div>
-                        <div class="asset-stat">
-                            <div class="stat-label">Performance</div>
-                            <div class="stat-value {pv_class}">{pv_icon} {pv_percent:+.2f}%</div>
-                        </div>
-                    </div>
-                    <div class="asset-footer">
-                        <span class="asset-account">🏦 {account.libelle} ({bank.nom})</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                # Utiliser le composant centralisé
+                card_html = asset_card(
+                    name=asset.nom,
+                    asset_type=asset.type_produit,
+                    value=asset.valeur_actuelle,
+                    currency=asset.devise,
+                    performance=pv_percent,
+                    account_name=account.libelle if account else "",
+                    bank_name=bank.nom if bank else "",
+                    icon="💰"
+                )
 
-        # Tâches à faire - Style moderne
+                st.markdown(card_html, unsafe_allow_html=True)
+
+        # Tâches à faire - Style moderne avec composant centralisé
         todos = db.query(Asset).filter(Asset.owner_id == user_id).filter(Asset.todo != "").all()
         if todos:
             st.subheader("Tâches à faire")
             for asset in todos:
                 account = db.query(Account).filter(Account.id == asset.account_id).first()
 
-                st.markdown(f"""
-                <div class="todo-card">
-                    <div class="todo-header">✅ {asset.nom}</div>
-                    <div class="todo-content">{asset.todo}</div>
-                    <div class="todo-footer">Compte: {account.libelle if account else 'Compte inconnu'}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                card_html = todo_card(
+                    title=asset.nom,
+                    content=asset.todo,
+                    footer=f"Compte: {account.libelle}" if account else None
+                )
+
+                st.markdown(card_html, unsafe_allow_html=True)
     else:
         # Affichage pour le cas sans actif
         st.info("Aucun actif n'a encore été ajouté. Commencez par ajouter des banques, des comptes, puis des actifs.")
