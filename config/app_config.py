@@ -2,7 +2,9 @@
 Configuration centralisée de l'application
 """
 import os
+import secrets
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Charger les variables d'environnement
@@ -22,20 +24,23 @@ os.makedirs(LOGS_DIR, exist_ok=True)
 DB_PATH = os.path.join(DATA_DIR, "patrimoine.db")
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
-# Clés de sécurité et cryptographie
-SECRET_KEY = os.getenv("SECRET_KEY", "default_key_replace_in_production")
-ENCRYPTION_SALT = os.getenv("ENCRYPTION_SALT", "default_salt_replace_in_production")
+# Clés de sécurité et cryptographie - Valeurs sécurisées générées aléatoirement
+SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))
+ENCRYPTION_SALT = os.getenv("ENCRYPTION_SALT", secrets.token_bytes(16))
 
 # Si le sel n'est pas défini dans l'environnement, essayer de le lire depuis le fichier .salt
-if ENCRYPTION_SALT == "default_salt_replace_in_production":
-    salt_file = os.path.join(DATA_DIR, ".salt")
-    if os.path.exists(salt_file):
-        with open(salt_file, "r") as f:
-            ENCRYPTION_SALT = f.read().strip()
+salt_file = os.path.join(DATA_DIR, ".salt")
+if os.path.exists(salt_file):
+    with open(salt_file, "r") as f:
+        ENCRYPTION_SALT = f.read().strip()
+# Si le fichier n'existe pas, le créer avec le sel généré
+elif not os.getenv("ENCRYPTION_SALT"):
+    with open(salt_file, "w") as f:
+        f.write(ENCRYPTION_SALT)
 
 # Configuration JWT
 JWT_ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 heures
+ACCESS_TOKEN_EXPIRE_MINUTES = 60  # Réduit de 1440 (24h) à 60 minutes (1h)
 
 # Limites de l'application
 MAX_USERS = int(os.getenv("MAX_USERS", "5"))

@@ -460,7 +460,7 @@ def edit_geo_allocation_form(asset, asset_id, new_allocation):
                                 geo_total += pct
 
                 with geo_zone_tabs[2]:
-                    # Autres zones géo
+                    # Autres zones
                     other_zones = ["global_non_classe"]
                     cols = st.columns(2)
                     for j, zone in enumerate(other_zones):
