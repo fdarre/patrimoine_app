@@ -3,8 +3,8 @@
 Point d'entrée principal pour l'interface de gestion des actifs
 """
 import streamlit as st
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, or_, and_
+from sqlalchemy.orm import Session
+from sqlalchemy import func, or_
 
 # Importer les modèles de base de données nécessaires
 from database.models import Asset, Bank, Account

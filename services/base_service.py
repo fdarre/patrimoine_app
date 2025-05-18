@@ -18,7 +18,6 @@ logger = get_logger(__name__)
 class BaseService(Generic[T]):
     """
     Service de base générique pour les opérations CRUD
-    Utilise une approche cohérente où toutes les méthodes sont des méthodes d'instance
     """
 
     def __init__(self, model_class: Type[T]):
@@ -31,7 +30,7 @@ class BaseService(Generic[T]):
         self.model_class = model_class
 
     @handle_exceptions
-    def get_all(self, db: Session, owner_id: str = None, **filters) -> List[T]:
+    def get_all(self, db: Session, owner_id: Optional[str] = None, **filters) -> List[T]:
         """
         Récupère tous les objets qui correspondent aux filtres
 
@@ -164,7 +163,7 @@ class BaseService(Generic[T]):
             raise DatabaseError(f"Erreur lors de la suppression: {str(e)}")
 
     @handle_exceptions
-    def count(self, db: Session, owner_id: str = None, **filters) -> int:
+    def count(self, db: Session, owner_id: Optional[str] = None, **filters) -> int:
         """
         Compte le nombre d'objets qui correspondent aux filtres
 
@@ -186,3 +185,53 @@ class BaseService(Generic[T]):
                 query = query.filter(getattr(self.model_class, attr) == value)
 
         return query.count()
+
+    @handle_exceptions
+    def exists(self, db: Session, item_id: str) -> bool:
+        """
+        Vérifie si un objet existe
+
+        Args:
+            db: Session de base de données
+            item_id: ID de l'objet
+
+        Returns:
+            True si l'objet existe, False sinon
+        """
+        return db.query(self.model_class).filter(self.model_class.id == item_id).count() > 0
+
+    @handle_exceptions
+    def bulk_create(self, db: Session, items_data: List[Dict[str, Any]]) -> List[T]:
+        """
+        Crée plusieurs objets en une seule transaction
+
+        Args:
+            db: Session de base de données
+            items_data: Liste des données pour la création
+
+        Returns:
+            Liste des objets créés
+
+        Raises:
+            ValidationError: Si les données sont invalides
+            DatabaseError: En cas d'erreur lors de la création
+        """
+        # Validation des données requises si le modèle a un attribut required_fields
+        if hasattr(self.model_class, 'required_fields'):
+            for i, data in enumerate(items_data):
+                missing_fields = [field for field in self.model_class.required_fields
+                                if field not in data or data[field] is None]
+                if missing_fields:
+                    raise ValidationError(f"Champs obligatoires manquants dans l'élément {i+1}: {', '.join(missing_fields)}")
+
+        try:
+            items = [self.model_class(**data) for data in items_data]
+            db.add_all(items)
+            db.commit()
+            for item in items:
+                db.refresh(item)
+            return items
+        except SQLAlchemyError as e:
+            db.rollback()
+            logger.error(f"Erreur lors de la création en masse de {self.model_class.__name__}: {str(e)}")
+            raise DatabaseError(f"Erreur lors de la création en masse: {str(e)}")

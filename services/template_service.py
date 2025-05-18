@@ -1,10 +1,9 @@
 """
 Service de gestion des modèles (templates) d'actifs avec propagation des modifications
 """
-from typing import List, Dict, Any, Optional
+from typing import List
 from sqlalchemy.orm import Session
 from datetime import datetime
-import logging
 
 from database.models import Asset
 from utils.logger import get_logger

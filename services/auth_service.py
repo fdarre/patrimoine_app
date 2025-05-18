@@ -4,7 +4,6 @@ Service d'authentification et de gestion des utilisateurs avec protections amél
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 import jwt
-import os
 from sqlalchemy.orm import Session
 
 from database.models import User

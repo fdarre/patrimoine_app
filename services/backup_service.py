@@ -11,7 +11,7 @@ import logging
 from datetime import datetime
 from cryptography.fernet import Fernet
 
-from config.app_config import DATA_DIR, SECRET_KEY  # Correction ici - importation depuis config.app_config
+from config.app_config import DATA_DIR
 from database.db_config import get_encryption_key
 
 # Configurer le logging

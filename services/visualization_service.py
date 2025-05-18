@@ -2,13 +2,11 @@
 Service pour les visualisations avec SQLAlchemy
 """
 import matplotlib.pyplot as plt
-import numpy as np
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Tuple
 from datetime import datetime
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, cast, Float, and_, or_, JSON, text
+from sqlalchemy.orm import Session
 
-from database.models import Asset, HistoryPoint, Bank, Account
+from database.models import Asset, HistoryPoint
 from utils.logger import get_logger
 
 logger = get_logger(__name__)

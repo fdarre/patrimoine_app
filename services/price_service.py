@@ -2,7 +2,7 @@
 Service pour la récupération des prix des actifs financiers avec Yahoo Finance
 """
 import requests
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional
 import json
 import os
 from datetime import datetime, timedelta

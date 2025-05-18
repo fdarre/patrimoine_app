@@ -2,11 +2,10 @@
 Service de gestion des devises et de conversion monétaire
 """
 import requests
-from typing import Dict, Optional
+from typing import Dict
 import time
 import json
 import os
-from datetime import datetime
 
 
 class CurrencyService:

@@ -6,7 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 import pandas as pd
 
-from database.models import Bank, Account, Asset, User
+from database.models import Bank, Account
 from services.base_service import BaseService
 from utils.decorators import handle_exceptions
 from utils.logger import get_logger
