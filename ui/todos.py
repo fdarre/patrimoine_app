@@ -2,14 +2,16 @@
 Interface de gestion des tâches
 """
 
+import time
+
 import streamlit as st
 from sqlalchemy.orm import Session
-import time
 
 from database.models import Bank, Account, Asset
 from services.asset_service import asset_service
 from services.data_service import DataService
-from utils.ui_components import styled_todo_card
+from ui.components import styled_todo_card
+
 
 def show_todos(db: Session, user_id: str):
     """
