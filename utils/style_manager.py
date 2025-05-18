@@ -1,13 +1,14 @@
+# utils/style_manager.py
 """
-Utilitaire amélioré pour gérer les styles CSS et les thèmes
+Gestionnaire unifié de styles pour l'application
 """
 import streamlit as st
 import os
-import json
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 
 # Chemins des dossiers de styles
-STYLES_DIR = os.path.join("static", "styles")
+STATIC_DIR = "static"
+STYLES_DIR = os.path.join(STATIC_DIR, "styles")
 CORE_DIR = os.path.join(STYLES_DIR, "core")
 COMPONENTS_DIR = os.path.join(STYLES_DIR, "components")
 THEMES_DIR = os.path.join(STYLES_DIR, "themes")
@@ -27,7 +28,6 @@ THEMES = {
         "is_default": False
     }
 }
-
 
 def load_css_file(file_path: str) -> Optional[str]:
     """
@@ -49,6 +49,24 @@ def load_css_file(file_path: str) -> Optional[str]:
         print(f"Erreur lors du chargement du CSS: {str(e)}")
         return None
 
+def load_css(css_file_name: str) -> Optional[str]:
+    """
+    Charge un fichier CSS depuis les répertoires standard
+
+    Args:
+        css_file_name: Nom du fichier CSS (sans chemin complet)
+
+    Returns:
+        Contenu du CSS ou None si fichier non trouvé
+    """
+    # Chercher dans différents dossiers en ordre de priorité
+    for directory in [CORE_DIR, COMPONENTS_DIR, STYLES_DIR]:
+        path = os.path.join(directory, css_file_name)
+        if os.path.exists(path):
+            return load_css_file(path)
+
+    print(f"Fichier CSS introuvable: {css_file_name}")
+    return None
 
 def apply_css(css_content: str) -> None:
     """
@@ -59,7 +77,6 @@ def apply_css(css_content: str) -> None:
     """
     if css_content:
         st.markdown(f"<style>{css_content}</style>", unsafe_allow_html=True)
-
 
 def load_theme_css(theme_key: str) -> Optional[str]:
     """
@@ -77,7 +94,6 @@ def load_theme_css(theme_key: str) -> Optional[str]:
     theme_file = THEMES[theme_key]["file"]
     theme_path = os.path.join(THEMES_DIR, theme_file)
     return load_css_file(theme_path)
-
 
 def initialize_styles() -> None:
     """
@@ -98,30 +114,11 @@ def initialize_styles() -> None:
         apply_css(theme_css)
 
     # Ajouter une classe au corps pour le thème actif
-    apply_css(f"""
-    body {{
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    }}
-
-    /* Appliquer la classe de thème sur le corps */
-    body {{
-        background-color: var(--bg-color);
-        color: var(--text-light);
-    }}
-
-    /* Masquer les éléments de débogage et le menu hamburger */
-    #MainMenu, footer, .stDeployButton {{
-        display: none !important;
-    }}
-    """)
-
-    # Ajouter un attribut de classe au corps pour le thème actif
     st.markdown(f"""
     <script>
         document.documentElement.className = '{st.session_state["theme"]}-theme';
     </script>
     """, unsafe_allow_html=True)
-
 
 def create_theme_selector() -> None:
     """
@@ -144,3 +141,38 @@ def create_theme_selector() -> None:
         if selected_theme != st.session_state["theme"]:
             st.session_state["theme"] = selected_theme
             st.rerun()
+
+def get_theme_color(color_name: str) -> str:
+    """
+    Récupère une couleur du thème actuel
+
+    Args:
+        color_name: Nom de la couleur ou raccourci
+
+    Returns:
+        Code CSS de la couleur
+    """
+    # Mappings des raccourcis de couleurs
+    color_mappings = {
+        "primary": "var(--primary-color)",
+        "secondary": "var(--secondary-color)",
+        "success": "var(--success-color)",
+        "warning": "var(--warning-color)",
+        "danger": "var(--danger-color)",
+        "info": "var(--info-color)",
+        "text_light": "var(--text-light)",
+        "text_muted": "var(--text-muted)",
+        "text_dark": "var(--text-dark)",
+        "bg": "var(--bg-color)",
+        "card": "var(--card-bg)"
+    }
+
+    # Si le nom est un raccourci, retourner la valeur mappée
+    if color_name in color_mappings:
+        return color_mappings[color_name]
+
+    # Sinon tenter d'interpréter comme une variable CSS
+    if color_name.startswith("--"):
+        return f"var({color_name})"
+    else:
+        return f"var(--{color_name})"

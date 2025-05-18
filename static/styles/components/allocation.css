@@ -1,0 +1,88 @@
+/*
+ * components/allocation.css
+ * Styles pour les allocations, barres de progression et répartitions
+ */
+
+/* Barres de progression d'allocation */
+.allocation-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.allocation-label {
+    width: 80px;
+    text-transform: capitalize;
+}
+
+.allocation-bar-bg {
+    background: #f8f9fa;
+    height: 8px;
+    width: 70%;
+    margin: 0 10px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.allocation-bar {
+    height: 100%;
+    border-radius: 4px;
+}
+
+/* Couleurs par catégorie */
+.allocation-actions { background-color: #4e79a7; }
+.allocation-obligations { background-color: #f28e2c; }
+.allocation-immobilier { background-color: #e15759; }
+.allocation-crypto { background-color: #76b7b2; }
+.allocation-metaux { background-color: #59a14f; }
+.allocation-cash { background-color: #edc949; }
+.allocation-autre { background-color: #af7aa1; }
+
+/* Total de l'allocation */
+.allocation-total {
+    margin-top: 20px;
+}
+
+.allocation-total-label {
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.allocation-total-bar-bg {
+    background: #f8f9fa;
+    height: 10px;
+    width: 100%;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.allocation-total-bar {
+    height: 10px;
+    border-radius: 5px;
+}
+
+.allocation-total-valid {
+    background-color: #28a745;
+}
+
+.allocation-total-warning {
+    background-color: #ffc107;
+}
+
+.allocation-total-error {
+    background-color: #dc3545;
+}
+
+/* Zones géographiques */
+.geo-allocation-container {
+    margin-top: 15px;
+}
+
+.geo-zone-group {
+    margin-bottom: 15px;
+}
+
+.geo-zone-title {
+    font-weight: 600;
+    margin-bottom: 10px;
+}

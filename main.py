@@ -36,7 +36,7 @@ def main():
     )
 
     # Initialiser les styles - IMPORTANT : doit être appelé avant tout autre rendu
-    initialize_styles()
+    initialize_styles()  # Utilisation du gestionnaire unifié
 
     # Ajouter le sélecteur de thème dans la barre latérale
     create_theme_selector()

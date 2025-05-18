@@ -1,5 +1,4 @@
-
-/* 
+/*
  * main.css
  * Fichier principal qui importe tous les autres styles
  */
@@ -17,6 +16,8 @@
 @import url('./components/forms.css');
 @import url('./components/tables.css');
 @import url('./components/metrics.css');
+@import url('./components/allocation.css');
+@import url('./components/sync.css');
 
 /* THEMES - Le thème actif sera appliqué via JS */
 /* Thème par défaut (sombre) */

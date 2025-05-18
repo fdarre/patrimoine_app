@@ -1,0 +1,79 @@
+/*
+ * core/layout-fixes.css
+ * Corrections spécifiques pour le layout de Streamlit
+ */
+
+/* Ajustements pour les conteneurs Streamlit */
+[data-testid="stVerticalBlock"] {
+    gap: 0.5rem;
+}
+
+/* Correction des marges d'expanseurs */
+[data-testid="stExpander"] {
+    margin-bottom: 1rem;
+}
+
+/* Correction d'espacement des colonnes */
+[data-testid="column"] {
+    padding: 0.5rem;
+}
+
+/* Amélioration des onglets */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0.5rem;
+}
+
+.stTabs [data-baseweb="tab"] {
+    height: 2.5rem;
+    white-space: nowrap;
+}
+
+.stTabs [data-baseweb="tab-border"] {
+    background-color: var(--primary-color);
+}
+
+/* Correction de la barre latérale */
+[data-testid="stSidebarUserContent"] {
+    padding-top: 1.5rem;
+}
+
+/* Amélioration des marges pour les formulaires */
+.stForm > div {
+    margin-bottom: 1rem;
+}
+
+/* Amélioration des sélecteurs */
+[data-baseweb="select"] {
+    margin-bottom: 0.75rem;
+}
+
+/* Amélioration des widgets de téléchargement */
+[data-testid="stFileUploader"] {
+    margin-bottom: 1rem;
+}
+
+/* Amélioration des métriques Streamlit */
+[data-testid="stMetricValue"] {
+    font-size: 1.75rem !important;
+    font-weight: 600 !important;
+}
+
+[data-testid="stMetricLabel"] {
+    font-size: 0.875rem !important;
+    color: var(--text-muted) !important;
+}
+
+[data-testid="stMetricDelta"] {
+    font-size: 0.875rem !important;
+}
+
+/* Correction des problèmes d'alignement des conteneurs */
+[data-testid="stDecoration"] {
+    height: auto !important;
+}
+
+/* Améliorations des messages */
+[data-testid="stAlert"] {
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+}

@@ -5,13 +5,14 @@ Module pour la gestion des formulaires d'allocation par catégorie
 import streamlit as st
 from typing import Dict, Tuple
 
+
 def create_allocation_form(prefix: str) -> Dict[str, float]:
     """
     Crée un formulaire pour l'allocation par catégorie
-    
+
     Args:
         prefix: Préfixe pour les clés de session state (ex: "new_asset" ou "edit_asset_123")
-        
+
     Returns:
         Dictionnaire des allocations {catégorie: pourcentage}
     """
@@ -24,17 +25,6 @@ def create_allocation_form(prefix: str) -> Dict[str, float]:
 
     # Interface améliorée pour l'allocation avec barres de progression
     col1, col2 = st.columns(2)
-
-    # Définition des couleurs par catégorie
-    category_colors = {
-        "actions": "#4e79a7",
-        "obligations": "#f28e2c",
-        "immobilier": "#e15759",
-        "crypto": "#76b7b2",
-        "metaux": "#59a14f",
-        "cash": "#edc949",
-        "autre": "#af7aa1"
-    }
 
     # Première colonne: principaux types d'actifs
     with col1:
@@ -51,12 +41,12 @@ def create_allocation_form(prefix: str) -> Dict[str, float]:
                 allocation[category] = percentage
                 allocation_total += percentage
 
-                # Afficher une barre de progression colorée pour cette catégorie
+                # Afficher une barre de progression colorée avec classes CSS
                 st.markdown(f"""
-                <div style="display:flex;align-items:center;margin-bottom:8px;">
-                    <div style="width:80px;">{category.capitalize()}</div>
-                    <div style="background:#f8f9fa;height:8px;width:70%;margin:0 10px;">
-                        <div style="background:{category_colors[category]};height:8px;width:{percentage}%;"></div>
+                <div class="allocation-container">
+                    <div class="allocation-label">{category}</div>
+                    <div class="allocation-bar-bg">
+                        <div class="allocation-bar allocation-{category}" style="width:{percentage}%;"></div>
                     </div>
                     <div>{percentage}%</div>
                 </div>
@@ -77,23 +67,29 @@ def create_allocation_form(prefix: str) -> Dict[str, float]:
                 allocation[category] = percentage
                 allocation_total += percentage
 
-                # Afficher une barre de progression colorée pour cette catégorie
+                # Afficher une barre de progression colorée avec classes CSS
                 st.markdown(f"""
-                <div style="display:flex;align-items:center;margin-bottom:8px;">
-                    <div style="width:80px;">{category.capitalize()}</div>
-                    <div style="background:#f8f9fa;height:8px;width:70%;margin:0 10px;">
-                        <div style="background:{category_colors[category]};height:8px;width:{percentage}%;"></div>
+                <div class="allocation-container">
+                    <div class="allocation-label">{category}</div>
+                    <div class="allocation-bar-bg">
+                        <div class="allocation-bar allocation-{category}" style="width:{percentage}%;"></div>
                     </div>
                     <div>{percentage}%</div>
                 </div>
                 """, unsafe_allow_html=True)
 
-    # Barre de progression pour visualiser le total
+    # Barre de progression pour visualiser le total avec classes CSS
+    progress_class = "allocation-total-valid"
+    if allocation_total < 100:
+        progress_class = "allocation-total-warning"
+    elif allocation_total > 100:
+        progress_class = "allocation-total-error"
+
     st.markdown(f"""
-    <div style="margin-top:20px;">
-        <h4 style="margin-bottom:5px;">Total: {allocation_total}%</h4>
-        <div style="background:#f8f9fa;height:10px;width:100%;border-radius:5px;">
-            <div style="background:{('#28a745' if allocation_total == 100 else '#ffc107' if allocation_total < 100 else '#dc3545')};height:10px;width:{min(allocation_total, 100)}%;border-radius:5px;"></div>
+    <div class="allocation-total">
+        <h4 class="allocation-total-label">Total: {allocation_total}%</h4>
+        <div class="allocation-total-bar-bg">
+            <div class="allocation-total-bar {progress_class}" style="width:{min(allocation_total, 100)}%;"></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -108,14 +104,15 @@ def create_allocation_form(prefix: str) -> Dict[str, float]:
 
     return allocation
 
+
 def edit_allocation_form(asset, asset_id: str) -> Tuple[Dict[str, float], bool]:
     """
     Crée un formulaire pour l'édition de l'allocation par catégorie d'un actif existant
-    
+
     Args:
         asset: Actif à éditer
         asset_id: ID de l'actif
-        
+
     Returns:
         Tuple (dictionnaire des allocations {catégorie: pourcentage}, validité de l'allocation)
     """
@@ -144,6 +141,17 @@ def edit_allocation_form(asset, asset_id: str) -> Tuple[Dict[str, float], bool]:
                 new_allocation[category] = percentage
                 allocation_total += percentage
 
+                # Afficher barre de progression avec classes CSS
+                st.markdown(f"""
+                <div class="allocation-container">
+                    <div class="allocation-label">{category}</div>
+                    <div class="allocation-bar-bg">
+                        <div class="allocation-bar allocation-{category}" style="width:{percentage}%;"></div>
+                    </div>
+                    <div>{percentage}%</div>
+                </div>
+                """, unsafe_allow_html=True)
+
     # Deuxième colonne: autres types d'actifs
     with allocation_col2:
         for category in ["crypto", "metaux", "autre"]:
@@ -159,26 +167,51 @@ def edit_allocation_form(asset, asset_id: str) -> Tuple[Dict[str, float], bool]:
                 new_allocation[category] = percentage
                 allocation_total += percentage
 
-    # Vérifier que le total est de 100%
-    st.progress(allocation_total / 100)
-    
+                # Afficher barre de progression avec classes CSS
+                st.markdown(f"""
+                <div class="allocation-container">
+                    <div class="allocation-label">{category}</div>
+                    <div class="allocation-bar-bg">
+                        <div class="allocation-bar allocation-{category}" style="width:{percentage}%;"></div>
+                    </div>
+                    <div>{percentage}%</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # Barre de progression pour le total
+    progress_class = "allocation-total-valid"
+    if allocation_total < 100:
+        progress_class = "allocation-total-warning"
+    elif allocation_total > 100:
+        progress_class = "allocation-total-error"
+
+    st.markdown(f"""
+    <div class="allocation-total">
+        <h4 class="allocation-total-label">Total: {allocation_total}%</h4>
+        <div class="allocation-total-bar-bg">
+            <div class="allocation-total-bar {progress_class}" style="width:{min(allocation_total, 100)}%;"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     allocation_valid = allocation_total == 100
-    
+
     if not allocation_valid:
         st.warning(f"Le total des allocations doit être de 100%. Actuellement: {allocation_total}%")
     else:
         st.success("Allocation valide (100%)")
-        
+
     return new_allocation, allocation_valid
+
 
 def get_existing_allocation(prefix: str, category: str) -> float:
     """
     Récupère la valeur d'allocation existante si disponible dans la session
-    
+
     Args:
         prefix: Préfixe pour les clés de session state
         category: Catégorie d'actif
-        
+
     Returns:
         Valeur existante ou 0.0
     """

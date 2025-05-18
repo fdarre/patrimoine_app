@@ -6,14 +6,15 @@ import streamlit as st
 from typing import Dict, Tuple
 from utils.calculations import get_default_geo_zones
 
+
 def create_geo_allocation_form(allocation: Dict[str, float], prefix: str) -> Tuple[Dict[str, Dict[str, float]], bool]:
     """
     Crée un formulaire pour la répartition géographique par catégorie
-    
+
     Args:
         allocation: Dictionnaire d'allocation par catégorie
         prefix: Préfixe pour les clés de session state
-        
+
     Returns:
         Tuple (dict des répartitions géographiques, validité de toutes les répartitions)
     """
@@ -91,12 +92,18 @@ def create_geo_allocation_form(allocation: Dict[str, float], prefix: str) -> Tup
                         geo_zones[zone] = pct
                         geo_total += pct
 
-            # Visualisation du total
+            # Visualisation du total avec classes CSS
+            progress_class = "allocation-total-valid"
+            if geo_total < 100:
+                progress_class = "allocation-total-warning"
+            elif geo_total > 100:
+                progress_class = "allocation-total-error"
+
             st.markdown(f"""
-            <div style="margin-top:20px;">
-                <h4 style="margin-bottom:5px;">Total: {geo_total}%</h4>
-                <div style="background:#f8f9fa;height:10px;width:100%;border-radius:5px;">
-                    <div style="background:{('#28a745' if geo_total == 100 else '#ffc107' if geo_total < 100 else '#dc3545')};height:10px;width:{min(geo_total, 100)}%;border-radius:5px;"></div>
+            <div class="allocation-total">
+                <h4 class="allocation-total-label">Total: {geo_total}%</h4>
+                <div class="allocation-total-bar-bg">
+                    <div class="allocation-total-bar {progress_class}" style="width:{min(geo_total, 100)}%;"></div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -106,9 +113,11 @@ def create_geo_allocation_form(allocation: Dict[str, float], prefix: str) -> Tup
             if not geo_valid:
                 all_geo_valid = False
                 if geo_total < 100:
-                    st.warning(f"Le total de la répartition géographique pour '{category}' doit être de 100%. Actuellement: {geo_total}%")
+                    st.warning(
+                        f"Le total de la répartition géographique pour '{category}' doit être de 100%. Actuellement: {geo_total}%")
                 else:
-                    st.error(f"Le total de la répartition géographique pour '{category}' ne doit pas dépasser 100%. Actuellement: {geo_total}%")
+                    st.error(
+                        f"Le total de la répartition géographique pour '{category}' ne doit pas dépasser 100%. Actuellement: {geo_total}%")
             else:
                 st.success(f"Répartition géographique pour '{category}' valide (100%)")
 
@@ -117,15 +126,17 @@ def create_geo_allocation_form(allocation: Dict[str, float], prefix: str) -> Tup
 
     return geo_allocation, all_geo_valid
 
-def edit_geo_allocation_form(asset, asset_id: str, new_allocation: Dict[str, float]) -> Tuple[Dict[str, Dict[str, float]], bool]:
+
+def edit_geo_allocation_form(asset, asset_id: str, new_allocation: Dict[str, float]) -> Tuple[
+    Dict[str, Dict[str, float]], bool]:
     """
     Crée un formulaire pour l'édition de la répartition géographique d'un actif existant
-    
+
     Args:
         asset: Actif à éditer
         asset_id: ID de l'actif
         new_allocation: Nouvelle allocation par catégorie
-        
+
     Returns:
         Tuple (dict des répartitions géographiques, validité de toutes les répartitions)
     """
@@ -207,16 +218,31 @@ def edit_geo_allocation_form(asset, asset_id: str, new_allocation: Dict[str, flo
                             geo_zones[zone] = pct
                             geo_total += pct
 
-            # Vérifier que le total est de 100%
-            st.progress(geo_total / 100)
-            
+            # Visualisation du total avec classes CSS
+            progress_class = "allocation-total-valid"
+            if geo_total < 100:
+                progress_class = "allocation-total-warning"
+            elif geo_total > 100:
+                progress_class = "allocation-total-error"
+
+            st.markdown(f"""
+            <div class="allocation-total">
+                <h4 class="allocation-total-label">Total: {geo_total}%</h4>
+                <div class="allocation-total-bar-bg">
+                    <div class="allocation-total-bar {progress_class}" style="width:{min(geo_total, 100)}%;"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
             geo_valid = geo_total == 100
             if not geo_valid:
                 all_geo_valid = False
                 if geo_total < 100:
-                    st.warning(f"Le total de la répartition géographique pour '{category}' doit être de 100%. Actuellement: {geo_total}%")
+                    st.warning(
+                        f"Le total de la répartition géographique pour '{category}' doit être de 100%. Actuellement: {geo_total}%")
                 else:
-                    st.error(f"Le total de la répartition géographique pour '{category}' ne doit pas dépasser 100%. Actuellement: {geo_total}%")
+                    st.error(
+                        f"Le total de la répartition géographique pour '{category}' ne doit pas dépasser 100%. Actuellement: {geo_total}%")
             else:
                 st.success(f"Répartition géographique pour '{category}' valide (100%)")
 
@@ -225,16 +251,17 @@ def edit_geo_allocation_form(asset, asset_id: str, new_allocation: Dict[str, flo
 
     return new_geo_allocation, all_geo_valid
 
+
 def get_existing_geo_allocation(prefix: str, category: str, zone: str, default_geo: Dict[str, float]) -> float:
     """
     Récupère la valeur de répartition géographique existante si disponible dans la session
-    
+
     Args:
         prefix: Préfixe pour les clés de session state
         category: Catégorie d'actif
         zone: Zone géographique
         default_geo: Répartition géographique par défaut
-        
+
     Returns:
         Valeur existante ou valeur par défaut
     """

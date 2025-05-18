@@ -54,7 +54,7 @@ def initialize_theme() -> None:
         _ACTIVE_THEME = st.session_state["theme"]
 
     # Charger les fichiers CSS de base
-    from utils.style_loader import load_css
+    from utils.style_manager import load_css
     load_css("variables.css")
     load_css("main.css")
 
