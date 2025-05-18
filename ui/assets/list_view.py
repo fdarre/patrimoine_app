@@ -11,7 +11,17 @@ from sqlalchemy.orm import Session
 # Imports de l'application
 from database.models import Asset, Account, Bank
 from ui.components import create_asset_card
-from utils.pagination import PaginationManager
+
+
+def change_page(page_key, new_page):
+    """
+    Change la page dans session_state
+
+    Args:
+        page_key: Clé de la page dans session_state
+        new_page: Nouvelle valeur de page
+    """
+    st.session_state[page_key] = new_page
 
 
 def display_assets_table(db: Session, assets):
@@ -67,7 +77,8 @@ def display_assets_table(db: Session, assets):
             "Nom": f'<span class="asset-name">{asset.nom}</span>',
             "Type": product_type_badge,
             "Valeur": f'<span class="asset-value">{asset.valeur_actuelle:,.2f} {asset.devise}</span>'.replace(",", " "),
-            "Performance": f'<span class="{pv_class}">{pv:,.2f} {asset.devise}</span>{perf_indicator}'.replace(",", " "),
+            "Performance": f'<span class="{pv_class}">{pv:,.2f} {asset.devise}</span>{perf_indicator}'.replace(",",
+                                                                                                               " "),
             "Allocation": allocation_html,
             "Compte": f'<span class="account-name">{account.libelle} ({bank.nom})</span>' if account and bank else "N/A",
             "Dernière MAJ": f'<span class="update-date">{asset.date_maj}</span>'
@@ -76,19 +87,53 @@ def display_assets_table(db: Session, assets):
     # Créer le DataFrame
     df = pd.DataFrame(data)
 
-    # Pagination
-    page_size = 10  # Nombre d'éléments par page
-    df_paginated, total_pages, current_page = paginate_dataframe(df, page_size, "assets_table_page")
+    # Pagination simplifiée
+    page_size = 10
+
+    # Initialiser l'état de la page si nécessaire
+    if "assets_table_page" not in st.session_state:
+        st.session_state["assets_table_page"] = 0
+
+    # Calculer le nombre total de pages
+    n_pages = max(1, (len(df) + page_size - 1) // page_size)
+
+    # Obtenir l'index de la page actuelle
+    page_idx = st.session_state["assets_table_page"]
+
+    # S'assurer que page_idx est dans les limites
+    page_idx = min(max(0, page_idx), n_pages - 1)
+    st.session_state["assets_table_page"] = page_idx
+
+    # Calculer les indices de début et de fin
+    start_idx = page_idx * page_size
+    end_idx = min(start_idx + page_size, len(df))
+
+    # Extraire la page actuelle
+    df_paginated = df.iloc[start_idx:end_idx] if not df.empty else df.copy()
 
     # Afficher le nombre total d'éléments et la pagination actuelle
-    st.write(
-        f"Affichage de {(current_page - 1) * page_size + 1}-{min(current_page * page_size, len(df))} sur {len(df)} actifs")
+    st.write(f"Affichage de {start_idx + 1 if not df.empty else 0}-{end_idx} sur {len(df)} actifs")
 
-    # Afficher le tableau sans la colonne ID
+    # Afficher le tableau
     st.write(df_paginated.drop(columns=["ID"]).to_html(escape=False, index=False), unsafe_allow_html=True)
 
-    # Afficher les contrôles de pagination
-    render_pagination_controls(total_pages, "assets_table_page")
+    # Contrôles de pagination simplifiés avec callbacks appropriés
+    cols = st.columns([1, 3, 1])
+
+    with cols[0]:
+        st.button("⏮️ Précédent", key="assets_table_prev",
+                  disabled=page_idx == 0,
+                  on_click=change_page,
+                  args=("assets_table_page", max(0, page_idx - 1)))
+
+    with cols[1]:
+        st.write(f"Page {page_idx + 1} sur {n_pages}")
+
+    with cols[2]:
+        st.button("Suivant ⏭️", key="assets_table_next",
+                  disabled=page_idx >= n_pages - 1,
+                  on_click=change_page,
+                  args=("assets_table_page", min(n_pages - 1, page_idx + 1)))
 
     # Section détails: permet de sélectionner un actif pour voir ses détails
     st.markdown("### 🔍 Détails d'un actif")
@@ -97,7 +142,7 @@ def display_assets_table(db: Session, assets):
     col1, col2 = st.columns([5, 1])
     with col2:
         if st.button("🔄 Rafraîchir", key="refresh_table"):
-            st.rerun()
+            pass  # Le bouton va provoquer un rechargement par lui-même
 
     # Amélioration de la sélection d'actif
     with col1:
@@ -105,7 +150,8 @@ def display_assets_table(db: Session, assets):
             "Sélectionner un actif",
             options=[asset["ID"] for asset in data],
             format_func=lambda x: next(
-                (a["Nom"].replace('<span class="asset-name">', '').replace('</span>', '') for a in data if a["ID"] == x),
+                (a["Nom"].replace('<span class="asset-name">', '').replace('</span>', '') for a in data if
+                 a["ID"] == x),
                 "")
         )
 
@@ -145,21 +191,29 @@ def display_assets_cards(db: Session, assets):
         for account, bank, asset_id in account_bank_query:
             account_bank_map[asset_id] = (account, bank)
 
-    # Pagination
+    # Pagination simplifiée
     page_size = 9  # 3x3 grille
 
-    # Créer une liste d'indices paginée
+    # Initialiser l'état de la page si nécessaire
     if "assets_cards_page" not in st.session_state:
-        st.session_state["assets_cards_page"] = 1
+        st.session_state["assets_cards_page"] = 0
 
-    current_page = st.session_state["assets_cards_page"]
-    total_pages = (len(assets) + page_size - 1) // page_size
+    # Calculer le nombre total de pages
+    n_pages = max(1, (len(assets) + page_size - 1) // page_size)
 
-    start_idx = (current_page - 1) * page_size
+    # Obtenir l'index de la page actuelle
+    page_idx = st.session_state["assets_cards_page"]
+
+    # S'assurer que page_idx est dans les limites
+    page_idx = min(max(0, page_idx), n_pages - 1)
+    st.session_state["assets_cards_page"] = page_idx
+
+    # Calculer les indices de début et de fin
+    start_idx = page_idx * page_size
     end_idx = min(start_idx + page_size, len(assets))
 
     # Afficher le nombre total d'éléments et la pagination actuelle
-    st.write(f"Affichage de {start_idx + 1}-{end_idx} sur {len(assets)} actifs")
+    st.write(f"Affichage de {start_idx + 1 if assets else 0}-{end_idx} sur {len(assets)} actifs")
 
     # Disposition en grille
     cols = st.columns(3)
@@ -192,15 +246,28 @@ def display_assets_cards(db: Session, assets):
                 if st.button("Détails", key=f"details_{asset.id}"):
                     with st.spinner("Chargement des détails..."):
                         st.session_state['view_asset_details'] = asset.id
-                        st.success("Détails chargés")
             with col2:
                 if st.button("Modifier", key=f"edit_{asset.id}"):
                     with st.spinner("Préparation du formulaire..."):
                         st.session_state['edit_asset'] = asset.id
-                        st.success("Formulaire prêt")
 
-    # Afficher les contrôles de pagination
-    render_pagination_controls(total_pages, "assets_cards_page")
+    # Contrôles de pagination avec callbacks appropriés
+    cols = st.columns([1, 3, 1])
+
+    with cols[0]:
+        st.button("⏮️ Précédent", key="assets_cards_prev",
+                  disabled=page_idx == 0,
+                  on_click=change_page,
+                  args=("assets_cards_page", max(0, page_idx - 1)))
+
+    with cols[1]:
+        st.write(f"Page {page_idx + 1} sur {n_pages}")
+
+    with cols[2]:
+        st.button("Suivant ⏭️", key="assets_cards_next",
+                  disabled=page_idx >= n_pages - 1,
+                  on_click=change_page,
+                  args=("assets_cards_page", min(n_pages - 1, page_idx + 1)))
 
 
 def display_assets_compact(db: Session, assets):
@@ -233,21 +300,29 @@ def display_assets_compact(db: Session, assets):
     # Calcul de la valeur totale pour les pourcentages
     total_value = sum(asset.valeur_actuelle for asset in assets)
 
-    # Pagination
+    # Pagination simplifiée
     page_size = 15  # Plus d'éléments car format compact
 
-    # Créer une liste d'indices paginée
+    # Initialiser l'état de la page si nécessaire
     if "assets_compact_page" not in st.session_state:
-        st.session_state["assets_compact_page"] = 1
+        st.session_state["assets_compact_page"] = 0
 
-    current_page = st.session_state["assets_compact_page"]
-    total_pages = (len(assets) + page_size - 1) // page_size
+    # Calculer le nombre total de pages
+    n_pages = max(1, (len(assets) + page_size - 1) // page_size)
 
-    start_idx = (current_page - 1) * page_size
+    # Obtenir l'index de la page actuelle
+    page_idx = st.session_state["assets_compact_page"]
+
+    # S'assurer que page_idx est dans les limites
+    page_idx = min(max(0, page_idx), n_pages - 1)
+    st.session_state["assets_compact_page"] = page_idx
+
+    # Calculer les indices de début et de fin
+    start_idx = page_idx * page_size
     end_idx = min(start_idx + page_size, len(assets))
 
     # Afficher le nombre total d'éléments et la pagination actuelle
-    st.write(f"Affichage de {start_idx + 1}-{end_idx} sur {len(assets)} actifs")
+    st.write(f"Affichage de {start_idx + 1 if assets else 0}-{end_idx} sur {len(assets)} actifs")
 
     # Création d'une liste compacte
     for idx in range(start_idx, end_idx):
@@ -285,10 +360,24 @@ def display_assets_compact(db: Session, assets):
         if st.button("Détails", key=f"compact_details_{asset.id}"):
             with st.spinner("Chargement des détails..."):
                 st.session_state['view_asset_details'] = asset.id
-                st.success("Détails chargés")
 
-    # Afficher les contrôles de pagination
-    render_pagination_controls(total_pages, "assets_compact_page")
+    # Contrôles de pagination avec callbacks appropriés
+    cols = st.columns([1, 3, 1])
+
+    with cols[0]:
+        st.button("⏮️ Précédent", key="assets_compact_prev",
+                  disabled=page_idx == 0,
+                  on_click=change_page,
+                  args=("assets_compact_page", max(0, page_idx - 1)))
+
+    with cols[1]:
+        st.write(f"Page {page_idx + 1} sur {n_pages}")
+
+    with cols[2]:
+        st.button("Suivant ⏭️", key="assets_compact_next",
+                  disabled=page_idx >= n_pages - 1,
+                  on_click=change_page,
+                  args=("assets_compact_page", min(n_pages - 1, page_idx + 1)))
 
 
 def create_allocation_html(allocation):
@@ -301,50 +390,3 @@ def create_allocation_html(allocation):
             allocation_html += f'<span class="allocation-pill {cat}">{cat[:3].capitalize()} {pct}%</span>'
 
     return allocation_html
-
-
-def paginate_dataframe(df, page_size=10, page_key="pagination_page"):
-    """
-    Fonction de pagination pour DataFrame - utilise PaginationManager
-    pour une gestion cohérente
-    """
-    # Utiliser PaginationManager
-    paginator = PaginationManager(key_prefix=page_key, page_size=page_size)
-    return paginator.paginate_dataframe(df)
-
-
-def render_pagination_controls(n_pages: int, page_key: str = "pagination"):
-    """
-    Affiche les contrôles de pagination
-
-    Args:
-        n_pages: Nombre total de pages
-        page_key: Clé pour la pagination dans st.session_state
-    """
-    import streamlit as st
-
-    if n_pages <= 1:
-        return
-
-    # Initialiser l'index de page dans session_state si nécessaire
-    if page_key not in st.session_state:
-        st.session_state[page_key] = 0
-
-    current_page = st.session_state[page_key] + 1  # Convert to 1-indexed for display
-
-    cols = st.columns([1, 3, 1])
-
-    with cols[0]:
-        if st.button("⏮️ Précédent", key=f"{page_key}_prev",
-                     disabled=current_page <= 1):
-            st.session_state[page_key] = max(0, st.session_state[page_key] - 1)
-            st.rerun()
-
-    with cols[1]:
-        st.write(f"Page {current_page} sur {n_pages}")
-
-    with cols[2]:
-        if st.button("Suivant ⏭️", key=f"{page_key}_next",
-                     disabled=current_page >= n_pages):
-            st.session_state[page_key] = min(n_pages - 1, st.session_state[page_key] + 1)
-            st.rerun()
