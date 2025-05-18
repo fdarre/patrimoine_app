@@ -6,8 +6,7 @@ import streamlit as st
 import os
 from datetime import datetime
 
-from config.app_config import LOGS_DIR
-from utils.style_manager import initialize_styles  # Suppression de l'import create_theme_selector
+from utils.style_manager import initialize_styles
 from utils.logger import get_logger, setup_file_logging
 from utils.decorators import streamlit_exception_handler
 from utils.exceptions import AppError

@@ -6,7 +6,7 @@ import streamlit as st
 from sqlalchemy.orm import Session
 
 from database.models import Asset
-from services.asset_service import AssetService
+from services.asset_sync_service import asset_sync_service
 from services.data_service import DataService
 
 
@@ -57,7 +57,7 @@ def show_sync_cards(db, user_id, isin_count, forex_count, metal_count):
 
         if st.button("Synchroniser tous les taux de change", disabled=forex_count == 0):
             with st.spinner("Synchronisation des taux de change en cours..."):
-                updated_count = AssetService.sync_currency_rates(db)
+                updated_count = asset_sync_service.sync_currency_rates(db)
                 if updated_count > 0:
                     st.success(f"{updated_count} actif(s) mis à jour avec succès")
                     # Mettre à jour l'historique
@@ -75,7 +75,7 @@ def show_sync_cards(db, user_id, isin_count, forex_count, metal_count):
 
         if st.button("Synchroniser tous les prix via ISIN", disabled=isin_count == 0):
             with st.spinner("Synchronisation des prix via ISIN en cours..."):
-                updated_count = AssetService.sync_price_by_isin(db)
+                updated_count = asset_sync_service.sync_price_by_isin(db)
                 if updated_count > 0:
                     st.success(f"{updated_count} actif(s) mis à jour avec succès")
                     # Mettre à jour l'historique
@@ -93,7 +93,7 @@ def show_sync_cards(db, user_id, isin_count, forex_count, metal_count):
 
     if st.button("Synchroniser tous les prix des métaux précieux", disabled=metal_count == 0):
         with st.spinner("Synchronisation des prix des métaux précieux en cours..."):
-            updated_count = AssetService.sync_metal_prices(db)
+            updated_count = asset_sync_service.sync_metal_prices(db)
             if updated_count > 0:
                 st.success(f"{updated_count} actif(s) métaux précieux mis à jour avec succès")
                 # Mettre à jour l'historique
@@ -111,17 +111,16 @@ def show_sync_cards(db, user_id, isin_count, forex_count, metal_count):
 
     if st.button("Synchronisation complète"):
         with st.spinner("Synchronisation complète en cours..."):
-            # Synchroniser les taux de change
-            forex_updated = AssetService.sync_currency_rates(db) if forex_count > 0 else 0
+            result = asset_sync_service.sync_all(db)
 
-            # Synchroniser les prix via ISIN
-            isin_updated = AssetService.sync_price_by_isin(db) if isin_count > 0 else 0
-
-            # Synchroniser les métaux précieux
-            metals_updated = AssetService.sync_metal_prices(db) if metal_count > 0 else 0
+            # Extraire les compteurs
+            total_updates = result["updated_count"]
+            forex_updated = result["details"]["currency_rates"]
+            isin_updated = result["details"]["isin_prices"]
+            metals_updated = result["details"]["metal_prices"]
 
             # Mettre à jour l'historique si au moins un actif a été mis à jour
-            if forex_updated > 0 or isin_updated > 0 or metals_updated > 0:
+            if total_updates > 0:
                 DataService.record_history_entry(db, user_id)
                 st.success(
                     f"Synchronisation complète terminée avec succès!\n- {forex_updated} taux de change\n- {isin_updated} prix via ISIN\n- {metals_updated} métaux précieux")
