@@ -1,5 +1,5 @@
 """
-Interface du dashboard principal
+Interface du dashboard principal avec styles centralisés
 """
 
 import streamlit as st
@@ -9,10 +9,12 @@ from sqlalchemy.orm import Session
 
 from database.models import Bank, Account, Asset, HistoryPoint
 from services.visualization_service import VisualizationService
+from ui.components.ui_components import styled_metric, styled_info_box, styled_progress
+from utils.style_loader import create_card, create_badge, get_theme_color
 
 def show_dashboard(db: Session, user_id: str):
     """
-    Affiche le dashboard principal
+    Affiche le dashboard principal avec styles centralisés
 
     Args:
         db: Session de base de données
@@ -23,21 +25,33 @@ def show_dashboard(db: Session, user_id: str):
     # Récupérer les données de l'utilisateur
     assets = db.query(Asset).filter(Asset.owner_id == user_id).all()
 
-    # Métriques principales - Avec style moderne
+    # Métriques principales avec style unifié
     col1, col2, col3 = st.columns(3)
 
     with col1:
         # Calculer la valeur totale directement
         total_value = sum(asset.value_eur or 0.0 for asset in assets)
-        st.metric("Valeur totale du patrimoine", f"{total_value:,.2f} €".replace(",", " "))
+        styled_metric(
+            label="Valeur totale du patrimoine",
+            value=f"{total_value:,.2f} €".replace(",", " "),
+            icon="💰"
+        )
 
     with col2:
         asset_count = len(assets)
-        st.metric("Nombre d'actifs", asset_count)
+        styled_metric(
+            label="Nombre d'actifs",
+            value=str(asset_count),
+            icon="📦"
+        )
 
     with col3:
         account_count = db.query(Account).join(Bank).filter(Bank.owner_id == user_id).count()
-        st.metric("Nombre de comptes", account_count)
+        styled_metric(
+            label="Nombre de comptes",
+            value=str(account_count),
+            icon="🏦"
+        )
 
     # Graphiques principaux (si des actifs existent)
     if assets:
@@ -47,7 +61,7 @@ def show_dashboard(db: Session, user_id: str):
             # Répartition par catégorie
             st.subheader("Répartition par catégorie d'actif")
 
-            # Utiliser le service de visualisation mis à jour pour SQLAlchemy
+            # Utiliser le service de visualisation
             category_values = VisualizationService.calculate_category_values(db, user_id)
 
             # Convertir les catégories en format capitalisé pour l'affichage
@@ -56,13 +70,20 @@ def show_dashboard(db: Session, user_id: str):
             if category_values_display:
                 fig = VisualizationService.create_pie_chart(category_values_display)
                 if fig:
+                    # Appliquer un style adapté au thème de l'app
+                    fig.patch.set_facecolor('none')  # Fond transparent
+                    for ax in fig.get_axes():
+                        ax.set_facecolor('none')
+                        for text in ax.texts:
+                            text.set_color(get_theme_color('text_light'))
+
                     st.pyplot(fig)
 
         with col2:
             # Répartition géographique
             st.subheader("Répartition géographique")
 
-            # Utiliser le service de visualisation mis à jour pour SQLAlchemy
+            # Utiliser le service de visualisation
             geo_values = VisualizationService.calculate_geo_values(db, user_id)
 
             # Convertir les zones en format capitalisé pour l'affichage
@@ -71,6 +92,13 @@ def show_dashboard(db: Session, user_id: str):
             if geo_values_display:
                 fig = VisualizationService.create_pie_chart(geo_values_display)
                 if fig:
+                    # Appliquer un style adapté au thème
+                    fig.patch.set_facecolor('none')
+                    for ax in fig.get_axes():
+                        ax.set_facecolor('none')
+                        for text in ax.texts:
+                            text.set_color(get_theme_color('text_light'))
+
                     st.pyplot(fig)
 
         # Évolution historique si disponible
@@ -79,9 +107,19 @@ def show_dashboard(db: Session, user_id: str):
             st.subheader("Évolution du patrimoine")
             fig = VisualizationService.create_time_series_chart(db)
             if fig:
+                # Stylisation du graphique
+                fig.patch.set_facecolor('none')
+                for ax in fig.get_axes():
+                    ax.set_facecolor('none')
+                    for text in ax.get_xticklabels() + ax.get_yticklabels():
+                        text.set_color(get_theme_color('text_light'))
+                    ax.grid(color=get_theme_color('gray-700'), linestyle='--', alpha=0.7)
+                    for spine in ax.spines.values():
+                        spine.set_color(get_theme_color('gray-700'))
+
                 st.pyplot(fig)
         else:
-            st.info("L'historique d'évolution sera disponible après plusieurs mises à jour d'actifs.")
+            styled_info_box("L'historique d'évolution sera disponible après plusieurs mises à jour d'actifs.", "info")
 
         # Top 5 des actifs avec style moderne
         top_assets = sorted(assets, key=lambda x: x.value_eur if x.value_eur is not None else 0.0, reverse=True)[:5]
@@ -89,7 +127,6 @@ def show_dashboard(db: Session, user_id: str):
         if top_assets:
             st.subheader("Top 5 des actifs")
 
-            # Utiliser des cartes modernes au lieu d'un tableau
             for i, asset in enumerate(top_assets):
                 account = db.query(Account).filter(Account.id == asset.account_id).first()
                 bank = db.query(Bank).filter(Bank.id == account.bank_id).first() if account else None
@@ -100,31 +137,37 @@ def show_dashboard(db: Session, user_id: str):
                 pv_class = "positive" if pv >= 0 else "negative"
                 pv_icon = "📈" if pv >= 0 else "📉"
 
-                # Style de la carte avec dégradé basé sur la position
-                gradient_start = "#6366f1"  # Indigo
-                gradient_end = "#ec4899"    # Rose
+                # Créer le badge pour le type de produit
+                badge_html = create_badge(asset.type_produit.upper(), "primary")
 
-                # Afficher une carte moderne
-                st.markdown(f"""
-                <div class="card-container" style="background: linear-gradient(135deg, {gradient_start}, {gradient_end}, {gradient_start});">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                        <h3 style="margin: 0; font-size: 1.25rem;">{asset.nom}</h3>
-                        <span class="badge badge-primary">{asset.type_produit.upper()}</span>
+                # Contenu principal de la carte
+                content = f"""
+                <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+                    <div>
+                        <div style="color: {get_theme_color('text_muted')}; font-size: 0.875rem;">Valeur</div>
+                        <div style="font-size: 1.5rem; font-weight: 700;">{asset.valeur_actuelle:,.2f} {asset.devise}</div>
                     </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
-                        <div>
-                            <div style="color: var(--text-muted); font-size: 0.875rem;">Valeur</div>
-                            <div style="font-size: 1.5rem; font-weight: 700;">{asset.valeur_actuelle:,.2f} {asset.devise}</div>
-                        </div>
-                        <div>
-                            <div style="color: var(--text-muted); font-size: 0.875rem;">Performance</div>
-                            <div class="{pv_class}" style="font-size: 1.5rem; font-weight: 700;">{pv_icon} {pv_percent:+.2f}%</div>
+                    <div>
+                        <div style="color: {get_theme_color('text_muted')}; font-size: 0.875rem;">Performance</div>
+                        <div class="{pv_class}" style="font-size: 1.5rem; font-weight: 700;">
+                            {pv_icon} {pv_percent:+.2f}%
                         </div>
                     </div>
-                    <div style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Compte</div>
-                    <div style="font-weight: 500;">{account.libelle} ({bank.nom})</div>
                 </div>
-                """, unsafe_allow_html=True)
+                """
+
+                # Pied de page avec info sur le compte
+                footer = f"Compte: {account.libelle} ({bank.nom})" if account and bank else "Compte non disponible"
+
+                # Créer la carte complète
+                card_html = create_card(
+                    title=f"{asset.nom} {badge_html}",
+                    content=content,
+                    footer=footer,
+                    extra_classes=f"card-{i+1}"  # Pour permettre un style spécifique
+                )
+
+                st.markdown(card_html, unsafe_allow_html=True)
 
         # Tâches à faire - Style moderne
         todos = db.query(Asset).filter(Asset.owner_id == user_id).filter(Asset.todo != "").all()
@@ -132,29 +175,43 @@ def show_dashboard(db: Session, user_id: str):
             st.subheader("Tâches à faire")
             for asset in todos:
                 account = db.query(Account).filter(Account.id == asset.account_id).first()
-                st.markdown(f"""
-                <div class="todo-card">
-                    <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
-                        <span style="font-size: 1.25rem; margin-right: 0.75rem;">✅</span>
-                        <strong style="font-size: 1.1rem;">{asset.nom}</strong>
-                    </div>
-                    <div style="margin-left: 2rem;">
-                        <div style="margin-bottom: 0.5rem;">{asset.todo}</div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted);">
-                            <span style="display: inline-block; background: rgba(255,255,255,0.1); padding: 0.25rem 0.5rem; border-radius: 0.25rem;">{account.libelle}</span>
-                        </div>
+
+                # Créer une carte stylisée pour la tâche
+                todo_content = f"""
+                <div style="margin-left: 2rem;">
+                    <div style="margin-bottom: 0.5rem;">{asset.todo}</div>
+                    <div style="font-size: 0.8rem; color: {get_theme_color('text_muted')};">
+                        <span style="display: inline-block; background: rgba(255,255,255,0.1); padding: 0.25rem 0.5rem; border-radius: 0.25rem;">
+                            {account.libelle if account else "Compte inconnu"}
+                        </span>
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
+                """
+
+                todo_html = create_card(
+                    title=f"✅ {asset.nom}",
+                    content=todo_content,
+                    extra_classes="todo-card"
+                )
+
+                st.markdown(todo_html, unsafe_allow_html=True)
     else:
-        # Affichage amélioré pour le cas sans actif
+        # Affichage pour le cas sans actif avec style unifié
+        styled_info_box(
+            "Aucun actif n'a encore été ajouté. Commencez par ajouter des banques, des comptes, puis des actifs.",
+            "info"
+        )
+
+        # Bouton stylisé pour ajouter une banque
         st.markdown("""
-        <div class="card-container" style="text-align: center; padding: 2rem;">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Noun_project_-_Wallet.svg/1024px-Noun_project_-_Wallet.svg.png" style="width: 100px; height: 100px; margin-bottom: 1rem; opacity: 0.3;">
-            <h3>Aucun actif n'a encore été ajouté</h3>
-            <p style="color: var(--text-muted); margin-bottom: 2rem;">Commencez par ajouter des banques, des comptes, puis des actifs.</p>
-            <div style="display: flex; justify-content: center; gap: 1rem;">
-                <a href="javascript:void(0)" onclick="document.querySelector('[data-value=&quot;Banques &amp; Comptes&quot;]').click()" class="btn-primary" style="background: linear-gradient(90deg, var(--primary-color), var(--primary-dark)); color: white; font-weight: 500; padding: 0.625rem 1.25rem; border-radius: 0.5rem; text-decoration: none;">Ajouter une banque</a>
-            </div>
+        <div style="display: flex; justify-content: center; margin-top: 2rem;">
+            <a href="javascript:void(0)" 
+               onclick="document.querySelector('[data-value=&quot;Banques &amp; Comptes&quot;]').click()" 
+               class="btn-primary" 
+               style="background: linear-gradient(90deg, var(--primary-color), var(--primary-dark)); 
+                     color: white; font-weight: 500; padding: 0.625rem 1.25rem; 
+                     border-radius: 0.5rem; text-decoration: none; display: inline-block;">
+                Ajouter une banque
+            </a>
         </div>
         """, unsafe_allow_html=True)

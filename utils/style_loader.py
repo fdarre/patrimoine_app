@@ -1,259 +1,255 @@
 """
-Utilitaire pour charger les styles CSS et améliorer l'expérience utilisateur
+Utilitaire pour gérer le chargement et l'application des styles CSS
 """
-import os
 import streamlit as st
-from typing import Dict, Optional
+import os
 
-# Thèmes de couleurs disponibles
-THEMES = {
-    "dark": {
-        "bg_color": "#0f172a",
-        "card_bg": "#1e293b",
-        "primary": "#6366f1",
-        "secondary": "#ec4899",
-        "success": "#10b981",
-        "warning": "#f59e0b",
-        "danger": "#ef4444",
-        "info": "#0ea5e9",
-        "text_light": "#f8fafc",
-        "text_muted": "#94a3b8"
-    },
-    "light": {
-        "bg_color": "#f8fafc",
-        "card_bg": "#ffffff",
-        "primary": "#4f46e5",
-        "secondary": "#db2777",
-        "success": "#059669",
-        "warning": "#d97706",
-        "danger": "#dc2626",
-        "info": "#0284c7",
-        "text_light": "#0f172a",
-        "text_muted": "#64748b"
+def load_css(filename="main.css"):
+    """
+    Charge un fichier CSS depuis le dossier static/styles
+
+    Args:
+        filename: Nom du fichier CSS à charger
+    """
+    css_path = os.path.join("static", "styles", filename)
+    try:
+        with open(css_path, "r") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.warning(f"Fichier CSS {css_path} non trouvé")
+
+def load_js(filename="scripts.js"):
+    """
+    Charge un fichier JavaScript depuis le dossier static/scripts
+
+    Args:
+        filename: Nom du fichier JS à charger
+    """
+    js_path = os.path.join("static", "scripts", filename)
+    try:
+        with open(js_path, "r") as f:
+            st.markdown(f"<script>{f.read()}</script>", unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.warning(f"Fichier JavaScript {js_path} non trouvé")
+
+def initialize_styles():
+    """
+    Initialise les styles globaux de l'application
+    """
+    # Charger le CSS principal
+    load_css("main.css")
+
+    # Appliquer les styles de base supplémentaires pour Streamlit
+    st.markdown("""
+    <style>
+    /* Réinitialisation de base pour Streamlit */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
     }
-}
+    
+    /* Masquer les éléments de débogage et le menu de hamburger */
+    #MainMenu, footer, .stDeployButton {
+        display: none !important;
+    }
+    
+    /* Ajustements pour les colonnes */
+    [data-testid="column"] {
+        padding: 0.5rem !important;
+    }
+    
+    /* Suppression des marges excessives */
+    .stMarkdown {
+        margin-bottom: 0 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-# Dictionnaire des classes CSS pour les composants de l'application
-CSS_CLASSES = {
-    # Cartes et conteneurs
-    "card": "card-container",
-    "card_title": "card-title",
-    "card_body": "card-body",
-    "card_footer": "card-footer",
+def create_theme_selector():
+    """
+    Crée un sélecteur de thème (clair/sombre) dans la barre latérale
+    """
+    # Ajouter le sélecteur de thème dans la sidebar
+    if "theme" not in st.session_state:
+        st.session_state["theme"] = "dark"  # Thème par défaut
 
-    # Métriques et indicateurs
-    "metric": "metric-card",
-    "positive": "positive",
-    "negative": "negative",
+    theme_options = {
+        "dark": "🌙 Sombre",
+        "light": "☀️ Clair"
+    }
 
-    # Tâches et notifications
-    "todo": "todo-card",
-    "info": "info-message",
-    "warning": "warning-message",
-    "success": "success-message",
-    "error": "error-message",
+    with st.sidebar:
+        selected_theme = st.selectbox(
+            "Thème",
+            options=list(theme_options.keys()),
+            format_func=lambda x: theme_options[x],
+            index=0 if st.session_state["theme"] == "dark" else 1,
+            key="theme_selector"
+        )
 
-    # Tableaux et listes
-    "table": "data-table",
-    "table_header": "table-header",
-    "table_row": "table-row",
+        if selected_theme != st.session_state["theme"]:
+            st.session_state["theme"] = selected_theme
+            st.rerun()
 
-    # Badges et étiquettes
-    "badge": "badge",
-    "badge_primary": "badge-primary",
-    "badge_success": "badge-success",
-    "badge_warning": "badge-warning",
-    "badge_danger": "badge-danger",
+    # Appliquer le thème sélectionné
+    if st.session_state["theme"] == "light":
+        st.markdown("""
+        <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --sidebar-bg: #f1f5f9;
+            --text-light: #0f172a;
+            --text-muted: #64748b;
+            --text-dark: #0f172a;
+        }
+        </style>
+        """, unsafe_allow_html=True)
 
-    # Boutons
-    "btn_primary": "btn-primary",
-    "btn_secondary": "btn-secondary",
-    "btn_success": "btn-success",
-    "btn_danger": "btn-danger",
-    "btn_warning": "btn-warning",
-
-    # Navigation
-    "nav_item": "nav-item",
-    "nav_active": "nav-active",
-
-    # Formulaires
-    "form_group": "form-group",
-    "form_control": "form-control",
-    "form_label": "form-label",
-    "form_help": "form-help-text",
-
-    # Autres éléments
-    "breadcrumb": "breadcrumb",
-    "progress": "progress-bar",
-    "infobox": "info-box"
-}
-
-# Variable globale pour le thème actuel
-CURRENT_THEME = "dark"
-
-def get_theme_color(color_name: str) -> str:
+def get_theme_color(color_name):
     """
     Récupère une couleur du thème actuel
 
     Args:
-        color_name: Nom de la couleur (primary, secondary, etc.)
+        color_name: Nom de la couleur ou raccourci
 
     Returns:
-        Code hexadécimal de la couleur
+        Code CSS de la couleur
     """
-    return THEMES[CURRENT_THEME].get(color_name, "#000000")
+    # Mappings des raccourcis de couleurs
+    color_mappings = {
+        "primary": "var(--primary-color)",
+        "secondary": "var(--secondary-color)",
+        "success": "var(--success-color)",
+        "warning": "var(--warning-color)",
+        "danger": "var(--danger-color)",
+        "info": "var(--info-color)",
+        "text_light": "var(--text-light)",
+        "text_muted": "var(--text-muted)",
+        "text_dark": "var(--text-dark)",
+        "bg": "var(--bg-color)",
+        "card": "var(--card-bg)"
+    }
 
-def set_theme(theme_name: str) -> None:
+    # Si le nom est un raccourci, retourner la valeur mappée
+    if color_name in color_mappings:
+        return color_mappings[color_name]
+
+    # Sinon tenter d'interpréter comme une variable CSS
+    if color_name.startswith("--"):
+        return f"var({color_name})"
+    else:
+        return f"var(--{color_name})"
+
+def get_class(class_name):
     """
-    Définit le thème courant
+    Récupère une classe CSS avec un préfixe unique pour éviter les conflits
 
     Args:
-        theme_name: Nom du thème (dark, light)
-    """
-    global CURRENT_THEME
-    if theme_name in THEMES:
-        CURRENT_THEME = theme_name
-        # Stocke le thème dans session_state pour persistance
-        st.session_state["app_theme"] = theme_name
-
-def get_class(component_type: str) -> str:
-    """
-    Récupère la classe CSS pour un type de composant donné
-
-    Args:
-        component_type: Type de composant (card, metric, etc.)
+        class_name: Nom de la classe
 
     Returns:
-        Nom de classe CSS ou chaîne vide si non trouvé
+        Nom de classe préfixé
     """
-    return CSS_CLASSES.get(component_type, "")
+    return f"pgp-{class_name}"  # pgp pour "Portfolio Gestion Patrimoniale"
 
-def load_css() -> None:
+def create_styled_element(tag, content, classes=None, styles=None, attributes=None):
     """
-    Charge les styles CSS depuis le fichier principal
-    et les injecte dans Streamlit
-    """
-    # Charger le thème depuis session_state si défini
-    if "app_theme" in st.session_state:
-        set_theme(st.session_state["app_theme"])
-
-    # Chemin absolu du projet
-    project_root = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-
-    # Chemin vers le fichier CSS
-    css_file = os.path.join(project_root, "static", "styles", "main.css")
-    css_variables = os.path.join(project_root, "static", "styles", "variables.css")
-
-    try:
-        css = ""
-
-        # Charger les variables CSS
-        if os.path.exists(css_variables):
-            with open(css_variables, "r") as f:
-                css += f.read()
-
-        # Charger le CSS principal
-        if os.path.exists(css_file):
-            with open(css_file, "r") as f:
-                css += f.read()
-
-            # Injecter le CSS
-            st.markdown(f"""
-            <style>
-            {css}
-            </style>
-            """, unsafe_allow_html=True)
-        else:
-            # Utiliser le CSS de secours
-            from config.app_config import CUSTOM_CSS
-            st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
-    except Exception as e:
-        # En cas d'erreur, utiliser le CSS de secours
-        from config.app_config import CUSTOM_CSS
-        st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
-
-        # Afficher un message d'erreur en console pour le débogage
-        print(f"Erreur lors du chargement du CSS: {str(e)}")
-
-def create_styled_element(element_type: str, content: str,
-                         class_type: Optional[str] = None,
-                         extra_classes: str = "",
-                         inline_style: str = "") -> str:
-    """
-    Crée un élément HTML avec le style approprié
+    Crée un élément HTML stylisé
 
     Args:
-        element_type: Type d'élément HTML (div, span, etc.)
-        content: Contenu HTML de l'élément
-        class_type: Type de composant pour la classe CSS (card, metric, etc.)
-        extra_classes: Classes CSS supplémentaires
-        inline_style: Style CSS inline (à éviter si possible)
+        tag: Tag HTML à utiliser
+        content: Contenu de l'élément
+        classes: Liste des classes CSS à appliquer
+        styles: Dictionnaire des styles inline à appliquer
+        attributes: Dictionnaire des attributs à ajouter
 
     Returns:
-        Chaîne HTML de l'élément stylisé
+        Chaîne HTML de l'élément
     """
-    classes = get_class(class_type) if class_type else ""
-    if extra_classes:
-        classes += f" {extra_classes}"
+    # Construire la chaîne de classes
+    classes_str = ""
+    if classes:
+        classes_str = ' class="' + ' '.join([get_class(cls) for cls in classes]) + '"'
 
-    style_attr = f' style="{inline_style}"' if inline_style else ''
-    class_attr = f' class="{classes}"' if classes else ''
+    # Construire la chaîne de styles
+    styles_str = ""
+    if styles:
+        styles_str = ' style="' + ';'.join([f"{k}:{v}" for k, v in styles.items()]) + '"'
 
-    return f'<{element_type}{class_attr}{style_attr}>{content}</{element_type}>'
+    # Construire la chaîne d'attributs
+    attributes_str = ""
+    if attributes:
+        attributes_str = ' ' + ' '.join([f'{k}="{v}"' for k, v in attributes.items()])
 
-def create_card(title: str, content: str, footer: str = "",
-               extra_classes: str = "", card_id: str = "") -> str:
+    # Construire l'élément complet
+    return f"<{tag}{classes_str}{styles_str}{attributes_str}>{content}</{tag}>"
+
+def create_card(title, content, footer=None, extra_classes=None):
     """
-    Crée une carte HTML stylisée
+    Crée une carte stylisée
 
     Args:
         title: Titre de la carte
         content: Contenu HTML de la carte
-        footer: Pied de page HTML (optionnel)
+        footer: Pied de page de la carte (optionnel)
         extra_classes: Classes CSS supplémentaires
-        card_id: ID HTML pour la carte
 
     Returns:
         Chaîne HTML de la carte
     """
-    id_attr = f' id="{card_id}"' if card_id else ''
-    title_html = f'<div class="{get_class("card_title")}">{title}</div>' if title else ''
-    footer_html = f'<div class="{get_class("card_footer")}">{footer}</div>' if footer else ''
+    classes = ["card"]
+    if extra_classes:
+        classes.append(extra_classes)
+
+    footer_html = ""
+    if footer:
+        footer_html = f"""<div class="{get_class('card-footer')}">{footer}</div>"""
 
     return f"""
-    <div class="{get_class("card")} {extra_classes}"{id_attr}>
-        {title_html}
-        <div class="{get_class("card_body")}">{content}</div>
+    <div class="{' '.join([get_class(cls) for cls in classes])}">
+        <div class="{get_class('card-header')}">
+            <h3 class="{get_class('card-title')}">{title}</h3>
+        </div>
+        <div class="{get_class('card-body')}">
+            {content}
+        </div>
         {footer_html}
     </div>
     """
 
-def create_badge(label: str, badge_type: str = "primary") -> str:
+def create_badge(text, type="primary", size="normal"):
     """
-    Crée un badge HTML stylisé
+    Crée un badge stylisé
 
     Args:
-        label: Texte du badge
-        badge_type: Type de badge (primary, success, warning, danger)
+        text: Texte du badge
+        type: Type de badge ('primary', 'secondary', 'success', 'warning', 'danger')
+        size: Taille du badge ('small', 'normal', 'large')
 
     Returns:
         Chaîne HTML du badge
     """
-    class_name = get_class(f"badge_{badge_type}")
-    return f'<span class="{get_class("badge")} {class_name}">{label}</span>'
+    size_class = ""
+    if size == "small":
+        size_class = "badge-sm"
+    elif size == "large":
+        size_class = "badge-lg"
 
-def create_button_style(button_type: str = "primary") -> str:
+    return f"""<span class="{get_class('badge')} {get_class(f'badge-{type}')} {get_class(size_class)}">{text}</span>"""
+
+def create_button_style(button_type):
     """
-    Génère le CSS pour styliser un bouton Streamlit
+    Crée un style pour un bouton
 
     Args:
-        button_type: Type de bouton (primary, secondary, success, danger, warning)
+        button_type: Type de bouton ('primary', 'secondary', 'success', 'warning', 'danger')
 
     Returns:
-        CSS à injecter avec st.markdown
+        Chaîne CSS pour le bouton
     """
     color = get_theme_color(button_type)
-    hover_color = get_theme_color(f"{button_type}_dark") if f"{button_type}_dark" in THEMES[CURRENT_THEME] else color
+    hover_color = get_theme_color(f"{button_type}-dark" if "-dark" not in button_type else button_type)
 
     return f"""
     <style>
@@ -261,72 +257,20 @@ def create_button_style(button_type: str = "primary") -> str:
         background-color: {color};
         color: white;
         border: none;
+        border-radius: var(--radius-md);
         padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
         font-weight: 500;
-        transition: all 0.2s;
+        transition: all 0.3s ease;
     }}
+    
     div.stButton > button:hover {{
         background-color: {hover_color};
-        transform: translateY(-2px);
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        transform: translateY(-1px);
     }}
+    
     div.stButton > button:active {{
         transform: translateY(0);
     }}
     </style>
     """
-
-def apply_container_style() -> None:
-    """
-    Applique un style à tous les conteneurs Streamlit
-    """
-    st.markdown(f"""
-    <style>
-    .stApp {{
-        background-color: {get_theme_color("bg_color")};
-        color: {get_theme_color("text_light")};
-    }}
-    .block-container {{
-        padding: 2rem;
-    }}
-    h1, h2, h3, h4, h5, h6 {{
-        color: {get_theme_color("text_light")} !important;
-    }}
-    p, li, div {{
-        color: {get_theme_color("text_light")};
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-def inject_custom_css(css_code: str) -> None:
-    """
-    Injecte du code CSS personnalisé dans la page
-
-    Args:
-        css_code: Code CSS à injecter
-    """
-    st.markdown(f"<style>{css_code}</style>", unsafe_allow_html=True)
-
-def create_theme_selector() -> None:
-    """
-    Crée un sélecteur de thème dans la barre latérale
-    """
-    with st.sidebar:
-        selected_theme = st.selectbox(
-            "Thème",
-            options=list(THEMES.keys()),
-            index=list(THEMES.keys()).index(CURRENT_THEME),
-            key="theme_selector"
-        )
-
-        if selected_theme != CURRENT_THEME:
-            set_theme(selected_theme)
-            st.rerun()
-
-def initialize_styles() -> None:
-    """
-    Initialise tous les styles de l'application
-    """
-    load_css()
-    apply_container_style()
