@@ -9,7 +9,7 @@ from config.app_config import PRODUCT_TYPES, CURRENCIES
 from database.models import Asset, Account, Bank
 from services.asset_service import asset_service
 from services.data_service import DataService
-from .components import apply_button_styling
+from ui.components import apply_button_styling
 from .geo_allocation_form import edit_geo_allocation_form
 from ..shared.allocation_forms import edit_allocation_form
 

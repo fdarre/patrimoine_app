@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from database.models import Asset, Account, Bank
 from ui.components import create_asset_card
-from utils.pagination import render_pagination_controls
+from utils.pagination import PaginationManager
 
 
 def display_assets_table(db: Session, assets):
@@ -303,30 +303,46 @@ def create_allocation_html(allocation):
 
 def paginate_dataframe(df, page_size=10, page_key="pagination_page"):
     """
-    Fonction de pagination pour DataFrame - sera remplacée par paginate_query
-    pour les requêtes SQLAlchemy
+    Fonction de pagination pour DataFrame - utilise PaginationManager
+    pour une gestion cohérente
     """
-    import math
+    # Utiliser PaginationManager
+    paginator = PaginationManager(key_prefix=page_key, page_size=page_size)
+    return paginator.paginate_dataframe(df)
 
-    # Calculer le nombre total de pages
-    total_rows = len(df)
-    total_pages = math.ceil(total_rows / page_size) if total_rows > 0 else 1
 
-    # Initialiser la page courante dans session_state si nécessaire
+def render_pagination_controls(n_pages: int, page_key: str = "pagination"):
+    """
+    Affiche les contrôles de pagination
+
+    Args:
+        n_pages: Nombre total de pages
+        page_key: Clé pour la pagination dans st.session_state
+    """
+    import streamlit as st
+
+    if n_pages <= 1:
+        return
+
+    # Initialiser l'index de page dans session_state si nécessaire
     if page_key not in st.session_state:
-        st.session_state[page_key] = 1
+        st.session_state[page_key] = 0
 
-    # S'assurer que la page courante est valide
-    current_page = st.session_state[page_key]
-    if current_page > total_pages:
-        current_page = total_pages
-        st.session_state[page_key] = current_page
+    current_page = st.session_state[page_key] + 1  # Convert to 1-indexed for display
 
-    # Calculer les indices de début et de fin
-    start_idx = (current_page - 1) * page_size
-    end_idx = min(start_idx + page_size, total_rows)
+    cols = st.columns([1, 3, 1])
 
-    # Extraire la page courante
-    df_paginated = df.iloc[start_idx:end_idx].copy() if not df.empty else df.copy()
+    with cols[0]:
+        if st.button("⏮️ Précédent", key=f"{page_key}_prev",
+                     disabled=current_page <= 1):
+            st.session_state[page_key] = max(0, st.session_state[page_key] - 1)
+            st.rerun()
 
-    return df_paginated, total_pages, current_page
+    with cols[1]:
+        st.write(f"Page {current_page} sur {n_pages}")
+
+    with cols[2]:
+        if st.button("Suivant ⏭️", key=f"{page_key}_next",
+                     disabled=current_page >= n_pages):
+            st.session_state[page_key] = min(n_pages - 1, st.session_state[page_key] + 1)
+            st.rerun()
