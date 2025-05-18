@@ -20,6 +20,7 @@ from ui.todos import show_todos
 from ui.settings import show_settings
 from ui.auth import show_auth, check_auth, logout, get_current_user_id
 from ui.templates.template_management import show_template_management
+from utils.style_loader import initialize_styles, create_theme_selector
 
 # Configurer le logger
 logger = get_logger(__name__)
@@ -35,8 +36,11 @@ def main():
         initial_sidebar_state="expanded"
     )
 
-    # Charger les styles CSS
-    load_css()
+    # Initialiser les styles
+    initialize_styles()
+
+    # Ajouter le sélecteur de thème dans la barre latérale (optionnel)
+    create_theme_selector()
 
     # Vérifier l'authentification
     is_authenticated = check_auth()

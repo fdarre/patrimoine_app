@@ -1,0 +1,80 @@
+/*
+ * static/styles/variables.css
+ * Variables CSS pour l'application
+ */
+
+:root {
+    /* Couleurs primaires */
+    --primary-color: #6366f1;        /* Indigo vif */
+    --primary-light: #818cf8;
+    --primary-dark: #4f46e5;
+
+    /* Couleurs secondaires */
+    --secondary-color: #ec4899;      /* Rose */
+    --secondary-light: #f472b6;
+    --secondary-dark: #db2777;
+
+    /* Couleurs sémantiques */
+    --success-color: #10b981;        /* Emeraude */
+    --warning-color: #f59e0b;        /* Ambre */
+    --danger-color: #ef4444;         /* Rouge */
+    --info-color: #0ea5e9;           /* Bleu ciel */
+
+    /* Palette de gris */
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    --gray-950: #030712;
+
+    /* Couleurs de fond et texte */
+    --bg-color: #0f172a;             /* Fond sombre bleuté */
+    --card-bg: #1e293b;              /* Fond de carte */
+    --sidebar-bg: #0f172a;           /* Fond sidebar */
+    --text-light: #f8fafc;           /* Texte clair */
+    --text-muted: #94a3b8;           /* Texte secondaire */
+    --text-dark: #1e293b;            /* Texte sombre (pour cartes claires) */
+
+    /* Rayons de bordure */
+    --radius-sm: 0.25rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+
+    /* Ombres */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+
+    /* Variables d'animation */
+    --transition-fast: 150ms;
+    --transition-normal: 250ms;
+    --transition-slow: 350ms;
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    --ease-in: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* Variables pour le thème clair (non activées par défaut) */
+.light-theme {
+    --bg-color: #f8fafc;
+    --card-bg: #ffffff;
+    --sidebar-bg: #f1f5f9;
+    --text-light: #0f172a;
+    --text-muted: #64748b;
+    --text-dark: #0f172a;
+
+    --primary-color: #4f46e5;
+    --secondary-color: #db2777;
+    --success-color: #059669;
+    --warning-color: #d97706;
+    --danger-color: #dc2626;
+    --info-color: #0284c7;
+}
