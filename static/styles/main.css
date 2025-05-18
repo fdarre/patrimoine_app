@@ -19,29 +19,28 @@
 @import url('./components/allocation.css');
 @import url('./components/sync.css');
 
-/* THEMES - Le thème actif sera appliqué via JS */
-/* Thème par défaut (sombre) */
+/* THÈME - Application du thème sombre par défaut */
 :root {
-    /* Couleurs primaires */
-    --primary-color: #6366f1;
-    --primary-light: #818cf8;
-    --primary-dark: #4f46e5;
+    /* Couleurs primaires - Violet/Pourpre */
+    --primary-color: #6d28d9;
+    --primary-light: #8b5cf6;
+    --primary-dark: #5b21b6;
 
-    /* Couleurs secondaires */
-    --secondary-color: #ec4899;
-    --secondary-light: #f472b6;
-    --secondary-dark: #db2777;
+    /* Couleurs secondaires - Teal */
+    --secondary-color: #2dd4bf;
+    --secondary-light: #5eead4;
+    --secondary-dark: #14b8a6;
 
     /* Couleurs sémantiques */
     --success-color: #10b981;
     --warning-color: #f59e0b;
     --danger-color: #ef4444;
-    --info-color: #0ea5e9;
+    --info-color: #3b82f6;
 
-    /* Couleurs de fond et texte */
-    --bg-color: #0f172a;
-    --card-bg: #1e293b;
-    --sidebar-bg: #0f172a;
+    /* Couleurs de fond et texte - MODIFIÉES */
+    --bg-color: #171e2e;          /* Bleu-gris foncé, moins noir */
+    --card-bg: #232a3b;          /* Fond de carte légèrement plus clair */
+    --sidebar-bg: #131929;       /* Fond sidebar légèrement plus foncé que bg-color */
     --text-light: #f8fafc;
     --text-muted: #94a3b8;
     --text-dark: #1e293b;

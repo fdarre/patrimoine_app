@@ -12,7 +12,7 @@ CORE_DIR = os.path.join(STYLES_DIR, "core")
 COMPONENTS_DIR = os.path.join(STYLES_DIR, "components")
 THEMES_DIR = os.path.join(STYLES_DIR, "themes")
 
-# Thèmes disponibles
+# Thème sombre uniquement
 THEMES = {
     "dark": {
         "name": "Sombre",
@@ -107,16 +107,13 @@ def initialize_styles() -> None:
     else:
         print("ERREUR: Impossible de charger main.css")
 
-    # Charger le thème actif
-    if "theme" not in st.session_state:
-        st.session_state["theme"] = next((k for k, v in THEMES.items() if v["is_default"]), "dark")
-
-    current_theme = st.session_state["theme"]
-    theme_css = load_theme_css(current_theme)
+    # Utiliser uniquement le thème sombre
+    theme_key = "dark"
+    theme_css = load_theme_css(theme_key)
     if theme_css:
         apply_css(theme_css)
     else:
-        print(f"ERREUR: Impossible de charger le thème {current_theme}")
+        print(f"ERREUR: Impossible de charger le thème {theme_key}")
 
     # Ajouter une classe au body pour le thème actif
     st.markdown(f"""
@@ -126,17 +123,10 @@ def initialize_styles() -> None:
             // Supprimer d'abord toutes les classes de thème
             document.documentElement.classList.remove('dark-theme');
             // Ajouter la classe de thème actuelle
-            document.documentElement.classList.add('{st.session_state["theme"]}-theme');
+            document.documentElement.classList.add('{theme_key}-theme');
         }})();
     </script>
     """, unsafe_allow_html=True)
-
-def create_theme_selector() -> None:
-    """
-    Crée un sélecteur de thème dans la barre latérale
-    """
-    # Cette fonction peut être supprimée ou simplifiée s'il n'y a qu'un seul thème
-    pass
 
 def get_theme_color(color_name: str) -> str:
     """

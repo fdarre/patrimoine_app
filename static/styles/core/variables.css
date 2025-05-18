@@ -1,24 +1,24 @@
 /*
- * static/styles/variables.css
+ * static/styles/core/variables.css
  * Variables CSS pour l'application
  */
 
 :root {
     /* Couleurs primaires */
-    --primary-color: #6366f1;        /* Indigo vif */
-    --primary-light: #818cf8;
-    --primary-dark: #4f46e5;
+    --primary-color: #6d28d9;        /* Violet profond */
+    --primary-light: #8b5cf6;
+    --primary-dark: #5b21b6;
 
     /* Couleurs secondaires */
-    --secondary-color: #ec4899;      /* Rose */
-    --secondary-light: #f472b6;
-    --secondary-dark: #db2777;
+    --secondary-color: #2dd4bf;      /* Teal vif */
+    --secondary-light: #5eead4;
+    --secondary-dark: #14b8a6;
 
     /* Couleurs sémantiques */
     --success-color: #10b981;        /* Emeraude */
     --warning-color: #f59e0b;        /* Ambre */
     --danger-color: #ef4444;         /* Rouge */
-    --info-color: #0ea5e9;           /* Bleu ciel */
+    --info-color: #3b82f6;           /* Bleu */
 
     /* Palette de gris */
     --gray-50: #f9fafb;
@@ -33,16 +33,16 @@
     --gray-900: #111827;
     --gray-950: #030712;
 
-    /* Couleurs de fond et texte */
-    --bg-color: #0f172a;             /* Fond sombre bleuté */
-    --card-bg: #1e293b;              /* Fond de carte */
-    --sidebar-bg: #0f172a;           /* Fond sidebar */
+    /* Couleurs de fond et texte - MODIFIÉES */
+    --bg-color: #171e2e;             /* Bleu-gris foncé, moins noir */
+    --card-bg: #232a3b;              /* Fond de carte légèrement plus clair */
+    --sidebar-bg: #131929;           /* Fond sidebar légèrement plus foncé que bg-color */
     --text-light: #f8fafc;           /* Texte clair */
     --text-muted: #94a3b8;           /* Texte secondaire */
     --text-dark: #1e293b;            /* Texte sombre (pour cartes claires) */
 
     /* Rayons de bordure */
-    --radius-sm: 0.25rem;
+    --radius-sm: 0.375rem;           /* Bords légèrement plus arrondis */
     --radius-md: 0.5rem;
     --radius-lg: 0.75rem;
     --radius-xl: 1rem;

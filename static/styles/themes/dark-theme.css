@@ -1,43 +1,29 @@
 /*
  * themes/dark-theme.css
- * Thème sombre pour l'application de gestion patrimoniale
+ * Thème sombre moderne pour l'application de gestion patrimoniale
  */
 
-/* Variables du thème sombre - valeurs par défaut */
 :root.dark-theme {
-    /* Couleurs primaires */
-    --primary-color: #6366f1;
-    --primary-light: #818cf8;
-    --primary-dark: #4f46e5;
+    /* Couleurs primaires - Violet/Pourpre */
+    --primary-color: #6d28d9;
+    --primary-light: #8b5cf6;
+    --primary-dark: #5b21b6;
 
-    /* Couleurs secondaires */
-    --secondary-color: #ec4899;
-    --secondary-light: #f472b6;
-    --secondary-dark: #db2777;
+    /* Couleurs secondaires - Teal */
+    --secondary-color: #2dd4bf;
+    --secondary-light: #5eead4;
+    --secondary-dark: #14b8a6;
 
     /* Couleurs sémantiques */
     --success-color: #10b981;
     --warning-color: #f59e0b;
     --danger-color: #ef4444;
-    --info-color: #0ea5e9;
+    --info-color: #3b82f6;
 
-    /* Palette de gris */
-    --gray-50: #f9fafb;
-    --gray-100: #f3f4f6;
-    --gray-200: #e5e7eb;
-    --gray-300: #d1d5db;
-    --gray-400: #9ca3af;
-    --gray-500: #6b7280;
-    --gray-600: #4b5563;
-    --gray-700: #374151;
-    --gray-800: #1f2937;
-    --gray-900: #111827;
-    --gray-950: #030712;
-
-    /* Couleurs de fond et texte */
-    --bg-color: #0f172a;
-    --card-bg: #1e293b;
-    --sidebar-bg: #0f172a;
+    /* Couleurs de fond et texte - MODIFIÉES */
+    --bg-color: #171e2e;          /* Bleu-gris foncé, moins noir */
+    --card-bg: #232a3b;          /* Fond de carte légèrement plus clair */
+    --sidebar-bg: #131929;       /* Fond sidebar légèrement plus foncé que bg-color */
     --text-light: #f8fafc;
     --text-muted: #94a3b8;
     --text-dark: #1e293b;
@@ -49,12 +35,14 @@
 .dark-theme .stApp,
 .dark-theme [data-testid="stAppViewContainer"] {
     background-color: var(--bg-color);
+    background-image: linear-gradient(to bottom right, rgba(35, 42, 59, 0.4), rgba(19, 25, 41, 0.3));
 }
 
 /* Barre latérale */
 .dark-theme [data-testid="stSidebar"] {
     background-color: var(--sidebar-bg);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: 1px solid rgba(148, 163, 184, 0.1);
+    box-shadow: 5px 0 10px rgba(0, 0, 0, 0.05);
 }
 
 /* En-têtes */
@@ -76,6 +64,7 @@
     background: linear-gradient(135deg, var(--card-bg), rgba(30, 41, 59, 0.8));
     border: 1px solid rgba(255, 255, 255, 0.05);
     box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(8px);
 }
 
 .dark-theme .card-title {
@@ -93,44 +82,61 @@
 
 /* Métriques */
 .dark-theme .metric-card {
-    background: linear-gradient(135deg, var(--card-bg), rgba(30, 41, 59, 0.8));
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(30, 41, 59, 0.7));
     border: 1px solid rgba(255, 255, 255, 0.05);
     box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(8px);
 }
 
 .dark-theme .metric-value {
     background: linear-gradient(90deg, var(--text-light), var(--primary-light));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    font-weight: 700 !important;
 }
 
 .dark-theme .metric-label {
     color: var(--text-muted) !important;
+    letter-spacing: 0.05em;
 }
 
 /* Tableaux */
 .dark-theme [data-testid="stTable"] th,
 .dark-theme .dataframe th {
-    background-color: rgba(30, 41, 59, 0.8);
+    background-color: rgba(29, 40, 58, 0.9);
     color: var(--text-light);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 0.75rem;
 }
 
 .dark-theme [data-testid="stTable"] td,
 .dark-theme .dataframe td {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
     color: var(--text-light);
 }
 
 .dark-theme [data-testid="stTable"] tr:hover td,
 .dark-theme .dataframe tr:hover td {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: rgba(99, 102, 241, 0.05);
 }
 
 /* Boutons */
 .dark-theme .stButton button {
     background: linear-gradient(90deg, var(--primary-color), var(--primary-dark));
     color: white;
+    font-weight: 500;
+    border-radius: var(--radius-md);
+    letter-spacing: 0.03em;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s ease;
+}
+
+.dark-theme .stButton button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 /* États */
@@ -146,10 +152,11 @@
 .dark-theme .infobox {
     background-color: rgba(30, 41, 59, 0.4);
     border-left: 4px solid;
+    border-radius: var(--radius-md);
 }
 
 .dark-theme .infobox.info {
-    background-color: rgba(14, 165, 233, 0.1);
+    background-color: rgba(59, 130, 246, 0.1);
     border-color: var(--info-color);
 }
 
@@ -194,11 +201,12 @@
     background-color: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--text-light);
+    border-radius: var(--radius-md);
 }
 
 .dark-theme input:focus,
 .dark-theme select:focus,
 .dark-theme textarea:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    box-shadow: 0 0 0 2px rgba(109, 40, 217, 0.2);
 }

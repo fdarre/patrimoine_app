@@ -7,7 +7,7 @@ import os
 from datetime import datetime
 
 from config.app_config import LOGS_DIR
-from utils.style_manager import initialize_styles, create_theme_selector
+from utils.style_manager import initialize_styles  # Suppression de l'import create_theme_selector
 from utils.logger import get_logger, setup_file_logging
 from utils.decorators import streamlit_exception_handler
 from utils.exceptions import AppError
@@ -38,8 +38,7 @@ def main():
     # Initialiser les styles - IMPORTANT : doit être appelé avant tout autre rendu
     initialize_styles()  # Utilisation du gestionnaire unifié
 
-    # Ajouter le sélecteur de thème dans la barre latérale
-    #create_theme_selector()
+    # Ligne supprimée: create_theme_selector()
 
     # Vérifier l'authentification
     is_authenticated = check_auth()
