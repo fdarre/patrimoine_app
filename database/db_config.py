@@ -32,7 +32,11 @@ def get_encryption_key():
     try:
         # Ensure salt is bytes
         if isinstance(ENCRYPTION_SALT, str):
-            salt = base64.urlsafe_b64decode(ENCRYPTION_SALT.encode())
+            try:
+                salt = base64.urlsafe_b64decode(ENCRYPTION_SALT.encode())
+            except:
+                # Si la décodage échoue, garder la valeur originale
+                salt = ENCRYPTION_SALT.encode()
         else:
             salt = ENCRYPTION_SALT
 
