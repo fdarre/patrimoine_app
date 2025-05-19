@@ -5,6 +5,7 @@ import base64
 import json
 import os
 import sqlite3
+import sys
 from contextlib import contextmanager
 from typing import Generator, Dict, Any
 
@@ -15,7 +16,7 @@ from sqlalchemy import create_engine, MetaData, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 
-from config.app_config import SQLALCHEMY_DATABASE_URL, SECRET_KEY, ENCRYPTION_SALT, ENCRYPTION_KEYS_MISSING, DB_PATH
+from config.app_config import SQLALCHEMY_DATABASE_URL, SECRET_KEY, ENCRYPTION_SALT, DB_PATH
 from utils.logger import get_logger
 
 # Configure logger
@@ -130,36 +131,27 @@ def verify_keys_with_existing_data(db_path: str) -> bool:
         return False
 
 
-# Fernet object for encrypting/decrypting sensitive data
+# Initialiser le chiffrement
 try:
-    if ENCRYPTION_KEYS_MISSING:
-        # Si les clés sont manquantes, avertir mais créer quand même un cipher
-        logger.critical(
-            "Initialisation du chiffrement avec des clés temporaires - LES DONNÉES NE SERONT PAS RÉCUPÉRABLES")
-        import secrets
+    # Initialisation normale
+    ENCRYPTION_KEY = get_encryption_key()
+    cipher = Fernet(ENCRYPTION_KEY)
+    logger.info("Encryption successfully initialized")
 
-        fallback_key = base64.urlsafe_b64encode(secrets.token_bytes(32))
-        cipher = Fernet(fallback_key)
-    else:
-        # Initialisation normale
-        ENCRYPTION_KEY = get_encryption_key()
-        cipher = Fernet(ENCRYPTION_KEY)
-        logger.info("Encryption successfully initialized")
-
-        # Vérifier la compatibilité avec les données existantes si la base existe
-        if os.path.exists(DB_PATH):
-            if not verify_keys_with_existing_data(str(DB_PATH)):
-                logger.critical("AVERTISSEMENT: Les clés ne peuvent pas déchiffrer les données existantes!")
-                print("AVERTISSEMENT: Les clés ne peuvent pas déchiffrer les données existantes!")
+    # Vérifier la compatibilité avec les données existantes si la base existe
+    if os.path.exists(DB_PATH):
+        if not verify_keys_with_existing_data(str(DB_PATH)):
+            error_msg = "ERREUR CRITIQUE: Les clés ne peuvent pas déchiffrer les données existantes!"
+            logger.critical(error_msg)
+            print(error_msg)
+            print("Restaurez les fichiers de clés corrects ou utilisez une sauvegarde de la base de données.")
+            sys.exit(1)
 
 except Exception as e:
-    logger.critical(f"Failed to initialize encryption: {str(e)}")
-    # Create a fallback dummy cipher for emergency - THIS WILL NOT DECRYPT PROPERLY
-    # but will prevent the application from crashing completely
-    import os
-    fallback_key = base64.urlsafe_b64encode(os.urandom(32))
-    cipher = Fernet(fallback_key)
-    logger.critical("ALERT: Using fallback encryption key. Data encrypted now WILL NOT be recoverable later!")
+    error_msg = f"ERREUR FATALE: Impossible d'initialiser le chiffrement: {str(e)}"
+    logger.critical(error_msg)
+    print(error_msg)
+    sys.exit(1)
 
 
 # Functions for encrypting/decrypting sensitive data

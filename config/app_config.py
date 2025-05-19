@@ -2,6 +2,7 @@
 Centralized application configuration
 """
 
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -81,10 +82,7 @@ from utils.key_manager import KeyManager
 
 key_manager = KeyManager(DATA_DIR, KEY_BACKUPS_DIR)
 
-# Flag pour suivre l'état des clés
-ENCRYPTION_KEYS_MISSING = False
-
-# Charger les clés existantes ou afficher un message d'erreur
+# Charger les clés existantes ou arrêter l'exécution
 if key_manager.check_keys_exist():
     with open(key_file, "rb") as f:
         SECRET_KEY = f.read()
@@ -92,7 +90,7 @@ if key_manager.check_keys_exist():
         ENCRYPTION_SALT = f.read()
     logger.info("Clés de chiffrement chargées avec succès")
 else:
-    # Ne pas générer automatiquement de nouvelles clés
+    # Afficher un message d'erreur critique et arrêter l'exécution
     error_msg = (
         "ERREUR CRITIQUE: Fichiers de clés manquants. "
         "Exécutez 'python init_keys.py' pour générer de nouvelles clés "
@@ -100,16 +98,7 @@ else:
     )
     logger.critical(error_msg)
     print(error_msg)
-
-    # Créer une clé temporaire pour éviter le crash de l'application
-    # IMPORTANT: Cette clé ne permettra pas de déchiffrer des données existantes
-    import secrets
-
-    SECRET_KEY = secrets.token_bytes(32)
-    ENCRYPTION_SALT = secrets.token_bytes(16)
-
-    # Définir un flag global pour empêcher les opérations sensibles
-    ENCRYPTION_KEYS_MISSING = True
+    sys.exit(1)  # Arrêt de l'exécution avec code d'erreur 1
 
 # JWT configuration
 JWT_ALGORITHM = "HS256"
