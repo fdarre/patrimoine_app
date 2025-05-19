@@ -1,14 +1,15 @@
 """
 Service de chargement et sauvegarde des données avec SQLAlchemy
 """
-from typing import List, Optional
-from sqlalchemy.orm import Session
 from datetime import datetime
+from typing import List, Optional
+
+from sqlalchemy.orm import Session
 
 from database.models import Asset, HistoryPoint
-from utils.decorators import handle_exceptions
-from utils.logger import get_logger
 from utils.common import safe_float_conversion
+from utils.error_manager import catch_exceptions  # Changé de handle_exceptions
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -16,7 +17,7 @@ class DataService:
     """Service de gestion des données persistantes avec SQLAlchemy"""
 
     @staticmethod
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def record_history_entry(db: Session, user_id: str) -> HistoryPoint:
         """
         Enregistre un point d'historique pour tous les actifs d'un utilisateur
@@ -68,7 +69,7 @@ class DataService:
             return new_entry
 
     @staticmethod
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def get_history(db: Session, days: Optional[int] = None) -> List[HistoryPoint]:
         """
         Récupère l'historique des valeurs

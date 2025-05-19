@@ -4,11 +4,13 @@ Point d'entrée principal pour l'interface de gestion des actifs
 """
 import streamlit as st
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
 
+# Imports de l'application
 from config.app_config import ASSET_CATEGORIES, PRODUCT_TYPES
+from database.db_config import get_db_session  # Utilisation du gestionnaire de contexte
 # Importer les modèles de base de données nécessaires
 from database.models import Asset, Bank, Account
+from utils.session_manager import session_manager  # Utilisation du gestionnaire de session
 from .add_form import show_add_asset_form
 from .detail_view import display_asset_details
 from .edit_form import show_edit_asset_form
@@ -17,54 +19,59 @@ from .list_view import display_assets_table_with_actions
 from .sync_view import show_sync_options
 
 
-def show_asset_management(db: Session, user_id: str):
+def show_asset_management():
     """
     Interface principale pour la gestion des actifs
-
-    Args:
-        db: Session de base de données
-        user_id: ID de l'utilisateur
     """
+    # Récupérer l'ID utilisateur depuis le gestionnaire de session
+    user_id = session_manager.get("user_id")
+
+    if not user_id:
+        st.error("Utilisateur non authentifié")
+        return
+
     st.header("Gestion des actifs", anchor=False)
 
     # Onglets principaux
     tab1, tab2, tab3 = st.tabs(["📋 Vue d'ensemble", "➕ Ajouter un actif", "🔄 Synchronisation"])
 
-    with tab1:
-        # OPTIMISATION: Ne récupérer que le nombre d'actifs d'abord
-        asset_count = db.query(func.count(Asset.id)).filter(Asset.owner_id == user_id).scalar() or 0
-        bank_count = db.query(func.count(Bank.id)).filter(Bank.owner_id == user_id).scalar() or 0
+    # Utiliser le gestionnaire de contexte pour la session DB
+    with get_db_session() as db:
+        with tab1:
+            # OPTIMISATION: Ne récupérer que le nombre d'actifs d'abord
+            asset_count = db.query(func.count(Asset.id)).filter(Asset.owner_id == user_id).scalar() or 0
+            bank_count = db.query(func.count(Bank.id)).filter(Bank.owner_id == user_id).scalar() or 0
 
-        if asset_count == 0:
-            st.info("Aucun actif n'a encore été ajouté.")
-        else:
-            # Interface de filtrage et affichage des actifs
-            # Au lieu de récupérer tous les actifs d'abord, on utilise une requête filtrée
-            filtered_query = build_filtered_query(db, user_id)
-
-            # Exécute la requête seulement maintenant, après tous les filtres appliqués
-            filtered_assets = filtered_query.all()
-
-            # Afficher le nombre de résultats
-            st.write(f"**{len(filtered_assets)}** actifs correspondent à vos critères")
-
-            if filtered_assets:
-                # Utiliser notre nouvelle fonction avec options de modification/suppression
-                display_assets_table_with_actions(db, filtered_assets, user_id)
+            if asset_count == 0:
+                st.info("Aucun actif n'a encore été ajouté.")
             else:
-                st.info("Aucun actif ne correspond aux filtres sélectionnés.")
+                # Interface de filtrage et affichage des actifs
+                # Au lieu de récupérer tous les actifs d'abord, on utilise une requête filtrée
+                filtered_query = build_filtered_query(db, user_id)
 
-            # Gestion de l'édition d'un actif
-            if 'edit_asset' in st.session_state:
-                show_edit_asset_form(db, st.session_state['edit_asset'], user_id)
+                # Exécute la requête seulement maintenant, après tous les filtres appliqués
+                filtered_assets = filtered_query.all()
 
-    # Onglet d'ajout d'actif
-    with tab2:
-        show_add_asset_form(db, user_id)
+                # Afficher le nombre de résultats
+                st.write(f"**{len(filtered_assets)}** actifs correspondent à vos critères")
 
-    # Onglet de synchronisation
-    with tab3:
-        show_sync_options(db, user_id)
+                if filtered_assets:
+                    # Utiliser notre nouvelle fonction avec options de modification/suppression
+                    display_assets_table_with_actions(db, filtered_assets, user_id)
+                else:
+                    st.info("Aucun actif ne correspond aux filtres sélectionnés.")
+
+                # Gestion de l'édition d'un actif
+                if session_manager.get('edit_asset'):
+                    show_edit_asset_form(db, session_manager.get('edit_asset'), user_id)
+
+        # Onglet d'ajout d'actif
+        with tab2:
+            show_add_asset_form(db, user_id)
+
+        # Onglet de synchronisation
+        with tab3:
+            show_sync_options(db, user_id)
 
 
 def build_filtered_query(db, user_id):

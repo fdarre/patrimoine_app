@@ -4,36 +4,42 @@ Interface de gestion des banques et comptes
 # Imports de bibliothèques tierces
 import pandas as pd
 import streamlit as st
-from sqlalchemy.orm import Session
 
 # Imports de l'application
 from config.app_config import ACCOUNT_TYPES
+from database.db_config import get_db_session  # Utilisation du gestionnaire de contexte
 from database.models import Bank, Account, Asset
 from services.account_service import account_service
 from services.bank_service import bank_service
+from utils.session_manager import session_manager  # Utilisation du gestionnaire de session
 
 
-def show_banks_accounts(db: Session, user_id: str):
+def show_banks_accounts():
     """
     Affiche l'interface de gestion des banques et comptes
-
-    Args:
-        db: Session de base de données
-        user_id: ID de l'utilisateur
     """
+    # Récupérer l'ID utilisateur depuis le gestionnaire de session
+    user_id = session_manager.get("user_id")
+
+    if not user_id:
+        st.error("Utilisateur non authentifié")
+        return
+
     st.header("Banques & Comptes", anchor=False)
 
     # Onglets pour banques et comptes
     tab1, tab2 = st.tabs(["Banques", "Comptes"])
 
-    with tab1:
-        show_banks_tab(db, user_id)
+    # Utiliser le gestionnaire de contexte pour la session DB
+    with get_db_session() as db:
+        with tab1:
+            show_banks_tab(db, user_id)
 
-    with tab2:
-        show_accounts_tab(db, user_id)
+        with tab2:
+            show_accounts_tab(db, user_id)
 
 
-def show_banks_tab(db: Session, user_id: str):
+def show_banks_tab(db, user_id: str):
     """Affiche l'onglet de gestion des banques"""
     st.subheader("Gestion des banques")
 
@@ -83,7 +89,7 @@ def show_banks_tab(db: Session, user_id: str):
             st.info("Aucune banque n'a été ajoutée pour le moment.")
 
 
-def show_bank_editor(db: Session, bank: Bank):
+def show_bank_editor(db, bank: Bank):
     """Affiche l'éditeur de banque"""
     with st.expander("Éditer la banque", expanded=True):
         edit_bank_name = st.text_input("Nom", value=bank.nom, key="edit_bank_name")
@@ -108,7 +114,7 @@ def show_bank_editor(db: Session, bank: Bank):
                     st.error("Impossible de supprimer cette banque car elle contient des comptes.")
 
 
-def show_accounts_tab(db: Session, user_id: str):
+def show_accounts_tab(db, user_id: str):
     """Affiche l'onglet de gestion des comptes"""
     st.subheader("Gestion des comptes")
 
@@ -121,7 +127,7 @@ def show_accounts_tab(db: Session, user_id: str):
         show_accounts_list(db, user_id)
 
 
-def show_add_account_form(db: Session, user_id: str):
+def show_add_account_form(db, user_id: str):
     """Affiche le formulaire d'ajout de compte"""
     st.write("Ajouter un compte")
 
@@ -159,7 +165,7 @@ def show_add_account_form(db: Session, user_id: str):
                     "Veuillez remplir tous les champs obligatoires ou vérifier que l'identifiant n'existe pas déjà.")
 
 
-def show_accounts_list(db: Session, user_id: str):
+def show_accounts_list(db, user_id: str):
     """Affiche la liste des comptes avec filtre par banque"""
     st.write("Liste des comptes")
 
@@ -212,7 +218,7 @@ def show_accounts_list(db: Session, user_id: str):
         st.info("Aucune banque n'a encore été ajoutée.")
 
 
-def show_account_editor(db: Session, account: Account, banks: list, user_id: str):
+def show_account_editor(db, account: Account, banks: list, user_id: str):
     """Affiche l'éditeur de compte et la liste des actifs associés"""
     with st.expander("Éditer le compte", expanded=True):
         edit_account_bank = st.selectbox(

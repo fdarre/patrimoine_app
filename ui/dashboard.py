@@ -8,215 +8,231 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
-from sqlalchemy.orm import Session
 
+from database.db_config import get_db_session  # Utilisation du gestionnaire de contexte
 # Imports de l'application
 from database.models import Bank, Account, Asset, HistoryPoint
 from services.visualization_service import VisualizationService
+from utils.session_manager import session_manager  # Utilisation du gestionnaire de session
 from utils.style_manager import style_manager
 
 # Customize Matplotlib
 plt.style.use('dark_background')
 
-def show_dashboard(db: Session, user_id: str):
+
+def show_dashboard():
     """
     Affiche le dashboard principal avec styles centralisés
     """
+    # Récupérer l'ID utilisateur depuis le gestionnaire de session
+    user_id = session_manager.get("user_id")
+
+    if not user_id:
+        st.error("Utilisateur non authentifié")
+        return
+
     st.title("Dashboard")
 
     # Appliquer les styles des cartes et des todos
     style_manager.add_custom_style(style_manager.create_card_style())
     style_manager.add_custom_style(style_manager.create_info_box_style("warning"))
 
-    # Récupérer les données de l'utilisateur
-    assets = db.query(Asset).filter(Asset.owner_id == user_id).all()
+    # Utiliser le gestionnaire de contexte pour la session DB
+    with get_db_session() as db:
+        # Récupérer les données de l'utilisateur
+        assets = db.query(Asset).filter(Asset.owner_id == user_id).all()
 
-    # Métriques principales avec style natif de Streamlit
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        # Calculer la valeur totale correctement
-        total_value = sum(
-            asset.value_eur if asset.value_eur is not None
-            else (asset.valeur_actuelle if asset.devise == "EUR" else 0.0)
-            for asset in assets
-        )
-        formatted_value = f"{total_value:,.2f} €".replace(",", " ")
-        st.metric(label="Valeur totale du patrimoine", value=formatted_value, delta=None, delta_color="normal")
-
-    with col2:
-        asset_count = len(assets)
-        st.metric(label="Nombre d'actifs", value=asset_count)
-
-    with col3:
-        account_count = db.query(Account).join(Bank).filter(Bank.owner_id == user_id).count()
-        st.metric(label="Nombre de comptes", value=account_count)
-
-    # Graphiques principaux (si des actifs existent)
-    if assets:
-        col1, col2 = st.columns(2)
+        # Métriques principales avec style natif de Streamlit
+        col1, col2, col3 = st.columns(3)
 
         with col1:
-            # Répartition par catégorie
-            st.subheader("Répartition par catégorie d'actif")
-
-            # Utiliser le service de visualisation
-            category_values = VisualizationService.calculate_category_values(db, user_id)
-
-            # Convertir les catégories en format capitalisé pour l'affichage
-            category_values_display = {k.capitalize(): v for k, v in category_values.items() if v > 0}
-
-            if category_values_display:
-                # Graphique en camembert natif Streamlit
-                labels = list(category_values_display.keys())
-                values = list(category_values_display.values())
-
-                # Generate a nice color palette
-                colors = plt.cm.viridis(np.linspace(0, 1, len(labels)))
-
-                fig, ax = plt.subplots(figsize=(8, 8))
-                wedges, texts, autotexts = ax.pie(
-                    values,
-                    labels=labels,
-                    autopct='%1.1f%%',
-                    startangle=90,
-                    colors=colors,
-                    wedgeprops={'edgecolor': 'white', 'linewidth': 1, 'alpha': 0.8}
-                )
-
-                # Improve text visibility
-                for text in texts:
-                    text.set_color('white')
-                    text.set_fontsize(10)
-
-                for autotext in autotexts:
-                    autotext.set_color('white')
-                    autotext.set_fontsize(9)
-                    autotext.set_fontweight('bold')
-
-                ax.axis('equal')
-                plt.tight_layout()
-
-                st.pyplot(fig)
+            # Calculer la valeur totale correctement
+            total_value = sum(
+                asset.value_eur if asset.value_eur is not None
+                else (asset.valeur_actuelle if asset.devise == "EUR" else 0.0)
+                for asset in assets
+            )
+            formatted_value = f"{total_value:,.2f} €".replace(",", " ")
+            st.metric(label="Valeur totale du patrimoine", value=formatted_value, delta=None, delta_color="normal")
 
         with col2:
-            # Répartition géographique
-            st.subheader("Répartition géographique")
+            asset_count = len(assets)
+            st.metric(label="Nombre d'actifs", value=asset_count)
 
-            # Utiliser le service de visualisation
-            geo_values = VisualizationService.calculate_geo_values(db, user_id)
+        with col3:
+            account_count = db.query(Account).join(Bank).filter(Bank.owner_id == user_id).count()
+            st.metric(label="Nombre de comptes", value=account_count)
 
-            # Convertir les zones en format capitalisé pour l'affichage
-            geo_values_display = {k.capitalize(): v for k, v in geo_values.items() if v > 0}
+        # Graphiques principaux (si des actifs existent)
+        if assets:
+            col1, col2 = st.columns(2)
 
-            if geo_values_display:
-                # Graphique en camembert natif Streamlit
-                labels = list(geo_values_display.keys())
-                values = list(geo_values_display.values())
+            with col1:
+                # Répartition par catégorie
+                st.subheader("Répartition par catégorie d'actif")
 
-                # Generate a different color palette for this pie chart
-                colors = plt.cm.plasma(np.linspace(0, 1, len(labels)))
+                # Utiliser le service de visualisation
+                category_values = VisualizationService.calculate_category_values(db, user_id)
 
-                fig, ax = plt.subplots(figsize=(8, 8))
-                wedges, texts, autotexts = ax.pie(
-                    values,
-                    labels=labels,
-                    autopct='%1.1f%%',
-                    startangle=90,
-                    colors=colors,
-                    wedgeprops={'edgecolor': 'white', 'linewidth': 1, 'alpha': 0.8}
-                )
+                # Convertir les catégories en format capitalisé pour l'affichage
+                category_values_display = {k.capitalize(): v for k, v in category_values.items() if v > 0}
 
-                # Improve text visibility
-                for text in texts:
-                    text.set_color('white')
-                    text.set_fontsize(10)
+                if category_values_display:
+                    # Graphique en camembert natif Streamlit
+                    labels = list(category_values_display.keys())
+                    values = list(category_values_display.values())
 
-                for autotext in autotexts:
-                    autotext.set_color('white')
-                    autotext.set_fontsize(9)
-                    autotext.set_fontweight('bold')
+                    # Generate a nice color palette
+                    colors = plt.cm.viridis(np.linspace(0, 1, len(labels)))
 
-                ax.axis('equal')
-                plt.tight_layout()
+                    fig, ax = plt.subplots(figsize=(8, 8))
+                    wedges, texts, autotexts = ax.pie(
+                        values,
+                        labels=labels,
+                        autopct='%1.1f%%',
+                        startangle=90,
+                        colors=colors,
+                        wedgeprops={'edgecolor': 'white', 'linewidth': 1, 'alpha': 0.8}
+                    )
 
-                st.pyplot(fig)
+                    # Improve text visibility
+                    for text in texts:
+                        text.set_color('white')
+                        text.set_fontsize(10)
 
-        # Évolution historique si disponible
-        history_points = db.query(HistoryPoint).order_by(HistoryPoint.date).all()
-        if len(history_points) > 1:
-            st.subheader("Évolution du patrimoine")
+                    for autotext in autotexts:
+                        autotext.set_color('white')
+                        autotext.set_fontsize(9)
+                        autotext.set_fontweight('bold')
 
-            # Créer un DataFrame pour Streamlit
-            history_data = []
-            for point in history_points:
-                history_data.append({
-                    "Date": point.date,
-                    "Valeur": point.total
-                })
+                    ax.axis('equal')
+                    plt.tight_layout()
 
-            df = pd.DataFrame(history_data)
-            df["Date"] = pd.to_datetime(df["Date"])
+                    st.pyplot(fig)
 
-            # Afficher avec le graphique natif de Streamlit
-            st.line_chart(df.set_index("Date")["Valeur"], use_container_width=True)
-        else:
-            st.info("L'historique d'évolution sera disponible après plusieurs mises à jour d'actifs.")
+            with col2:
+                # Répartition géographique
+                st.subheader("Répartition géographique")
 
-        # Top 5 des actifs avec Streamlit native
-        top_assets = sorted(assets, key=lambda x: x.value_eur if x.value_eur is not None else 0.0, reverse=True)[:5]
+                # Utiliser le service de visualisation
+                geo_values = VisualizationService.calculate_geo_values(db, user_id)
 
-        if top_assets:
-            st.subheader("Top 5 des actifs")
+                # Convertir les zones en format capitalisé pour l'affichage
+                geo_values_display = {k.capitalize(): v for k, v in geo_values.items() if v > 0}
 
-            for asset in top_assets:
-                account = db.query(Account).filter(Account.id == asset.account_id).first()
-                bank = db.query(Bank).filter(Bank.id == account.bank_id).first() if account else None
+                if geo_values_display:
+                    # Graphique en camembert natif Streamlit
+                    labels = list(geo_values_display.keys())
+                    values = list(geo_values_display.values())
 
-                # Calculer la plus-value de manière standardisée
-                pv = asset.valeur_actuelle - asset.prix_de_revient
-                pv_percent = (pv / asset.prix_de_revient * 100) if asset.prix_de_revient > 0 else 0
+                    # Generate a different color palette for this pie chart
+                    colors = plt.cm.plasma(np.linspace(0, 1, len(labels)))
 
-                # Create expander for each asset
-                with st.expander(f"💰 {asset.nom} ({asset.type_produit.upper()})"):
-                    col1, col2 = st.columns(2)
+                    fig, ax = plt.subplots(figsize=(8, 8))
+                    wedges, texts, autotexts = ax.pie(
+                        values,
+                        labels=labels,
+                        autopct='%1.1f%%',
+                        startangle=90,
+                        colors=colors,
+                        wedgeprops={'edgecolor': 'white', 'linewidth': 1, 'alpha': 0.8}
+                    )
 
-                    with col1:
-                        st.markdown(f"**Valeur:** {asset.valeur_actuelle:,.2f} {asset.devise}".replace(",", " "))
-                        if account:
-                            st.markdown(f"**Compte:** {account.libelle}")
-                        if bank:
-                            st.markdown(f"**Banque:** {bank.nom}")
+                    # Improve text visibility
+                    for text in texts:
+                        text.set_color('white')
+                        text.set_fontsize(10)
 
-                    with col2:
-                        perf_color = "green" if pv >= 0 else "red"
-                        perf_sign = "+" if pv >= 0 else ""
-                        st.markdown(f"**Performance:** <span style='color:{perf_color}'>{perf_sign}{pv_percent:.2f}%</span>", unsafe_allow_html=True)
-                        st.markdown(f"**Plus/Moins-value:** <span style='color:{perf_color}'>{perf_sign}{pv:,.2f} {asset.devise}</span>".replace(",", " "), unsafe_allow_html=True)
+                    for autotext in autotexts:
+                        autotext.set_color('white')
+                        autotext.set_fontsize(9)
+                        autotext.set_fontweight('bold')
 
-        # Tâches à faire - Style moderne avec Streamlit natif
-        todos = db.query(Asset).filter(Asset.owner_id == user_id).filter(Asset.todo != "").all()
-        if todos:
-            st.subheader("Tâches à faire")
+                    ax.axis('equal')
+                    plt.tight_layout()
 
-            for i, asset in enumerate(todos):
-                account = db.query(Account).filter(Account.id == asset.account_id).first()
+                    st.pyplot(fig)
 
-                # Utiliser le style de carte centralisé
-                st.markdown(f"""
-                <div class="todo-card">
-                    <h4 class="todo-header">{asset.nom}</h4>
-                    <p class="todo-content">{asset.todo}</p>
-                    <div class="todo-footer">
-                        Compte: {account.libelle if account else "Non spécifié"}
+            # Évolution historique si disponible
+            history_points = db.query(HistoryPoint).order_by(HistoryPoint.date).all()
+            if len(history_points) > 1:
+                st.subheader("Évolution du patrimoine")
+
+                # Créer un DataFrame pour Streamlit
+                history_data = []
+                for point in history_points:
+                    history_data.append({
+                        "Date": point.date,
+                        "Valeur": point.total
+                    })
+
+                df = pd.DataFrame(history_data)
+                df["Date"] = pd.to_datetime(df["Date"])
+
+                # Afficher avec le graphique natif de Streamlit
+                st.line_chart(df.set_index("Date")["Valeur"], use_container_width=True)
+            else:
+                st.info("L'historique d'évolution sera disponible après plusieurs mises à jour d'actifs.")
+
+            # Top 5 des actifs avec Streamlit native
+            top_assets = sorted(assets, key=lambda x: x.value_eur if x.value_eur is not None else 0.0, reverse=True)[:5]
+
+            if top_assets:
+                st.subheader("Top 5 des actifs")
+
+                for asset in top_assets:
+                    account = db.query(Account).filter(Account.id == asset.account_id).first()
+                    bank = db.query(Bank).filter(Bank.id == account.bank_id).first() if account else None
+
+                    # Calculer la plus-value de manière standardisée
+                    pv = asset.valeur_actuelle - asset.prix_de_revient
+                    pv_percent = (pv / asset.prix_de_revient * 100) if asset.prix_de_revient > 0 else 0
+
+                    # Create expander for each asset
+                    with st.expander(f"💰 {asset.nom} ({asset.type_produit.upper()})"):
+                        col1, col2 = st.columns(2)
+
+                        with col1:
+                            st.markdown(f"**Valeur:** {asset.valeur_actuelle:,.2f} {asset.devise}".replace(",", " "))
+                            if account:
+                                st.markdown(f"**Compte:** {account.libelle}")
+                            if bank:
+                                st.markdown(f"**Banque:** {bank.nom}")
+
+                        with col2:
+                            perf_color = "green" if pv >= 0 else "red"
+                            perf_sign = "+" if pv >= 0 else ""
+                            st.markdown(
+                                f"**Performance:** <span style='color:{perf_color}'>{perf_sign}{pv_percent:.2f}%</span>",
+                                unsafe_allow_html=True)
+                            st.markdown(
+                                f"**Plus/Moins-value:** <span style='color:{perf_color}'>{perf_sign}{pv:,.2f} {asset.devise}</span>".replace(
+                                    ",", " "), unsafe_allow_html=True)
+
+            # Tâches à faire - Style moderne avec Streamlit natif
+            todos = db.query(Asset).filter(Asset.owner_id == user_id).filter(Asset.todo != "").all()
+            if todos:
+                st.subheader("Tâches à faire")
+
+                for i, asset in enumerate(todos):
+                    account = db.query(Account).filter(Account.id == asset.account_id).first()
+
+                    # Utiliser le style de carte centralisé
+                    st.markdown(f"""
+                    <div class="todo-card">
+                        <h4 class="todo-header">{asset.nom}</h4>
+                        <p class="todo-content">{asset.todo}</p>
+                        <div class="todo-footer">
+                            Compte: {account.libelle if account else "Non spécifié"}
+                        </div>
                     </div>
-                </div>
-                """, unsafe_allow_html=True)
-    else:
-        # Affichage pour le cas sans actif
-        st.info("Aucun actif n'a encore été ajouté. Commencez par ajouter des banques, des comptes, puis des actifs.")
+                    """, unsafe_allow_html=True)
+        else:
+            # Affichage pour le cas sans actif
+            st.info(
+                "Aucun actif n'a encore été ajouté. Commencez par ajouter des banques, des comptes, puis des actifs.")
 
-        # Bouton pour ajouter une banque
-        if st.button("➕ Ajouter une banque"):
-            st.session_state["navigation"] = "Banques & Comptes"
-            st.rerun()
+            # Bouton pour ajouter une banque
+            if st.button("➕ Ajouter une banque"):
+                session_manager.set("navigation", "Banques & Comptes")
+                st.rerun()

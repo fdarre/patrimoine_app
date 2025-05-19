@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from database.models import Account, Asset, Bank
 from services.base_service import BaseService
-from utils.decorators import handle_exceptions
+from utils.error_manager import catch_exceptions  # Changé de handle_exceptions
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -21,7 +21,7 @@ class AccountService(BaseService[Account]):
     def __init__(self):
         super().__init__(Account)
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def get_accounts(self, db: Session, user_id: str, bank_id: Optional[str] = None) -> List[Account]:
         """
         Récupère tous les comptes d'un utilisateur, optionnellement filtrés par banque
@@ -41,7 +41,7 @@ class AccountService(BaseService[Account]):
 
         return query.all()
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def get_account(self, db: Session, account_id: str) -> Optional[Account]:
         """
         Récupère un compte par son ID
@@ -55,7 +55,7 @@ class AccountService(BaseService[Account]):
         """
         return self.get_by_id(db, account_id)
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def add_account(
             self, db: Session,
             account_id: str,
@@ -97,7 +97,7 @@ class AccountService(BaseService[Account]):
 
         return self.create(db, data)
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def update_account(
             self, db: Session,
             account_id: str,
@@ -127,7 +127,7 @@ class AccountService(BaseService[Account]):
 
         return self.update(db, account_id, data)
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def delete_account(self, db: Session, account_id: str) -> bool:
         """
         Supprime un compte s'il n'a pas d'actifs associés
@@ -147,7 +147,7 @@ class AccountService(BaseService[Account]):
         # Supprimer le compte
         return self.delete(db, account_id)
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def get_accounts_dataframe(
             self, db: Session,
             user_id: str,
@@ -188,8 +188,7 @@ class AccountService(BaseService[Account]):
 
         return pd.DataFrame(data, columns=["ID", "Banque", "Type", "Libellé", "Valeur totale"])
 
-
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def get_accounts_with_total_values(
             self, db: Session,
             user_id: str,

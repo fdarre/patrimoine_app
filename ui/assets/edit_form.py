@@ -12,6 +12,7 @@ from services.asset_service import asset_service
 from services.data_service import DataService
 from ui.components import apply_button_styling
 from ui.shared.allocation_forms import edit_allocation_form, edit_geo_allocation_form
+from utils.session_manager import session_manager  # Utilisation du gestionnaire de session
 
 
 def show_edit_asset_form(db: Session, asset_id: str, user_id: str):
@@ -87,10 +88,8 @@ def show_edit_asset_form(db: Session, asset_id: str, user_id: str):
                     DataService.record_history_entry(db, user_id)
 
                     # Nettoyer la session state
-                    if f'edit_asset_{asset_id}' in st.session_state:
-                        del st.session_state[f'edit_asset_{asset_id}']
-                    if 'edit_asset' in st.session_state:
-                        del st.session_state['edit_asset']
+                    session_manager.delete(f'edit_asset_{asset_id}')
+                    session_manager.delete('edit_asset')
 
                     st.success("Actif mis à jour avec succès")
                     st.rerun()
@@ -104,10 +103,8 @@ def show_edit_asset_form(db: Session, asset_id: str, user_id: str):
     with col2:
         if st.button("Annuler", key=f"btn_cancel_asset_{asset_id}"):
             # Nettoyer la session state
-            if f'edit_asset_{asset_id}' in st.session_state:
-                del st.session_state[f'edit_asset_{asset_id}']
-            if 'edit_asset' in st.session_state:
-                del st.session_state['edit_asset']
+            session_manager.delete(f'edit_asset_{asset_id}')
+            session_manager.delete('edit_asset')
             st.rerun()
 
 

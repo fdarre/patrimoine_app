@@ -2,13 +2,14 @@
 Service de base générique pour les opérations CRUD avec une approche cohérente
 """
 from typing import List, Optional, TypeVar, Generic, Type, Dict, Any
-from sqlalchemy.orm import Session
+
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from database.models import Base
+from utils.error_manager import catch_exceptions  # Changé de handle_exceptions
 from utils.exceptions import DatabaseError, ValidationError
 from utils.logger import get_logger
-from utils.decorators import handle_exceptions
 
 # Type générique pour les modèles SQLAlchemy
 T = TypeVar('T', bound=Base)
@@ -29,7 +30,7 @@ class BaseService(Generic[T]):
         """
         self.model_class = model_class
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def get_all(self, db: Session, owner_id: Optional[str] = None, **filters) -> List[T]:
         """
         Récupère tous les objets qui correspondent aux filtres
@@ -53,7 +54,7 @@ class BaseService(Generic[T]):
 
         return query.all()
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def get_by_id(self, db: Session, item_id: str) -> Optional[T]:
         """
         Récupère un objet par son ID
@@ -67,7 +68,7 @@ class BaseService(Generic[T]):
         """
         return db.query(self.model_class).filter(self.model_class.id == item_id).first()
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def create(self, db: Session, data: Dict[str, Any]) -> T:
         """
         Crée un nouvel objet
@@ -101,7 +102,7 @@ class BaseService(Generic[T]):
             logger.error(f"Erreur lors de la création de {self.model_class.__name__}: {str(e)}")
             raise DatabaseError(f"Erreur lors de la création: {str(e)}")
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def update(self, db: Session, item_id: str, data: Dict[str, Any]) -> Optional[T]:
         """
         Met à jour un objet existant
@@ -134,7 +135,7 @@ class BaseService(Generic[T]):
             logger.error(f"Erreur lors de la mise à jour de {self.model_class.__name__}: {str(e)}")
             raise DatabaseError(f"Erreur lors de la mise à jour: {str(e)}")
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def delete(self, db: Session, item_id: str) -> bool:
         """
         Supprime un objet
@@ -162,7 +163,7 @@ class BaseService(Generic[T]):
             logger.error(f"Erreur lors de la suppression de {self.model_class.__name__}: {str(e)}")
             raise DatabaseError(f"Erreur lors de la suppression: {str(e)}")
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def count(self, db: Session, owner_id: Optional[str] = None, **filters) -> int:
         """
         Compte le nombre d'objets qui correspondent aux filtres
@@ -186,7 +187,7 @@ class BaseService(Generic[T]):
 
         return query.count()
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def exists(self, db: Session, item_id: str) -> bool:
         """
         Vérifie si un objet existe
@@ -200,7 +201,7 @@ class BaseService(Generic[T]):
         """
         return db.query(self.model_class).filter(self.model_class.id == item_id).count() > 0
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def bulk_create(self, db: Session, items_data: List[Dict[str, Any]]) -> List[T]:
         """
         Crée plusieurs objets en une seule transaction

@@ -12,17 +12,7 @@ from sqlalchemy.orm import Session
 from database.models import Asset, Account, Bank
 from services.asset_service import asset_service
 from services.data_service import DataService
-
-
-def change_page(page_key, new_page):
-    """
-    Change la page dans session_state
-
-    Args:
-        page_key: Clé de la page dans session_state
-        new_page: Nouvelle valeur de page
-    """
-    st.session_state[page_key] = new_page
+from utils.session_manager import session_manager  # Utilisation du gestionnaire de session
 
 
 def display_assets_table_with_actions(db: Session, assets, user_id):
@@ -88,19 +78,15 @@ def display_assets_table_with_actions(db: Session, assets, user_id):
     # Pagination simplifiée
     page_size = 10
 
-    # Initialiser l'état de la page si nécessaire
-    if "assets_table_page" not in st.session_state:
-        st.session_state["assets_table_page"] = 0
+    # Utiliser le gestionnaire de session pour la pagination
+    page_idx = session_manager.get_page("assets_table")
 
     # Calculer le nombre total de pages
     n_pages = max(1, (len(df) + page_size - 1) // page_size)
 
-    # Obtenir l'index de la page actuelle
-    page_idx = st.session_state["assets_table_page"]
-
     # S'assurer que page_idx est dans les limites
     page_idx = min(max(0, page_idx), n_pages - 1)
-    st.session_state["assets_table_page"] = page_idx
+    session_manager.set_page("assets_table", page_idx)
 
     # Calculer les indices de début et de fin
     start_idx = page_idx * page_size
@@ -129,16 +115,18 @@ def display_assets_table_with_actions(db: Session, assets, user_id):
 
     with col2:
         if selected_asset_id and st.button("✏️ Modifier", key=f"edit_{selected_asset_id}"):
-            st.session_state['edit_asset'] = selected_asset_id
+            # Utiliser le gestionnaire de session
+            session_manager.set("edit_asset", selected_asset_id)
             st.rerun()
 
     with col3:
         if selected_asset_id and st.button("🗑️ Supprimer", key=f"delete_{selected_asset_id}"):
-            st.session_state[f'confirm_delete_{selected_asset_id}'] = True
+            # Utiliser le gestionnaire de session
+            session_manager.set(f'confirm_delete_{selected_asset_id}', True)
             st.rerun()
 
     # Confirmation de suppression
-    if selected_asset_id and f'confirm_delete_{selected_asset_id}' in st.session_state:
+    if selected_asset_id and session_manager.get(f'confirm_delete_{selected_asset_id}'):
         selected_asset = assets_map.get(selected_asset_id)
 
         if selected_asset:
@@ -154,8 +142,7 @@ def display_assets_table_with_actions(db: Session, assets, user_id):
                         st.success(f"Actif '{selected_asset.nom}' supprimé avec succès.")
 
                         # Nettoyer la session state
-                        if f'confirm_delete_{selected_asset_id}' in st.session_state:
-                            del st.session_state[f'confirm_delete_{selected_asset_id}']
+                        session_manager.delete(f'confirm_delete_{selected_asset_id}')
 
                         st.rerun()
                     else:
@@ -164,8 +151,7 @@ def display_assets_table_with_actions(db: Session, assets, user_id):
             with col2:
                 if st.button("Annuler", key=f"confirm_no_{selected_asset_id}"):
                     # Annuler la suppression
-                    if f'confirm_delete_{selected_asset_id}' in st.session_state:
-                        del st.session_state[f'confirm_delete_{selected_asset_id}']
+                    session_manager.delete(f'confirm_delete_{selected_asset_id}')
                     st.rerun()
 
     # Contrôles de pagination
@@ -173,7 +159,7 @@ def display_assets_table_with_actions(db: Session, assets, user_id):
 
     with cols[0]:
         if st.button("⏮️ Précédent", key="assets_table_prev", disabled=page_idx == 0):
-            st.session_state["assets_table_page"] = max(0, page_idx - 1)
+            session_manager.set_page("assets_table", max(0, page_idx - 1))
             st.rerun()
 
     with cols[1]:
@@ -181,7 +167,7 @@ def display_assets_table_with_actions(db: Session, assets, user_id):
 
     with cols[2]:
         if st.button("Suivant ⏭️", key="assets_table_next", disabled=page_idx >= n_pages - 1):
-            st.session_state["assets_table_page"] = min(n_pages - 1, page_idx + 1)
+            session_manager.set_page("assets_table", min(n_pages - 1, page_idx + 1))
             st.rerun()
 
 
