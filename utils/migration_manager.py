@@ -6,9 +6,7 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from sqlalchemy import create_engine
 
 from config.app_config import DB_PATH
 from utils.logger import get_logger
@@ -120,17 +118,42 @@ class MigrationManager:
         try:
             # Cette opération nécessite une base existante
             if not self.db_path.exists():
+                logger.info("La base de données n'existe pas encore")
                 return None
 
-            # Créer une connexion SQLAlchemy
-            engine = create_engine(f"sqlite:///{self.db_path}")
-            with engine.connect() as conn:
-                context = MigrationContext.configure(conn)
-                current_rev = context.get_current_revision()
+            # Connexion directe à SQLite sans SQLAlchemy
+            import sqlite3
+            try:
+                conn = sqlite3.connect(str(self.db_path))
+                cursor = conn.cursor()
 
-            return current_rev
+                # Vérifier si la table alembic_version existe
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='alembic_version'")
+                if not cursor.fetchone():
+                    logger.info("La table alembic_version n'existe pas")
+                    conn.close()
+                    return None
+
+                # Récupérer la version
+                cursor.execute("SELECT version_num FROM alembic_version")
+                row = cursor.fetchone()
+                version = row[0] if row else None
+
+                conn.close()
+
+                if version:
+                    logger.info(f"Version actuelle de la migration: {version}")
+                else:
+                    logger.info("La table alembic_version existe mais est vide")
+
+                return version
+
+            except sqlite3.Error as e:
+                logger.error(f"Erreur SQLite: {str(e)}")
+                return None
+
         except Exception as e:
-            logger.error(f"Erreur lors de la récupération de la version de la base: {str(e)}")
+            logger.error(f"Erreur lors de la récupération de la version: {str(e)}")
             return None
 
     def get_available_migrations(self) -> list:
@@ -186,23 +209,30 @@ class MigrationManager:
             True si l'initialisation a réussi, False sinon
         """
         try:
-            # Vérifier si la base existe déjà
-            db_exists = self.db_path.exists()
+            # Vérifier si la base existe déjà et contient la table alembic_version
+            if self.db_path.exists():
+                # Vérifier avec SQLite directement
+                import sqlite3
+                conn = sqlite3.connect(str(self.db_path))
+                cursor = conn.cursor()
 
-            if not db_exists:
-                # Créer le répertoire si nécessaire
-                self.db_path.parent.mkdir(exist_ok=True)
-                logger.info(f"Création de la base de données: {self.db_path}")
-            else:
-                # Vérifier la compatibilité des migrations
-                if not self.check_migration_compatibility():
-                    logger.error("La base de données existante n'est pas compatible avec les migrations disponibles")
-                    return False
+                # Vérifier si la table alembic_version existe et contient une version
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='alembic_version'")
+                if cursor.fetchone():
+                    cursor.execute("SELECT version_num FROM alembic_version")
+                    if cursor.fetchone():
+                        conn.close()
+                        logger.info("Base de données déjà initialisée")
+                        return True
+
+                conn.close()
+
+            # Si on arrive ici, soit la base n'existe pas, soit elle n'a pas de version
+            logger.info("Initialisation de la base de données...")
 
             # Appliquer les migrations
-            if not self.upgrade_database("head"):
-                logger.error("Échec de l'application des migrations lors de l'initialisation")
-                return False
+            cfg = self.get_alembic_config()
+            command.upgrade(cfg, "head")
 
             logger.info("Base de données initialisée avec succès")
             return True

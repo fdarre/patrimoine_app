@@ -1,12 +1,13 @@
 """
 Point d'entrée principal de l'application de gestion patrimoniale
 """
+import os
 import sys
 from datetime import datetime
 
 import streamlit as st
 
-from config.app_config import LOGS_DIR
+from config.app_config import LOGS_DIR, DB_PATH
 from ui.analysis import show_analysis
 from ui.assets import show_asset_management
 from ui.auth import show_auth, check_auth, logout, get_current_user_id
@@ -153,9 +154,15 @@ if __name__ == "__main__":
     # Initialiser la base de données avec les migrations Alembic
     from utils.migration_manager import migration_manager
 
-    if not migration_manager.initialize_database():
-        logger.critical("Échec de l'initialisation de la base de données avec les migrations.")
-        sys.exit(1)
+    # Vérifier si la base existe déjà et est initialisée
+    if not os.path.exists(DB_PATH) or migration_manager.get_current_version() is None:
+        logger.info("Initialisation de la base de données...")
+        if not migration_manager.initialize_database():
+            logger.critical("Échec de l'initialisation de la base de données avec les migrations.")
+            sys.exit(1)
+        logger.info("Base de données initialisée avec succès.")
+    else:
+        logger.info(f"Base de données déjà initialisée, version: {migration_manager.get_current_version()}")
 
     # Démarrer l'application
     main()
