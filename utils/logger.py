@@ -124,7 +124,7 @@ class Logger:
         """
         # Add standard fields
         result = {
-            'module': self.module,
+            'app_module': self.module,  # Changé de 'module' à 'app_module' pour éviter le conflit
             'timestamp': datetime.now().isoformat()
         }
 
