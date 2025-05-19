@@ -1,126 +1,65 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 """
-Module pour générer ou restaurer les fichiers de clés nécessaires à l'application.
-Ce script doit pouvoir s'exécuter même si les fichiers de clés n'existent pas encore.
+Script d'initialisation des clés de chiffrement
+À utiliser uniquement pour une nouvelle installation ou en cas de perte des clés
 """
-
-import base64
-import logging
-import secrets
+import argparse
 import sys
 from pathlib import Path
 
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+# Ajouter le répertoire parent au chemin pour pouvoir importer les modules
+sys.path.append(str(Path(__file__).parent))
 
-# Configuration du logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+from config.app_config import DATA_DIR, KEY_BACKUPS_DIR
+from utils.key_manager import KeyManager
+from utils.logger import get_logger
 
-# Chemins des fichiers de clés
-KEY_FILE = Path("config/security/.key")
-SALT_FILE = Path("config/security/.salt")
-
-
-def create_directories():
-    """Crée les répertoires nécessaires s'ils n'existent pas."""
-    KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Répertoire vérifié: {KEY_FILE.parent}")
-
-
-def generate_salt():
-    """Génère un nouveau sel cryptographique aléatoire."""
-    return secrets.token_bytes(16)
-
-
-def generate_key(salt):
-    """Génère une nouvelle clé cryptographique basée sur un sel."""
-    password = secrets.token_bytes(32)  # Mot de passe aléatoire de 32 octets
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=100000,
-    )
-    key = base64.urlsafe_b64encode(kdf.derive(password))
-    return key
-
-
-def save_files(key, salt):
-    """Sauvegarde la clé et le sel dans les fichiers appropriés."""
-    try:
-        with open(KEY_FILE, 'wb') as key_file:
-            key_file.write(key)
-        logger.info(f"Fichier de clé créé: {KEY_FILE}")
-
-        with open(SALT_FILE, 'wb') as salt_file:
-            salt_file.write(salt)
-        logger.info(f"Fichier de sel créé: {SALT_FILE}")
-
-        return True
-    except Exception as e:
-        logger.critical(f"Erreur lors de la sauvegarde des fichiers: {e}")
-        return False
-
-
-def check_existing_files():
-    """Vérifie si les fichiers de clés existent déjà."""
-    key_exists = KEY_FILE.exists()
-    salt_exists = SALT_FILE.exists()
-
-    if key_exists and salt_exists:
-        logger.info("Les fichiers de clés existent déjà.")
-        return True
-    elif key_exists or salt_exists:
-        # Si un seul des fichiers existe, c'est une situation incohérente
-        logger.warning("État incohérent: certains fichiers de clés existent mais pas tous.")
-        return False
-    else:
-        logger.info("Aucun fichier de clés n'existe encore.")
-        return False
+logger = get_logger(__name__)
 
 
 def main():
-    """Fonction principale pour générer ou vérifier les fichiers de clés."""
-    logger.info("Démarrage de l'initialisation des clés...")
+    parser = argparse.ArgumentParser(
+        description="Initialise les clés de chiffrement pour l'application"
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force l'écrasement des clés existantes (DANGER: rendra les données existantes irrécupérables)"
+    )
+    args = parser.parse_args()
 
-    # Crée les répertoires nécessaires
-    create_directories()
+    # Vérifier si les clés existent déjà
+    key_manager = KeyManager(DATA_DIR, KEY_BACKUPS_DIR)
+    if key_manager.check_keys_exist() and not args.force:
+        print("Des fichiers de clés existent déjà.")
+        confirm = input("Êtes-vous ABSOLUMENT CERTAIN de vouloir générer de nouvelles clés? (oui/NON): ")
+        if confirm.lower() != "oui":
+            print("Opération annulée.")
+            return
 
-    # Vérifie si les fichiers existent déjà
-    files_exist = check_existing_files()
+        print("\n" + "*" * 80)
+        print("AVERTISSEMENT: Vous êtes sur le point de créer de nouvelles clés.")
+        print("TOUTES LES DONNÉES EXISTANTES SERONT IRRÉCUPÉRABLES!")
+        print("*" * 80 + "\n")
 
-    if files_exist:
-        logger.info("Les fichiers de clés sont déjà initialisés.")
-        print("Les fichiers de clés sont déjà initialisés et valides.")
-        return True
+        confirm_again = input("Tapez 'JE COMPRENDS LES RISQUES' pour continuer: ")
+        if confirm_again != "JE COMPRENDS LES RISQUES":
+            print("Opération annulée.")
+            return
 
-    # Génère de nouvelles clés
-    logger.info("Génération de nouvelles clés...")
-    salt = generate_salt()
-    key = generate_key(salt)
+    # Initialiser les nouvelles clés
+    new_key_manager = KeyManager.init_new_keys(DATA_DIR, force=args.force or False)
 
-    # Sauvegarde les fichiers
-    if save_files(key, salt):
-        logger.info("Initialisation des clés réussie.")
-        print("Les fichiers de clés ont été générés avec succès.")
-        return True
+    if new_key_manager:
+        print("Clés générées avec succès.")
+        print(f"Les backups ont été créés dans: {KEY_BACKUPS_DIR}")
+        print("\nIMPORTANT: Sauvegardez ces fichiers dans un endroit sûr:")
+        print(f"  - {DATA_DIR / '.key'}")
+        print(f"  - {DATA_DIR / '.salt'}")
+        print(f"  - {DATA_DIR / '.key_metadata.json'}")
     else:
-        logger.critical("Échec de l'initialisation des clés.")
-        print("ERREUR: Impossible de générer les fichiers de clés. Vérifiez les permissions.")
-        return False
+        print("Échec de l'initialisation des clés.")
 
 
 if __name__ == "__main__":
-    try:
-        success = main()
-        sys.exit(0 if success else 1)
-    except Exception as e:
-        logger.critical(f"Exception non gérée: {e}")
-        print(f"ERREUR CRITIQUE: {e}")
-        sys.exit(1)
+    main()
