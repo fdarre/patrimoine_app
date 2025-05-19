@@ -39,3 +39,6 @@ Thumbs.db
 
 # Fichiers de configuration locaux
 .env
+
+# Fichier temporaire d'Alembic
+migrations/__pycache__/

@@ -1,14 +1,15 @@
 """
 Service de sauvegarde chiffrée avec vérification d'intégrité
 """
-import os
-import zipfile
-import shutil
-import tempfile
 import hashlib
 import json
 import logging
+import os
+import shutil
+import tempfile
+import zipfile
 from datetime import datetime
+
 from cryptography.fernet import Fernet
 
 from config.app_config import DATA_DIR
@@ -169,6 +170,11 @@ class BackupService:
                 extracted_db_path = os.path.join(temp_dir, os.path.basename(db_path))
                 shutil.copy2(extracted_db_path, db_path)
                 logger.info("Restauration terminée avec succès")
+
+                # NOUVEAU: Appliquer les migrations à la base restaurée
+                from utils.migration_manager import migration_manager
+                logger.info("Application des migrations à la base restaurée...")
+                migration_manager.upgrade_database("head")
 
             return True
         except Exception as e:

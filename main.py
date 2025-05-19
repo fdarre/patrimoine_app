@@ -1,13 +1,12 @@
 """
 Point d'entrée principal de l'application de gestion patrimoniale
 """
-
+import sys
 from datetime import datetime
 
 import streamlit as st
 
 from config.app_config import LOGS_DIR
-from database.db_config import engine, Base
 from ui.analysis import show_analysis
 from ui.assets import show_asset_management
 from ui.auth import show_auth, check_auth, logout, get_current_user_id
@@ -145,13 +144,18 @@ def main():
         </div>
         """, unsafe_allow_html=True)
 
+
 # Point d'entrée
 if __name__ == "__main__":
-    # S'assurer que les tables existent
-    Base.metadata.create_all(bind=engine)
-
     # S'assurer que les dossiers de logs existent
     LOGS_DIR.mkdir(exist_ok=True)  # Utiliser la méthode mkdir() de Path
+
+    # Initialiser la base de données avec les migrations Alembic
+    from utils.migration_manager import migration_manager
+
+    if not migration_manager.initialize_database():
+        logger.critical("Échec de l'initialisation de la base de données avec les migrations.")
+        sys.exit(1)
 
     # Démarrer l'application
     main()
