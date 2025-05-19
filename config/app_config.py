@@ -8,10 +8,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from utils.logger import get_logger
-
-# Configure logger
-logger = get_logger(__name__)
+# Import logger functions only, not the full module
+from utils.logger import get_logger, configure_logging
 
 # Load environment variables
 load_dotenv()
@@ -25,6 +23,48 @@ STATIC_DIR = BASE_DIR / "static"
 # Ensure directories exist
 DATA_DIR.mkdir(exist_ok=True)
 LOGS_DIR.mkdir(exist_ok=True)
+
+# Définir la configuration de logging
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        },
+        "detailed": {
+            "format": "%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s"
+        }
+    },
+    "handlers": {
+        "file": {
+            "class": "logging.FileHandler",
+            "filename": str(LOGS_DIR / "app.log"),
+            "formatter": "standard"
+        },
+        "detailed_file": {
+            "class": "logging.FileHandler",
+            "filename": str(LOGS_DIR / "detailed.log"),
+            "formatter": "detailed"
+        },
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard"
+        }
+    },
+    "loggers": {
+        "": {
+            "handlers": ["file", "console"],
+            "level": "INFO",
+        }
+    }
+}
+
+# Configurer le logging avec notre configuration
+configure_logging(LOGGING_CONFIG, LOGS_DIR)
+
+# Configure logger for this module
+logger = get_logger(__name__)
 
 # Database configuration
 DB_PATH = DATA_DIR / "patrimoine.db"
@@ -132,42 +172,6 @@ GEO_ZONES_DESCRIPTIONS = {
 }
 
 CURRENCIES = ["EUR", "USD", "GBP", "JPY", "CHF"]
-
-# Logging configuration
-LOGGING_CONFIG = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "standard": {
-            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        },
-        "detailed": {
-            "format": "%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s"
-        }
-    },
-    "handlers": {
-        "file": {
-            "class": "logging.FileHandler",
-            "filename": str(LOGS_DIR / "app.log"),
-            "formatter": "standard"
-        },
-        "detailed_file": {
-            "class": "logging.FileHandler",
-            "filename": str(LOGS_DIR / "detailed.log"),
-            "formatter": "detailed"
-        },
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "standard"
-        }
-    },
-    "loggers": {
-        "": {
-            "handlers": ["file", "console"],
-            "level": "INFO",
-        }
-    }
-}
 
 # Custom CSS for the application
 CUSTOM_CSS = """

@@ -6,12 +6,20 @@ import logging.config
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 
-from config.app_config import LOGGING_CONFIG, LOGS_DIR
+# Configuration de base par défaut - sera remplacée plus tard
+DEFAULT_LOGS_DIR = Path("logs")
+DEFAULT_LOGS_DIR.mkdir(exist_ok=True)
 
-# Configure logging
-logging.config.dictConfig(LOGGING_CONFIG)
+# Configure logging with basic settings initially
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
 
 
 class LogLevel(Enum):
@@ -124,7 +132,7 @@ class Logger:
         """
         # Add standard fields
         result = {
-            'app_module': self.module,  # Changé de 'module' à 'app_module' pour éviter le conflit
+            'app_module': self.module,
             'timestamp': datetime.now().isoformat()
         }
 
@@ -163,6 +171,21 @@ def log_exception(logger: Logger, e: Exception, message: Optional[str] = None) -
         logger.exception(str(e), exc=e)
 
 
+def configure_logging(config: Dict[str, Any], logs_dir: Path) -> None:
+    """
+    Configure logging with the provided configuration
+
+    Args:
+        config: Logging configuration dictionary
+        logs_dir: Directory for log files
+    """
+    # Ensure the logs directory exists
+    logs_dir.mkdir(exist_ok=True)
+
+    # Apply configuration
+    logging.config.dictConfig(config)
+
+
 def setup_file_logging(user_id: Optional[str] = None) -> Path:
     """
     Configure logging to a file specific to the user
@@ -173,12 +196,15 @@ def setup_file_logging(user_id: Optional[str] = None) -> Path:
     Returns:
         Path to the log file
     """
+    # Get logs directory (use global if configured, otherwise default)
+    logs_dir = DEFAULT_LOGS_DIR
+
     # Create log file name
     today = datetime.now().strftime("%Y-%m-%d")
     if user_id:
-        log_file = LOGS_DIR / f"user_{user_id}_{today}.log"
+        log_file = logs_dir / f"user_{user_id}_{today}.log"
     else:
-        log_file = LOGS_DIR / f"app_{today}.log"
+        log_file = logs_dir / f"app_{today}.log"
 
     # Configure a file handler
     file_handler = logging.FileHandler(str(log_file))
