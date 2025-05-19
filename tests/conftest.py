@@ -19,6 +19,15 @@ os.environ["TEST_MODE"] = "True"
 from database.models import Base, User, Bank, Account, Asset
 from utils.password import hash_password
 
+# Mock pour Streamlit
+try:
+    import streamlit as st
+
+    # Remplacer st.secrets par un dictionnaire simple
+    st.secrets = {"env": "test"}
+except ImportError:
+    pass
+
 
 @pytest.fixture(scope="session")
 def test_db_path():
