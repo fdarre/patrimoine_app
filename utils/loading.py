@@ -73,7 +73,7 @@ def show_notification(message: str, type: str = "info", duration: int = 3):
         # Cette solution n'est pas idéale car elle bloque le thread,
         # mais Streamlit n'offre pas de mécanisme natif pour les notifications temporaires
         # sans utiliser JavaScript. Pour une meilleure solution, il faudrait
-        # implémenter un système de gestion de notifications dans session_state.
+        # implémenter un système de gestion de notifications dans session_manager.
         time.sleep(duration)
         placeholder.empty()
 

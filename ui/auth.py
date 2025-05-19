@@ -6,10 +6,13 @@ from typing import Optional
 import streamlit as st
 
 from config.app_config import MAX_USERS
-from database.db_config import get_db
+from database.db_config import get_db_session  # Au lieu de get_db
 from services.auth_service import AuthService
+from utils.error_manager import catch_exceptions  # Ajout du décorateur
+from utils.session_manager import session_manager  # Utilisation du gestionnaire de session
 
 
+@catch_exceptions
 def show_login():
     """
     Affiche la page de connexion
@@ -23,10 +26,8 @@ def show_login():
         submitted = st.form_submit_button("Se connecter")
 
         if submitted:
-            # Obtenir une session de base de données
-            db = next(get_db())
-
-            try:
+            # Utiliser le gestionnaire de contexte pour la session DB
+            with get_db_session() as db:
                 # Authentifier l'utilisateur
                 user = AuthService.authenticate_user(db, username, password)
 
@@ -35,17 +36,16 @@ def show_login():
                     token = AuthService.create_access_token({"sub": user.username})
 
                     # Stocker le token et l'id de l'utilisateur dans la session
-                    st.session_state["token"] = token
-                    st.session_state["user"] = user.username
-                    st.session_state["user_id"] = user.id
+                    session_manager.set("token", token)
+                    session_manager.set("user", user.username)
+                    session_manager.set("user_id", user.id)
 
                     # Rediriger vers la page principale
                     st.success("Connexion réussie")
                     st.rerun()
                 else:
                     st.error("Nom d'utilisateur ou mot de passe incorrect")
-            finally:
-                db.close()
+
 
 def show_register():
     """
@@ -53,10 +53,8 @@ def show_register():
     """
     st.title("Créer un compte")
 
-    # Obtenir une session de base de données pour vérifier le nombre d'utilisateurs
-    db = next(get_db())
-
-    try:
+    # Utiliser le gestionnaire de contexte pour la session DB
+    with get_db_session() as db:
         # Vérifier le nombre d'utilisateurs (limite de MAX_USERS)
         user_count = AuthService.get_user_count(db)
 
@@ -97,17 +95,16 @@ def show_register():
                     st.success("Compte créé avec succès. Vous pouvez maintenant vous connecter.")
                 else:
                     st.error("Erreur lors de la création du compte")
-    finally:
-        db.close()
+
 
 def show_auth():
     """
     Affiche l'interface d'authentification
     """
     # Si l'utilisateur est déjà connecté, ne rien faire
-    if "token" in st.session_state and "user" in st.session_state:
+    if session_manager.get("token") and session_manager.get("user"):
         # Vérifier que le token est valide
-        token = st.session_state["token"]
+        token = session_manager.get("token")
         payload = AuthService.verify_token(token)
 
         if payload:
@@ -127,6 +124,7 @@ def show_auth():
 
     return False
 
+
 def check_auth():
     """
     Vérifie si l'utilisateur est authentifié
@@ -134,11 +132,11 @@ def check_auth():
     Returns:
         True si l'utilisateur est authentifié, False sinon
     """
-    if "token" not in st.session_state or "user" not in st.session_state:
+    if not session_manager.get("token") or not session_manager.get("user"):
         return False
 
     # Vérifier que le token est valide
-    token = st.session_state["token"]
+    token = session_manager.get("token")
     payload = AuthService.verify_token(token)
 
     if not payload:
@@ -148,19 +146,18 @@ def check_auth():
 
     return True
 
+
 def logout():
     """
     Déconnecte l'utilisateur
     """
-    if "token" in st.session_state:
-        del st.session_state["token"]
-    if "user" in st.session_state:
-        del st.session_state["user"]
-    if "user_id" in st.session_state:
-        del st.session_state["user_id"]
+    session_manager.delete("token")
+    session_manager.delete("user")
+    session_manager.delete("user_id")
 
     st.success("Vous avez été déconnecté")
     st.rerun()
+
 
 def get_current_user_id() -> Optional[str]:
     """
@@ -169,4 +166,4 @@ def get_current_user_id() -> Optional[str]:
     Returns:
         ID de l'utilisateur ou None si non connecté
     """
-    return st.session_state.get("user_id")
+    return session_manager.get("user_id")

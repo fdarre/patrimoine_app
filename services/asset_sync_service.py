@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from database.models import Asset
 from services.currency_service import CurrencyService
 from services.price_service import PriceService
-from utils.decorators import handle_exceptions
+from utils.error_manager import catch_exceptions  # Changé de handle_exceptions
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -29,7 +29,7 @@ class AssetSyncService:
         self.price_service = PriceService()
         self.currency_service = CurrencyService()
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def _sync_assets(
             self,
             db: Session,
@@ -74,7 +74,7 @@ class AssetSyncService:
 
         return updated_count
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def sync_currency_rates(self, db: Session, asset_id: Optional[str] = None) -> int:
         """
         Synchronise les taux de change pour un actif ou tous les actifs
@@ -124,7 +124,7 @@ class AssetSyncService:
 
         return self._sync_assets(db, filter_assets, update_asset, asset_id)
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def sync_price_by_isin(self, db: Session, asset_id: Optional[str] = None) -> int:
         """
         Synchronise les prix à partir des codes ISIN pour un actif ou tous les actifs
@@ -173,7 +173,7 @@ class AssetSyncService:
 
         return self._sync_assets(db, filter_assets, update_asset, asset_id)
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def sync_metal_prices(self, db: Session, asset_id: Optional[str] = None) -> int:
         """
         Synchronise les prix des métaux précieux pour un actif ou tous les actifs de type métal
@@ -236,7 +236,7 @@ class AssetSyncService:
 
         return self._sync_assets(db, filter_assets, update_asset, asset_id)
 
-    @handle_exceptions
+    @catch_exceptions  # Changé de handle_exceptions
     def sync_all(self, db: Session) -> dict:
         """
         Synchronise tous les types d'actifs en une seule opération

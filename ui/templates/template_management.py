@@ -5,21 +5,25 @@ from datetime import datetime
 
 import pandas as pd
 import streamlit as st
-from sqlalchemy.orm import Session
 
+from database.db_config import get_db_session  # Au lieu de get_db
 from database.models import Asset
 from services.template_service import template_service
 from utils.calculations import get_default_geo_zones
+from utils.session_manager import session_manager  # Utilisation du gestionnaire de session
 
 
-def show_template_management(db: Session, user_id: str):
+def show_template_management():
     """
     Affiche l'interface de gestion des modèles d'actifs
-
-    Args:
-        db: Session de base de données
-        user_id: ID de l'utilisateur
     """
+    # Récupérer l'ID utilisateur depuis le gestionnaire de session
+    user_id = session_manager.get("user_id")
+
+    if not user_id:
+        st.error("Utilisateur non authentifié")
+        return
+
     st.header("Gestion des modèles d'actifs")
     st.markdown("""
     Cette page vous permet de gérer des modèles d'actifs qui servent de références pour d'autres actifs.
@@ -29,17 +33,19 @@ def show_template_management(db: Session, user_id: str):
 
     tabs = st.tabs(["Modèles existants", "Créer un modèle", "Lier des actifs"])
 
-    with tabs[0]:
-        show_existing_templates(db, user_id)
+    # Utiliser le gestionnaire de contexte pour la session DB
+    with get_db_session() as db:
+        with tabs[0]:
+            show_existing_templates(db, user_id)
 
-    with tabs[1]:
-        show_create_template(db, user_id)
+        with tabs[1]:
+            show_create_template(db, user_id)
 
-    with tabs[2]:
-        show_link_to_template(db, user_id)
+        with tabs[2]:
+            show_link_to_template(db, user_id)
 
 
-def show_existing_templates(db: Session, user_id: str):
+def show_existing_templates(db, user_id: str):
     """
     Affiche les modèles existants et permet de propager leurs modifications
 
@@ -89,7 +95,7 @@ def show_existing_templates(db: Session, user_id: str):
                 show_template_details(db, selected_template)
 
 
-def show_template_details(db: Session, template: Asset):
+def show_template_details(db, template: Asset):
     """
     Affiche les détails d'un modèle et ses actifs liés, avec possibilité de modification
 
@@ -338,7 +344,7 @@ def show_template_details(db: Session, template: Asset):
         st.info("Aucun actif n'est lié à ce modèle pour le moment.")
 
 
-def show_create_template(db: Session, user_id: str):
+def show_create_template(db, user_id: str):
     """
     Affiche l'interface pour créer un nouveau modèle à partir d'un actif existant
 
@@ -396,7 +402,7 @@ def show_create_template(db: Session, user_id: str):
                 st.error("Erreur lors de la création du modèle")
 
 
-def show_link_to_template(db: Session, user_id: str):
+def show_link_to_template(db, user_id: str):
     """
     Affiche l'interface pour lier des actifs existants à un modèle
 
