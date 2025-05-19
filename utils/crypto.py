@@ -4,7 +4,7 @@ Utilitaires pour le chiffrement et déchiffrement
 from sqlalchemy import TypeDecorator, String
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 
-from database.db_config import encrypt_data, decrypt_data, encrypt_json, decrypt_json
+from database.db_config import encrypt_data, decrypt_data, encrypt_json, decrypt_json, DataCorruptionError
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -40,7 +40,12 @@ class EncryptedJSON(TypeDecorator):
 
     def process_result_value(self, value, dialect):
         if value is not None:
-            return decrypt_json(value)
+            try:
+                return decrypt_json(value, silent_errors=True)
+            except DataCorruptionError as e:
+                logger.critical(f"CORRUPTION DÉTECTÉE: {str(e)}")
+                # En production, on retourne un dict vide mais on a loggé l'erreur
+                return {}
         return value
 
 # Types de données mutables chiffrés

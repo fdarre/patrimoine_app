@@ -22,6 +22,12 @@ from utils.logger import get_logger
 # Configure logger
 logger = get_logger(__name__)
 
+
+# Define a custom exception for data corruption
+class DataCorruptionError(Exception):
+    """Exception raised when encrypted data is corrupted or can't be decrypted properly"""
+    pass
+
 # Create SQLAlchemy engine
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
@@ -117,8 +123,20 @@ def encrypt_json(data_dict):
         return None
 
 
-def decrypt_json(encrypted_str) -> Dict[str, Any]:
-    """Decrypt a JSON dictionary with error handling"""
+def decrypt_json(encrypted_str, silent_errors=False) -> Dict[str, Any]:
+    """
+    Decrypt a JSON dictionary with error handling
+
+    Args:
+        encrypted_str: Encrypted JSON string
+        silent_errors: If True, return empty dict instead of raising exception (for backward compatibility)
+
+    Returns:
+        Decrypted dictionary
+
+    Raises:
+        DataCorruptionError: If decryption fails and silent_errors is False
+    """
     if encrypted_str is None:
         return {}
 
@@ -128,7 +146,10 @@ def decrypt_json(encrypted_str) -> Dict[str, Any]:
 
         # Handle decryption failure
         if json_str == "[Decryption Error]":
-            logger.error("JSON decryption failed - possible data corruption or key mismatch")
+            error_msg = "JSON decryption failed - possible data corruption or key mismatch"
+            logger.error(error_msg)
+            if not silent_errors:
+                raise DataCorruptionError(error_msg)
             return {}
 
         # Try to parse JSON
@@ -139,14 +160,26 @@ def decrypt_json(encrypted_str) -> Dict[str, Any]:
                 if isinstance(result, dict):
                     return result
                 else:
-                    logger.error(f"Decrypted JSON is not a dictionary, got {type(result)}")
+                    error_msg = f"Decrypted JSON is not a dictionary, got {type(result)}"
+                    logger.error(error_msg)
+                    if not silent_errors:
+                        raise DataCorruptionError(error_msg)
                     return {}
             except json.JSONDecodeError as e:
-                logger.error(f"JSON decode error: {str(e)}")
+                error_msg = f"JSON decode error: {str(e)}"
+                logger.error(error_msg)
+                if not silent_errors:
+                    raise DataCorruptionError(error_msg)
                 return {}
         return {}
+    except DataCorruptionError:
+        # Re-raise DataCorruptionError exceptions
+        raise
     except Exception as e:
-        logger.error(f"JSON decryption error: {str(e)}")
+        error_msg = f"JSON decryption error: {str(e)}"
+        logger.error(error_msg)
+        if not silent_errors:
+            raise DataCorruptionError(error_msg)
         return {}
 
 
