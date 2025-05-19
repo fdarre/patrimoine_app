@@ -63,90 +63,12 @@ def get_encryption_key():
         raise
 
 
-# Fonction pour vérifier que les clés peuvent déchiffrer des données existantes
-def verify_keys_with_existing_data(db_path: str) -> bool:
-    """
-    Vérifie que les clés actuelles peuvent déchiffrer des données existantes
-
-    Args:
-        db_path: Chemin vers la base de données
-
-    Returns:
-        True si les clés permettent de déchiffrer des données, False sinon
-    """
-    if not os.path.exists(db_path):
-        logger.warning(f"Base de données {db_path} inexistante, impossible de vérifier les clés")
-        return True  # Pas de données à vérifier
-
-    try:
-        # Connexion à la BDD SQLite
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-
-        # Chercher une donnée chiffrée, essayer plusieurs tables
-        encrypted_data = None
-        tables_to_check = ['users', 'banks', 'assets']
-
-        for table in tables_to_check:
-            try:
-                cursor.execute(f"SELECT * FROM {table} LIMIT 1")
-                row = cursor.fetchone()
-                if row:
-                    # Trouver une colonne qui pourrait contenir des données chiffrées
-                    for i, value in enumerate(row):
-                        if isinstance(value, str) and len(value) > 64:  # Probablement chiffré
-                            encrypted_data = value
-                            break
-
-                    if encrypted_data:
-                        break
-            except sqlite3.Error:
-                continue  # Table n'existe peut-être pas
-
-        conn.close()
-
-        # Si aucune donnée chiffrée trouvée, on ne peut pas vérifier
-        if not encrypted_data:
-            logger.info("Aucune donnée chiffrée trouvée dans la base de données pour vérification")
-            return True
-
-        # Essayer de déchiffrer
-        try:
-            decrypt_data(encrypted_data)
-            logger.info("Vérification des clés réussie: déchiffrement des données existantes OK")
-
-            # Mettre à jour le timestamp de dernière vérification
-            from utils.key_manager import KeyManager
-            from config.app_config import DATA_DIR, KEY_BACKUPS_DIR
-            key_manager = KeyManager(DATA_DIR, KEY_BACKUPS_DIR)
-            key_manager.update_verification_timestamp()
-
-            return True
-        except Exception as e:
-            logger.critical(f"ERREUR: Les clés actuelles ne peuvent pas déchiffrer les données existantes: {str(e)}")
-            return False
-
-    except Exception as e:
-        logger.error(f"Erreur lors de la vérification des clés: {str(e)}")
-        return False
-
-
 # Initialiser le chiffrement
 try:
     # Initialisation normale
     ENCRYPTION_KEY = get_encryption_key()
     cipher = Fernet(ENCRYPTION_KEY)
     logger.info("Encryption successfully initialized")
-
-    # Vérifier la compatibilité avec les données existantes si la base existe
-    if os.path.exists(DB_PATH):
-        if not verify_keys_with_existing_data(str(DB_PATH)):
-            error_msg = "ERREUR CRITIQUE: Les clés ne peuvent pas déchiffrer les données existantes!"
-            logger.critical(error_msg)
-            print(error_msg)
-            print("Restaurez les fichiers de clés corrects ou utilisez une sauvegarde de la base de données.")
-            sys.exit(1)
-
 except Exception as e:
     error_msg = f"ERREUR FATALE: Impossible d'initialiser le chiffrement: {str(e)}"
     logger.critical(error_msg)
@@ -226,6 +148,84 @@ def decrypt_json(encrypted_str) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"JSON decryption error: {str(e)}")
         return {}
+
+
+# Fonction pour vérifier que les clés peuvent déchiffrer des données existantes
+def verify_keys_with_existing_data(db_path: str) -> bool:
+    """
+    Vérifie que les clés actuelles peuvent déchiffrer des données existantes
+
+    Args:
+        db_path: Chemin vers la base de données
+
+    Returns:
+        True si les clés permettent de déchiffrer des données, False sinon
+    """
+    if not os.path.exists(db_path):
+        logger.warning(f"Base de données {db_path} inexistante, impossible de vérifier les clés")
+        return True  # Pas de données à vérifier
+
+    try:
+        # Connexion à la BDD SQLite
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Chercher une donnée chiffrée, essayer plusieurs tables
+        encrypted_data = None
+        tables_to_check = ['users', 'banks', 'assets']
+
+        for table in tables_to_check:
+            try:
+                cursor.execute(f"SELECT * FROM {table} LIMIT 1")
+                row = cursor.fetchone()
+                if row:
+                    # Trouver une colonne qui pourrait contenir des données chiffrées
+                    for i, value in enumerate(row):
+                        if isinstance(value, str) and len(value) > 64:  # Probablement chiffré
+                            encrypted_data = value
+                            break
+
+                    if encrypted_data:
+                        break
+            except sqlite3.Error:
+                continue  # Table n'existe peut-être pas
+
+        conn.close()
+
+        # Si aucune donnée chiffrée trouvée, on ne peut pas vérifier
+        if not encrypted_data:
+            logger.info("Aucune donnée chiffrée trouvée dans la base de données pour vérification")
+            return True
+
+        # Essayer de déchiffrer
+        try:
+            decrypt_data(encrypted_data)
+            logger.info("Vérification des clés réussie: déchiffrement des données existantes OK")
+
+            # Mettre à jour le timestamp de dernière vérification
+            from utils.key_manager import KeyManager
+            from config.app_config import DATA_DIR, KEY_BACKUPS_DIR
+            key_manager = KeyManager(DATA_DIR, KEY_BACKUPS_DIR)
+            key_manager.update_verification_timestamp()
+
+            return True
+        except Exception as e:
+            logger.critical(f"ERREUR: Les clés actuelles ne peuvent pas déchiffrer les données existantes: {str(e)}")
+            return False
+
+    except Exception as e:
+        logger.error(f"Erreur lors de la vérification des clés: {str(e)}")
+        return False
+
+
+# Vérifier la compatibilité avec les données existantes si la base existe
+if os.path.exists(DB_PATH):
+    if not verify_keys_with_existing_data(str(DB_PATH)):
+        error_msg = "ERREUR CRITIQUE: Les clés ne peuvent pas déchiffrer les données existantes!"
+        logger.critical(error_msg)
+        print(error_msg)
+        print("Restaurez les fichiers de clés corrects ou utilisez une sauvegarde de la base de données.")
+        sys.exit(1)
 
 
 # Create a SQLAlchemy session
