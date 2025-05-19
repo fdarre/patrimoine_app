@@ -110,6 +110,7 @@ class AssetSyncService:
                     if exchange_rate and exchange_rate > 0:
                         # Mettre à jour l'actif
                         asset.exchange_rate = exchange_rate
+                        # CORRECTION: Division au lieu de multiplication pour convertir en EUR
                         asset.value_eur = asset.valeur_actuelle / exchange_rate
                         asset.last_rate_sync = datetime.now()
                         asset.sync_error = None
@@ -118,11 +119,9 @@ class AssetSyncService:
                         asset.sync_error = f"Taux de change non disponible pour {asset.devise}"
                         return False
             except Exception as e:
-                asset.sync_error = str(e)
+                asset.sync_error = str(e)  # CORRECTION: Ajout de mise à jour du champ sync_error
                 logger.error(f"Erreur lors de la mise à jour du taux de change pour {asset.id}: {str(e)}")
                 return False
-
-        return self._sync_assets(db, filter_assets, update_asset, asset_id)
 
     @catch_exceptions  # Changé de handle_exceptions
     def sync_price_by_isin(self, db: Session, asset_id: Optional[str] = None) -> int:

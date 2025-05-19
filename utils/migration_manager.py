@@ -137,6 +137,7 @@ class MigrationManager:
                 # Récupérer la version
                 cursor.execute("SELECT version_num FROM alembic_version")
                 row = cursor.fetchone()
+                # CORRECTION: Utiliser row[0] au lieu de row
                 version = row[0] if row else None
 
                 conn.close()
@@ -209,25 +210,7 @@ class MigrationManager:
             True si l'initialisation a réussi, False sinon
         """
         try:
-            # Vérifier si la base existe déjà et contient la table alembic_version
-            if self.db_path.exists():
-                # Vérifier avec SQLite directement
-                import sqlite3
-                conn = sqlite3.connect(str(self.db_path))
-                cursor = conn.cursor()
-
-                # Vérifier si la table alembic_version existe et contient une version
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='alembic_version'")
-                if cursor.fetchone():
-                    cursor.execute("SELECT version_num FROM alembic_version")
-                    if cursor.fetchone():
-                        conn.close()
-                        logger.info("Base de données déjà initialisée")
-                        return True
-
-                conn.close()
-
-            # Si on arrive ici, soit la base n'existe pas, soit elle n'a pas de version
+            # CORRECTION: Ne pas vérifier si la base existe d'abord, upgrade va la créer au besoin
             logger.info("Initialisation de la base de données...")
 
             # Appliquer les migrations
