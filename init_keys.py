@@ -4,17 +4,25 @@ Script d'initialisation des clés de chiffrement
 À utiliser uniquement pour une nouvelle installation ou en cas de perte des clés
 """
 import argparse
-import sys
+import json
+import os
+import secrets
+from datetime import datetime
 from pathlib import Path
 
-# Ajouter le répertoire parent au chemin pour pouvoir importer les modules
-sys.path.append(str(Path(__file__).parent))
+# Définir les chemins directement sans importer app_config
+BASE_DIR = Path(__file__).parent
+DATA_DIR = BASE_DIR / "data"
+KEY_BACKUPS_DIR = DATA_DIR / "key_backups"
 
-from config.app_config import DATA_DIR, KEY_BACKUPS_DIR
-from utils.key_manager import KeyManager
-from utils.logger import get_logger
+# Assurer que les répertoires existent
+DATA_DIR.mkdir(exist_ok=True)
+KEY_BACKUPS_DIR.mkdir(exist_ok=True)
 
-logger = get_logger(__name__)
+# Fichiers de clés
+SALT_FILE = DATA_DIR / ".salt"
+KEY_FILE = DATA_DIR / ".key"
+METADATA_FILE = DATA_DIR / ".key_metadata.json"
 
 
 def main():
@@ -29,8 +37,7 @@ def main():
     args = parser.parse_args()
 
     # Vérifier si les clés existent déjà
-    key_manager = KeyManager(DATA_DIR, KEY_BACKUPS_DIR)
-    if key_manager.check_keys_exist() and not args.force:
+    if (SALT_FILE.exists() or KEY_FILE.exists()) and not args.force:
         print("Des fichiers de clés existent déjà.")
         confirm = input("Êtes-vous ABSOLUMENT CERTAIN de vouloir générer de nouvelles clés? (oui/NON): ")
         if confirm.lower() != "oui":
@@ -47,18 +54,60 @@ def main():
             print("Opération annulée.")
             return
 
-    # Initialiser les nouvelles clés
-    new_key_manager = KeyManager.init_new_keys(DATA_DIR, force=args.force or False)
+    try:
+        # Générer de nouvelles clés
+        secret_key = secrets.token_bytes(32)
+        encryption_salt = secrets.token_bytes(16)
 
-    if new_key_manager:
+        # Écrire les fichiers
+        with open(KEY_FILE, "wb") as f:
+            f.write(secret_key)
+        with open(SALT_FILE, "wb") as f:
+            f.write(encryption_salt)
+
+        # Protéger les fichiers (Unix seulement)
+        try:
+            os.chmod(KEY_FILE, 0o600)
+            os.chmod(SALT_FILE, 0o600)
+        except Exception:
+            pass
+
+        # Créer les métadonnées
+        metadata = {
+            "version": 1,
+            "creation_date": datetime.now().isoformat(),
+            "last_verified": datetime.now().isoformat()
+        }
+
+        # Écrire les métadonnées
+        with open(METADATA_FILE, "w") as f:
+            json.dump(metadata, f, indent=2)
+
+        try:
+            os.chmod(METADATA_FILE, 0o600)
+        except Exception:
+            pass
+
+        # Créer un backup initial
+        backup_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_salt = KEY_BACKUPS_DIR / f"salt_backup_v1_initial_{backup_timestamp}"
+        backup_key = KEY_BACKUPS_DIR / f"key_backup_v1_initial_{backup_timestamp}"
+        backup_metadata = KEY_BACKUPS_DIR / f"metadata_backup_v1_initial_{backup_timestamp}"
+
+        # Copier les fichiers pour le backup
+        import shutil
+        shutil.copy2(SALT_FILE, backup_salt)
+        shutil.copy2(KEY_FILE, backup_key)
+        shutil.copy2(METADATA_FILE, backup_metadata)
+
         print("Clés générées avec succès.")
         print(f"Les backups ont été créés dans: {KEY_BACKUPS_DIR}")
         print("\nIMPORTANT: Sauvegardez ces fichiers dans un endroit sûr:")
-        print(f"  - {DATA_DIR / '.key'}")
-        print(f"  - {DATA_DIR / '.salt'}")
-        print(f"  - {DATA_DIR / '.key_metadata.json'}")
-    else:
-        print("Échec de l'initialisation des clés.")
+        print(f"  - {SALT_FILE}")
+        print(f"  - {KEY_FILE}")
+        print(f"  - {METADATA_FILE}")
+    except Exception as e:
+        print(f"Erreur lors de la génération des clés: {str(e)}")
 
 
 if __name__ == "__main__":
