@@ -1,7 +1,41 @@
-/venv/*
-/.idea/*
-.env
-generate_keys.py
-/data/patrimoine.db
-.salt
+# Ignorer le dossier data complet
+/data/
+
+# Exceptions éventuelles (fichiers non sensibles)
+!/data/README.md
+
+# Ignorer les logs
+/logs/
+
+# Fichiers Python compilés
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Environnements virtuels
+venv/
+env/
+ENV/
+
+# Fichiers IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Fichiers temporaires
+*.tmp
+*.bak
 *.log
+
+# Fichiers de configuration locaux
+.env

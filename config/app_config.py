@@ -24,6 +24,10 @@ STATIC_DIR = BASE_DIR / "static"
 DATA_DIR.mkdir(exist_ok=True)
 LOGS_DIR.mkdir(exist_ok=True)
 
+# Dossier dédié pour les backups de clés
+KEY_BACKUPS_DIR = DATA_DIR / "key_backups"
+KEY_BACKUPS_DIR.mkdir(exist_ok=True)
+
 # Définir la configuration de logging
 LOGGING_CONFIG = {
     "version": 1,
@@ -78,6 +82,7 @@ key_file = DATA_DIR / ".key"
 if key_file.exists():
     with open(key_file, "rb") as f:
         SECRET_KEY = f.read()
+    logger.info("Clé de chiffrement chargée avec succès")
 else:
     # Générer une nouvelle clé
     SECRET_KEY = secrets.token_bytes(32)
@@ -89,8 +94,8 @@ else:
     except Exception:
         pass
 
-    # Créer une copie de sauvegarde de la clé
-    backup_key_file = DATA_DIR / ".key.backup"
+    # Créer une copie de sauvegarde de la clé dans le dossier dédié
+    backup_key_file = KEY_BACKUPS_DIR / f"key_backup_initial"
     shutil.copy2(key_file, backup_key_file)
     try:
         os.chmod(backup_key_file, 0o600)
@@ -99,14 +104,16 @@ else:
 
     logger.warning(
         "CRITIQUE: Un nouveau fichier de clé a été créé. "
-        "SAUVEGARDEZ IMMÉDIATEMENT les fichiers .key et .key.backup "
-        "dans un endroit sécurisé. Sans ces fichiers, vos données seront PERDUES."
+        "SAUVEGARDEZ IMMÉDIATEMENT les fichiers .key et les backups dans "
+        f"{KEY_BACKUPS_DIR} dans un endroit sécurisé. Sans ces fichiers, "
+        "vos données seront PERDUES."
     )
 
 # Charger ou générer ENCRYPTION_SALT
 if salt_file.exists():
     with open(salt_file, "rb") as f:
         ENCRYPTION_SALT = f.read()
+    logger.info("Sel de chiffrement chargé avec succès")
 else:
     # Générer un nouveau sel
     ENCRYPTION_SALT = secrets.token_bytes(16)
@@ -118,8 +125,8 @@ else:
     except Exception:
         pass
 
-    # Créer une copie de sauvegarde du sel
-    backup_salt_file = DATA_DIR / ".salt.backup"
+    # Créer une copie de sauvegarde du sel dans le dossier dédié
+    backup_salt_file = KEY_BACKUPS_DIR / f"salt_backup_initial"
     shutil.copy2(salt_file, backup_salt_file)
     try:
         os.chmod(backup_salt_file, 0o600)
@@ -128,8 +135,9 @@ else:
 
     logger.warning(
         "CRITIQUE: Un nouveau fichier de sel a été créé. "
-        "SAUVEGARDEZ IMMÉDIATEMENT les fichiers .salt et .salt.backup "
-        "dans un endroit sécurisé. Sans ces fichiers, vos données seront PERDUES."
+        "SAUVEGARDEZ IMMÉDIATEMENT les fichiers .salt et les backups dans "
+        f"{KEY_BACKUPS_DIR} dans un endroit sécurisé. Sans ces fichiers, "
+        "vos données seront PERDUES."
     )
 
 # JWT configuration
