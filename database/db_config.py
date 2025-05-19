@@ -9,7 +9,7 @@ from typing import Generator, Dict, Any
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from sqlalchemy import create_engine, MetaData
+from sqlalchemy import create_engine, MetaData, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 
@@ -24,6 +24,14 @@ engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},  # Required for SQLite
 )
+
+
+# Activer les contraintes de clé étrangère dans SQLite
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
 
 # Function to generate encryption key from secret key
@@ -56,6 +64,7 @@ def get_encryption_key():
 try:
     ENCRYPTION_KEY = get_encryption_key()
     cipher = Fernet(ENCRYPTION_KEY)
+    logger.info("Encryption successfully initialized")
 except Exception as e:
     logger.critical(f"Failed to initialize encryption: {str(e)}")
     # Create a fallback dummy cipher for emergency - THIS WILL NOT DECRYPT PROPERLY
@@ -64,6 +73,7 @@ except Exception as e:
 
     fallback_key = base64.urlsafe_b64encode(os.urandom(32))
     cipher = Fernet(fallback_key)
+    logger.critical("ALERT: Using fallback encryption key. Data encrypted now WILL NOT be recoverable later!")
 
 
 # Functions for encrypting/decrypting sensitive data
@@ -118,6 +128,7 @@ def decrypt_json(encrypted_str) -> Dict[str, Any]:
 
         # Handle decryption failure
         if json_str == "[Decryption Error]":
+            logger.error("JSON decryption failed - possible data corruption or key mismatch")
             return {}
 
         # Try to parse JSON

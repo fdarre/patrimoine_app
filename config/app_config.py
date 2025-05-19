@@ -3,9 +3,15 @@ Centralized application configuration
 """
 import os
 import secrets
+import shutil
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+from utils.logger import get_logger
+
+# Configure logger
+logger = get_logger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -43,6 +49,20 @@ else:
     except Exception:
         pass
 
+    # Créer une copie de sauvegarde de la clé
+    backup_key_file = DATA_DIR / ".key.backup"
+    shutil.copy2(key_file, backup_key_file)
+    try:
+        os.chmod(backup_key_file, 0o600)
+    except Exception:
+        pass
+
+    logger.warning(
+        "CRITIQUE: Un nouveau fichier de clé a été créé. "
+        "SAUVEGARDEZ IMMÉDIATEMENT les fichiers .key et .key.backup "
+        "dans un endroit sécurisé. Sans ces fichiers, vos données seront PERDUES."
+    )
+
 # Charger ou générer ENCRYPTION_SALT
 if salt_file.exists():
     with open(salt_file, "rb") as f:
@@ -57,6 +77,20 @@ else:
         os.chmod(salt_file, 0o600)
     except Exception:
         pass
+
+    # Créer une copie de sauvegarde du sel
+    backup_salt_file = DATA_DIR / ".salt.backup"
+    shutil.copy2(salt_file, backup_salt_file)
+    try:
+        os.chmod(backup_salt_file, 0o600)
+    except Exception:
+        pass
+
+    logger.warning(
+        "CRITIQUE: Un nouveau fichier de sel a été créé. "
+        "SAUVEGARDEZ IMMÉDIATEMENT les fichiers .salt et .salt.backup "
+        "dans un endroit sécurisé. Sans ces fichiers, vos données seront PERDUES."
+    )
 
 # JWT configuration
 JWT_ALGORITHM = "HS256"

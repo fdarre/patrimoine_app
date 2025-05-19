@@ -1,5 +1,6 @@
 """
-Script de création de données de test (fixtures) avec gestion améliorée lancer avec python fixtures.py --reset
+Script de création de données de test (fixtures) avec gestion améliorée
+Lancer avec python fixtures.py --reset
 """
 import argparse
 import os
@@ -15,7 +16,11 @@ from services.account_service import account_service
 from services.asset_service import asset_service
 from services.bank_service import bank_service
 from services.data_service import DataService
+from utils.logger import get_logger
 from utils.password import hash_password
+
+# Configure logger
+logger = get_logger(__name__)
 
 # Configuration des fixtures
 USERNAME = "fredo"
@@ -200,8 +205,51 @@ def create_asset_data(idx, compte_id):
     return asset_data
 
 
+def check_encryption_system():
+    """Vérifie que le système de chiffrement est correctement initialisé"""
+    from database.db_config import cipher
+    from config.app_config import DATA_DIR
+
+    # Vérifier l'existence des fichiers de clés
+    salt_file = DATA_DIR / ".salt"
+    key_file = DATA_DIR / ".key"
+
+    if not salt_file.exists():
+        logger.critical("FICHIER DE SEL MANQUANT! Le chiffrement ne fonctionnera pas correctement.")
+        return False
+
+    if not key_file.exists():
+        logger.critical("FICHIER DE CLÉ MANQUANT! Le chiffrement ne fonctionnera pas correctement.")
+        return False
+
+    # Tester l'encryption avec une donnée factice
+    try:
+        test_data = "Test encryption system"
+        encrypted = cipher.encrypt(test_data.encode()).decode()
+        decrypted = cipher.decrypt(encrypted.encode()).decode()
+
+        if decrypted != test_data:
+            logger.critical("LE SYSTÈME DE CHIFFREMENT NE FONCTIONNE PAS CORRECTEMENT!")
+            return False
+
+        logger.info("Système de chiffrement vérifié avec succès.")
+        return True
+    except Exception as e:
+        logger.critical(f"ERREUR DE CHIFFREMENT: {str(e)}")
+        return False
+
+
 def create_fixtures(reset_db=False):
     """Crée les données de test"""
+    # Vérifier le système de chiffrement avant de continuer
+    encryption_ok = check_encryption_system()
+    if not encryption_ok:
+        print("AVERTISSEMENT: Le système de chiffrement présente des problèmes.")
+        confirm = input("Voulez-vous continuer malgré tout? (o/n): ")
+        if confirm.lower() != "o":
+            print("Opération annulée.")
+            return
+
     if reset_db:
         # Supprimer la base de données existante
         from config.app_config import DB_PATH
@@ -326,32 +374,45 @@ def create_fixtures(reset_db=False):
             Asset.owner_id == user_id
         ).scalar() or 0.0
 
+        # Utiliser le service pour créer les points d'historique
         for i in range(1, 12):  # Skip current month (already created above)
-            date = (datetime.now() - timedelta(days=30 * i)).strftime("%Y-%m-%d")
+            date_point = datetime.now() - timedelta(days=30 * i)
+            date_str = date_point.strftime("%Y-%m-%d")
 
             # Vérifier si un point existe déjà pour cette date
-            existing_point = db.query(HistoryPoint).filter(HistoryPoint.date == date).first()
+            existing_point = db.query(HistoryPoint).filter(HistoryPoint.date == date_str).first()
 
             if not existing_point:
                 try:
                     # Calculer une valeur historique simulée (variation de +/- 3%)
                     historic_value = current_total * (1 - random.uniform(0.005, 0.03) * i)
 
-                    # Créer le point d'historique
+                    # Créer le point d'historique en utilisant du code similaire à DataService
+                    # mais adapté pour la création de points historiques
                     history_point = HistoryPoint(
                         id=str(uuid.uuid4()),
-                        date=date,
+                        date=date_str,
                         assets={},  # Simplifié pour les fixtures
                         total=historic_value
                     )
                     db.add(history_point)
-                    print(f"Point d'historique créé pour {date}: {historic_value:.2f} €")
+                    print(f"Point d'historique créé pour {date_str}: {historic_value:.2f} €")
                 except Exception as e:
-                    print(f"Erreur lors de la création du point d'historique pour {date}: {str(e)}")
+                    print(f"Erreur lors de la création du point d'historique pour {date_str}: {str(e)}")
 
         # Valider tous les changements
         db.commit()
         print("Fixtures créées avec succès!")
+
+        # Créer une sauvegarde initiale
+        try:
+            from scheduled_backup import run_scheduled_backup
+            if run_scheduled_backup():
+                print("Sauvegarde initiale créée avec succès.")
+            else:
+                print("Échec de la création de la sauvegarde initiale.")
+        except Exception as e:
+            print(f"Erreur lors de la création de la sauvegarde initiale: {str(e)}")
 
 
 if __name__ == "__main__":
