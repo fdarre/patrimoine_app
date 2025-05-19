@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from config.app_config import SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from database.models import User
-from utils.decorators import handle_exceptions
+from utils.error_manager import catch_exceptions
 from utils.exceptions import AuthenticationError, ValidationError
 from utils.logger import get_logger
 from utils.password import hash_password, verify_password
@@ -25,7 +25,7 @@ class AuthService:
     """Service pour l'authentification et la gestion des utilisateurs avec sécurité renforcée"""
 
     @staticmethod
-    @handle_exceptions
+    @catch_exceptions
     def get_user_by_username(db: Session, username: str) -> Optional[User]:
         """
         Récupère un utilisateur par son nom d'utilisateur
@@ -40,7 +40,7 @@ class AuthService:
         return db.query(User).filter(User.username == username).first()
 
     @staticmethod
-    @handle_exceptions
+    @catch_exceptions
     def get_user_by_id(db: Session, user_id: str) -> Optional[User]:
         """
         Récupère un utilisateur par son ID
@@ -55,7 +55,7 @@ class AuthService:
         return db.query(User).filter(User.id == user_id).first()
 
     @staticmethod
-    @handle_exceptions
+    @catch_exceptions
     def create_user(db: Session, username: str, email: str, password: str) -> Optional[User]:
         """
         Crée un nouvel utilisateur avec vérification de la force du mot de passe
@@ -110,7 +110,7 @@ class AuthService:
         return new_user
 
     @staticmethod
-    @handle_exceptions
+    @catch_exceptions
     def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
         """
         Authentifie un utilisateur avec protection contre les attaques par force brute
@@ -214,7 +214,7 @@ class AuthService:
             return None
 
     @staticmethod
-    @handle_exceptions
+    @catch_exceptions
     def get_user_count(db: Session) -> int:
         """
         Compte le nombre d'utilisateurs
@@ -228,7 +228,7 @@ class AuthService:
         return db.query(User).count()
 
     @staticmethod
-    @handle_exceptions
+    @catch_exceptions
     def update_user(db: Session, user_id: str, is_active: bool = None, email: str = None) -> Optional[User]:
         """
         Met à jour un utilisateur
@@ -262,7 +262,7 @@ class AuthService:
         return user
 
     @staticmethod
-    @handle_exceptions
+    @catch_exceptions
     def change_password(db: Session, user_id: str, new_password: str) -> Optional[User]:
         """
         Change le mot de passe d'un utilisateur avec vérification de la force du mot de passe
@@ -302,7 +302,7 @@ class AuthService:
         return user
 
     @staticmethod
-    @handle_exceptions
+    @catch_exceptions
     def delete_user(db: Session, user_id: str) -> bool:
         """
         Supprime un utilisateur

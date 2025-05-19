@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 # Imports de l'application
 from database.models import Asset
 from utils.common import safe_json_loads
-from utils.decorators import handle_exceptions
+from utils.error_manager import catch_exceptions
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -22,7 +22,8 @@ class AssetAllocationService:
     Ce service isole les fonctionnalités de calcul d'allocation qui étaient
     auparavant dans AssetService, suivant ainsi le principe de responsabilité unique.
     """
-    @handle_exceptions
+
+    @catch_exceptions
     def calculate_effective_allocation(self, db: Session, asset_id: str) -> Dict[str, float]:
         """
         Calcule l'allocation effective pour un actif composite
@@ -85,7 +86,7 @@ class AssetAllocationService:
 
         return effective_allocation
 
-    @handle_exceptions
+    @catch_exceptions
     def calculate_effective_geo_allocation(
             self,
             db: Session,
@@ -182,7 +183,7 @@ class AssetAllocationService:
 
         return effective_geo
 
-    @handle_exceptions
+    @catch_exceptions
     def is_used_as_component(self, db: Session, asset_id: str) -> bool:
         """
         Vérifie si un actif est utilisé comme composant dans d'autres actifs
@@ -207,7 +208,7 @@ class AssetAllocationService:
 
         return False
 
-    @handle_exceptions
+    @catch_exceptions
     def add_component(self, db: Session, asset_id: str, component_id: str, percentage: float) -> bool:
         """
         Ajoute un composant à un actif composite
@@ -258,7 +259,7 @@ class AssetAllocationService:
 
         return True
 
-    @handle_exceptions
+    @catch_exceptions
     def remove_component(self, db: Session, asset_id: str, component_id: str) -> bool:
         """
         Supprime un composant d'un actif composite
@@ -292,7 +293,7 @@ class AssetAllocationService:
 
         return True
 
-    @handle_exceptions
+    @catch_exceptions
     def is_circular_reference(self, db: Session, parent_id: str, child_id: str, visited: List[str] = None) -> bool:
         """
         Vérifie s'il existe une référence circulaire entre deux actifs
