@@ -5,6 +5,7 @@ import datetime
 import uuid
 
 from sqlalchemy import Column, String, Float, Boolean, ForeignKey, DateTime, Index
+from sqlalchemy.orm import relationship
 
 from database.db_config import Base
 from utils.crypto import EncryptedJSON, EncryptedString
@@ -33,6 +34,9 @@ class Bank(Base):
     nom = Column(EncryptedString)    # Chiffré
     notes = Column(EncryptedString, nullable=True)  # Chiffré
 
+    # Relations
+    accounts = relationship("Account", back_populates="bank")
+
     # Indices optimisés
     __table_args__ = (
         Index('idx_banks_owner', 'owner_id'),
@@ -45,6 +49,10 @@ class Account(Base):
     bank_id = Column(String, ForeignKey("banks.id"), index=True)  # Index ajouté
     type = Column(String, index=True)  # Index ajouté pour le filtrage par type
     libelle = Column(EncryptedString)  # Chiffré
+
+    # Relations
+    bank = relationship("Bank", back_populates="accounts")
+    assets = relationship("Asset", back_populates="account")
 
     # Indices optimisés
     __table_args__ = (
@@ -76,6 +84,9 @@ class Asset(Base):
     last_price_sync = Column(DateTime, nullable=True)  # Date de dernière synchronisation du prix
     last_rate_sync = Column(DateTime, nullable=True)  # Date de dernière synchronisation du taux de change
     sync_error = Column(String, nullable=True)  # Message d'erreur de synchronisation
+
+    # Relations
+    account = relationship("Account", back_populates="assets")
 
     # for asset templates
     template_id = Column(String, ForeignKey("assets.id"), nullable=True, index=True)

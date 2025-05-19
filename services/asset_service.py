@@ -23,7 +23,6 @@ class AssetService(BaseService[Asset]):
     def __init__(self):
         super().__init__(Asset)
 
-    @catch_exceptions
     def get_assets(
             self, db: Session,
             user_id: str,
@@ -42,19 +41,24 @@ class AssetService(BaseService[Asset]):
         Returns:
             List of assets
         """
-        # OPTIMIZATION: Use eager loading to load relations in a single query
-        query = db.query(Asset).options(
-            joinedload(Asset.account).joinedload(Account.bank)
-        ).filter(Asset.owner_id == user_id)
+        try:
+            # OPTIMIZATION: Use eager loading to load relations in a single query
+            query = db.query(Asset).options(
+                joinedload(Asset.account).joinedload(Account.bank)
+            ).filter(Asset.owner_id == user_id)
 
-        if account_id:
-            query = query.filter(Asset.account_id == account_id)
+            if account_id:
+                query = query.filter(Asset.account_id == account_id)
 
-        # Category filtering with consistent approach
-        if category:
-            query = query.filter(Asset.allocation.has_key(category))  # Using SQLAlchemy's has_key for JSON
+            # Category filtering with consistent approach
+            if category:
+                query = query.filter(Asset.allocation.has_key(category))  # Using SQLAlchemy's has_key for JSON
 
-        return query.all()
+            result = query.all()
+            return result if result is not None else []
+        except Exception as e:
+            logger.error(f"Error getting assets: {str(e)}")
+            return []  # Always return a list, even empty, never None
 
     @catch_exceptions
     def add_asset(

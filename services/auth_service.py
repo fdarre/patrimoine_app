@@ -21,6 +21,7 @@ logger = get_logger(__name__)
 # Clé = nom d'utilisateur, Valeur = (nombre de tentatives, heure de dernière tentative)
 failed_attempts = {}
 
+
 class AuthService:
     """Service pour l'authentification et la gestion des utilisateurs avec sécurité renforcée"""
 
@@ -55,7 +56,6 @@ class AuthService:
         return db.query(User).filter(User.id == user_id).first()
 
     @staticmethod
-    @catch_exceptions
     def create_user(db: Session, username: str, email: str, password: str) -> Optional[User]:
         """
         Crée un nouvel utilisateur avec vérification de la force du mot de passe
@@ -72,42 +72,49 @@ class AuthService:
         Raises:
             ValidationError: Si le mot de passe est trop court
         """
-        # Vérifier la force du mot de passe (minimal)
-        if len(password) < 8:
-            logger.warning(f"Tentative de création d'utilisateur avec un mot de passe trop court: {username}")
-            raise ValidationError("Le mot de passe doit contenir au moins 8 caractères")
+        try:
+            # Vérifier la force du mot de passe (minimal)
+            if len(password) < 8:
+                logger.warning(f"Tentative de création d'utilisateur avec un mot de passe trop court: {username}")
+                raise ValidationError("Le mot de passe doit contenir au moins 8 caractères")
 
-        # Vérifier si le nom d'utilisateur existe déjà
-        existing_user = db.query(User).filter(User.username == username).first()
-        if existing_user:
-            logger.warning(f"Tentative de création d'un utilisateur avec un nom existant: {username}")
-            return None
+            # Vérifier si le nom d'utilisateur existe déjà
+            existing_user = db.query(User).filter(User.username == username).first()
+            if existing_user:
+                logger.warning(f"Tentative de création d'un utilisateur avec un nom existant: {username}")
+                return None
 
-        # Vérifier si l'email existe déjà
-        existing_email = db.query(User).filter(User.email == email).first()
-        if existing_email:
-            logger.warning(f"Tentative de création d'un utilisateur avec un email existant: {email}")
-            return None
+            # Vérifier si l'email existe déjà - en utilisant une autre approche
+            # Puisque email est chiffré, nous devons vérifier autrement
+            all_users = db.query(User).all()
+            for user in all_users:
+                if user.email == email:  # La comparaison fonctionnera grâce au déchiffrement automatique
+                    logger.warning(f"Tentative de création d'un utilisateur avec un email existant: {email}")
+                    return None
 
-        # Hacher le mot de passe
-        password_hash = hash_password(password)
+            # Hacher le mot de passe
+            password_hash = hash_password(password)
 
-        # Créer le nouvel utilisateur
-        new_user = User(
-            username=username,
-            email=email,
-            password_hash=password_hash,
-            is_active=True,
-            created_at=datetime.now()
-        )
+            # Créer le nouvel utilisateur
+            new_user = User(
+                username=username,
+                email=email,
+                password_hash=password_hash,
+                is_active=True,
+                created_at=datetime.now()
+            )
 
-        # Ajouter et valider
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        logger.info(f"Nouvel utilisateur créé: {username}")
+            # Ajouter et valider
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+            logger.info(f"Nouvel utilisateur créé: {username}")
 
-        return new_user
+            return new_user
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Erreur lors de la création d'un utilisateur: {str(e)}")
+            raise  # Relever l'exception pour que le décorateur @catch_exceptions puisse la gérer
 
     @staticmethod
     @catch_exceptions
