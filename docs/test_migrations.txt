@@ -1,0 +1,42 @@
+Pour vérifier si ton système de migration fonctionnera correctement pour le futur, voici une série de tests pratiques à effectuer:
+Test pratique de migration
+
+Ajoute un petit champ à un modèle existant
+python# Dans database/models.py, ajoute un champ à une classe existante
+# Par exemple, dans la classe User:
+theme_preference = Column(String, nullable=True, default="dark")
+
+Génère une migration pour ce changement
+bashpython migrate.py create "add theme preference to user"
+
+Vérifie la migration générée
+Ouvre le fichier créé dans migrations/versions/ et confirme qu'il contient bien les commandes pour ajouter la colonne.
+Applique la migration
+bashpython migrate.py upgrade
+
+Vérifie dans la base de données
+bashsqlite3 data/patrimoine.db "PRAGMA table_info(users);"
+Tu devrais voir ta nouvelle colonne.
+
+Points à vérifier
+Après avoir effectué ces tests, voici ce qui confirmerait que ton système fonctionne bien:
+
+Dans la table alembic_version: La version doit maintenant correspondre à ta nouvelle migration
+bashsqlite3 data/patrimoine.db "SELECT * FROM alembic_version;"
+
+Le démarrage de l'application doit se faire sans erreur, car main.py contient:
+pythonmigration_manager.upgrade_database("head")
+
+Vérifie la réversibilité: Teste la capacité à revenir en arrière
+bashpython migrate.py downgrade c9ae493f985f
+Puis vérifie que la colonne a été supprimée et remonte à la dernière version:
+bashpython migrate.py upgrade
+
+
+Solutions aux problèmes potentiels
+
+Si les migrations ne détectent pas les changements: Assure-toi que tous tes modèles sont importés dans migrations/env.py
+Si les types SQLAlchemy personnalisés posent problème: Pour les types comme EncryptedString, vérifie qu'ils sont correctement sérialisés/désérialisés dans les migrations
+Pour les futures modifications complexes: Pour les modifications nécessitant des transformations de données, il peut être nécessaire d'éditer manuellement les fichiers de migration générés pour ajouter cette logique
+
+Avec ces tests, tu sauras si ton système est prêt pour gérer efficacement l'évolution de ton schéma de base de données au fil du temps.
