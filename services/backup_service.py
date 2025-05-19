@@ -69,11 +69,20 @@ class BackupService:
             temp_db_path = os.path.join(temp_dir, os.path.basename(db_path))
             shutil.copy2(db_path, temp_db_path)
 
+            # Récupérer la version actuelle de la migration (NOUVELLE FONCTIONNALITÉ)
+            try:
+                from utils.migration_manager import migration_manager
+                current_db_version = migration_manager.get_current_version()
+            except Exception as e:
+                logger.error(f"Erreur lors de la récupération de la version de migration: {str(e)}")
+                current_db_version = "unknown"
+
             # Créer un fichier de métadonnées
             metadata = {
                 "timestamp": datetime.now().isoformat(),
                 "db_hash": db_hash,
-                "version": "3.0",
+                "app_version": "3.0",
+                "db_version": current_db_version,  # NOUVELLE FONCTIONNALITÉ
                 "description": "Sauvegarde chiffrée pour l'application de gestion patrimoniale"
             }
 
@@ -117,6 +126,8 @@ class BackupService:
         Returns:
             True si la restauration a réussi, False sinon
         """
+        backup_before_restore = None  # Initialisation variable pour le chemin de sauvegarde de sécurité
+
         try:
             # Créer une sauvegarde de la base actuelle avant restauration
             if os.path.exists(db_path):
@@ -151,9 +162,12 @@ class BackupService:
 
                 # Vérifier l'intégrité avec les métadonnées si disponibles
                 metadata_path = os.path.join(temp_dir, "metadata.json")
+                backup_db_version = None
+
                 if os.path.exists(metadata_path):
                     with open(metadata_path, 'r') as f:
                         metadata = json.load(f)
+                        backup_db_version = metadata.get("db_version")
 
                     db_file = os.path.join(temp_dir, os.path.basename(db_path))
                     if os.path.exists(db_file):
@@ -166,17 +180,57 @@ class BackupService:
 
                         logger.info("Vérification d'intégrité réussie")
 
+                # Vérifier la compatibilité de version de base de données
+                from utils.migration_manager import migration_manager
+                current_db_version = migration_manager.get_current_version()
+
+                if backup_db_version and current_db_version and backup_db_version != current_db_version:
+                    logger.warning(f"La version de la base de données restaurée ({backup_db_version}) diffère "
+                                   f"de la version actuelle ({current_db_version}). "
+                                   f"L'application des migrations tentera de résoudre ces différences.")
+
                 # Copier la base de données restaurée
                 extracted_db_path = os.path.join(temp_dir, os.path.basename(db_path))
                 shutil.copy2(extracted_db_path, db_path)
-                logger.info("Restauration terminée avec succès")
+                logger.info("Restauration initiale terminée avec succès")
 
-                # NOUVEAU: Appliquer les migrations à la base restaurée
-                from utils.migration_manager import migration_manager
-                logger.info("Application des migrations à la base restaurée...")
-                migration_manager.upgrade_database("head")
+                # OPTIMISATION: Appliquer les migrations à la base restaurée avec gestion des erreurs
+                try:
+                    logger.info("Application des migrations à la base restaurée...")
+                    # Import ici pour éviter les importations circulaires
+                    from utils.migration_manager import migration_manager
+
+                    if migration_manager.upgrade_database("head"):
+                        logger.info("Migrations appliquées avec succès")
+                    else:
+                        logger.error("Échec de l'application des migrations après restauration")
+
+                        # Restaurer la sauvegarde de sécurité si elle existe
+                        if backup_before_restore and os.path.exists(backup_before_restore):
+                            logger.warning(f"Restauration de la sauvegarde de sécurité: {backup_before_restore}")
+                            shutil.copy2(backup_before_restore, db_path)
+                            return False
+                except Exception as e:
+                    logger.error(f"Erreur lors de l'application des migrations: {str(e)}")
+
+                    # Restaurer la sauvegarde de sécurité si elle existe
+                    if backup_before_restore and os.path.exists(backup_before_restore):
+                        logger.warning(
+                            f"Restauration de la sauvegarde de sécurité après échec de migration: {backup_before_restore}")
+                        shutil.copy2(backup_before_restore, db_path)
+                        return False
 
             return True
         except Exception as e:
             logger.error(f"Erreur lors de la restauration: {str(e)}")
+
+            # Restaurer la sauvegarde de sécurité si elle existe
+            if backup_before_restore and os.path.exists(backup_before_restore):
+                logger.warning(
+                    f"Restauration de la sauvegarde de sécurité après erreur générale: {backup_before_restore}")
+                try:
+                    shutil.copy2(backup_before_restore, db_path)
+                except Exception as copy_error:
+                    logger.error(f"Échec de la restauration de la sauvegarde de sécurité: {str(copy_error)}")
+
             return False
