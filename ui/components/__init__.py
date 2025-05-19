@@ -6,6 +6,8 @@ import hashlib
 
 import streamlit as st
 
+from utils.style_manager import style_manager
+
 
 def apply_button_styling(is_valid: bool):
     """
@@ -134,12 +136,8 @@ def create_infobox(message, type="info"):
         message: Message à afficher
         type: Type de boîte (info, success, warning, error)
     """
-    color_map = {
-        "info": "#17a2b8",
-        "success": "#28a745",
-        "warning": "#ffc107",
-        "error": "#dc3545"
-    }
+    # Ajouter le style de la boîte d'information si ce n'est pas déjà fait
+    style_manager.add_custom_style(style_manager.create_info_box_style(type))
 
     icon_map = {
         "info": "ℹ️",
@@ -148,11 +146,10 @@ def create_infobox(message, type="info"):
         "error": "❌"
     }
 
-    color = color_map.get(type, "#17a2b8")
     icon = icon_map.get(type, "ℹ️")
 
     st.markdown(f"""
-    <div style="border-left:4px solid {color};padding:10px;background-color:rgba(0,0,0,0.05);margin-bottom:10px;">
+    <div class="info-box-{type}">
         <div style="display:flex;align-items:center;">
             <div style="font-size:20px;margin-right:10px;">{icon}</div>
             <div>{message}</div>
@@ -176,8 +173,11 @@ def create_card(title, content, footer=None, action_button=None, action_callback
     # Créer l'identifiant unique pour le bouton
     button_id = hashlib.md5(f"{title}_{action_button}".encode()).hexdigest()
 
+    # Ajouter le style de carte si ce n'est pas déjà fait
+    style_manager.add_custom_style(style_manager.create_card_style(bg_color, "#dee2e6", "15px", "15px"))
+
     st.markdown(f"""
-    <div style="border:1px solid #dee2e6;border-radius:5px;padding:15px;margin-bottom:15px;background-color:{bg_color};">
+    <div class="custom-card">
         <h3 style="margin-top:0;font-size:18px;margin-bottom:10px;">{title}</h3>
         <div>{content}</div>
         {f'<div style="margin-top:10px;padding-top:10px;border-top:1px solid #dee2e6;color:#6c757d;">{footer}</div>' if footer else ''}

@@ -95,3 +95,24 @@ def is_circular_reference(assets: List[Any], parent_id: str, child_id: str, visi
 
     # Pas de référence circulaire trouvée
     return False
+
+
+def calculate_asset_performance(valeur_actuelle: float, prix_de_revient: float) -> Dict[str, Any]:
+    """
+    Calcule la performance d'un actif de manière standardisée
+
+    Args:
+        valeur_actuelle: Valeur actuelle de l'actif
+        prix_de_revient: Prix de revient de l'actif
+
+    Returns:
+        Dictionnaire contenant la valeur, le pourcentage et le signe de la plus-value
+    """
+    pv = valeur_actuelle - prix_de_revient
+    pv_percent = (pv / prix_de_revient * 100) if prix_de_revient > 0 else 0
+
+    return {
+        "value": pv,
+        "percent": pv_percent,
+        "is_positive": pv_percent >= 0
+    }

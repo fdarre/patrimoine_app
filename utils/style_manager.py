@@ -1,10 +1,10 @@
 """
 Gestionnaire de styles centralisé et amélioré pour l'application
 """
-import streamlit as st
 import os
 from typing import Optional
 
+import streamlit as st
 
 # Constantes pour les chemins des fichiers
 STATIC_DIR = "static"
@@ -232,131 +232,245 @@ class StyleManager:
         else:
             return f"var(--{color_name})"
 
+    def create_card_style(self, background_color="#31383e", border_color="#4e79a7", padding="1rem", margin="0.5rem"):
+        """
+        Génère le CSS pour un style de carte personnalisé
+
+        Args:
+            background_color: Couleur d'arrière-plan
+            border_color: Couleur de bordure
+            padding: Rembourrage intérieur
+            margin: Marge extérieure
+
+        Returns:
+            CSS pour le style de carte
+        """
+        return f"""
+        .custom-card {{
+            background-color: {background_color};
+            border-left: 4px solid {border_color};
+            padding: {padding};
+            margin-bottom: {margin};
+            border-radius: 0.25rem;
+            color: var(--text-color);
+        }}
+        """
+
+    def create_info_box_style(self, type_color="info"):
+        """
+        Génère le CSS pour une boîte d'information
+
+        Args:
+            type_color: Type de couleur ('info', 'success', 'warning', 'error')
+
+        Returns:
+            CSS pour la boîte d'information
+        """
+        color_map = {
+            "info": "var(--info-color)",
+            "success": "var(--success-color)",
+            "warning": "var(--warning-color)",
+            "error": "var(--danger-color)"
+        }
+
+        color = color_map.get(type_color, color_map["info"])
+
+        return f"""
+        .info-box-{type_color} {{
+            border-left: 4px solid {color};
+            padding: 10px;
+            background-color: rgba(0,0,0,0.05);
+            margin-bottom: 10px;
+            border-radius: 0.25rem;
+        }}
+        """
+
+    def apply_component_styles(self):
+        """
+        Applique les styles pour tous les composants courants de l'application
+        """
+        css = """
+        /* Styles pour les allocations */
+        .allocation-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .allocation-label {
+            width: 80px;
+        }
+
+        .allocation-bar-bg {
+            background: #f8f9fa;
+            height: 8px;
+            width: 70%;
+            margin: 0 10px;
+        }
+
+        .allocation-bar {
+            height: 8px;
+        }
+
+        .allocation-bar.allocation-actions {
+            background: #4e79a7;
+        }
+
+        .allocation-bar.allocation-obligations {
+            background: #f28e2c;
+        }
+
+        .allocation-bar.allocation-immobilier {
+            background: #e15759;
+        }
+
+        .allocation-bar.allocation-cash {
+            background: #edc949;
+        }
+
+        .allocation-bar.allocation-crypto {
+            background: #76b7b2;
+        }
+
+        .allocation-bar.allocation-metaux {
+            background: #59a14f;
+        }
+
+        .allocation-bar.allocation-autre {
+            background: #af7aa1;
+        }
+
+        .allocation-total {
+            margin-top: 20px;
+        }
+
+        .allocation-total-label {
+            margin-bottom: 5px;
+        }
+
+        .allocation-total-bar-bg {
+            background: #f8f9fa;
+            height: 10px;
+            width: 100%;
+            border-radius: 5px;
+        }
+
+        .allocation-total-bar {
+            height: 10px;
+            border-radius: 5px;
+        }
+
+        .allocation-total-bar.allocation-total-valid {
+            background: #28a745;
+        }
+
+        .allocation-total-bar.allocation-total-warning {
+            background: #ffc107;
+        }
+
+        .allocation-total-bar.allocation-total-error {
+            background: #dc3545;
+        }
+
+        .allocation-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-right: 4px;
+            color: white;
+        }
+
+        .allocation-pill.actions {
+            background: #4e79a7;
+        }
+
+        .allocation-pill.obligations {
+            background: #f28e2c;
+        }
+
+        .allocation-pill.immobilier {
+            background: #e15759;
+        }
+
+        .allocation-pill.cash {
+            background: #edc949;
+        }
+
+        .allocation-pill.crypto {
+            background: #76b7b2;
+        }
+
+        .allocation-pill.metaux {
+            background: #59a14f;
+        }
+
+        .allocation-pill.autre {
+            background: #af7aa1;
+        }
+        
+        /* Styles pour les cartes de tâches */
+        .todo-card {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 0.25rem;
+            color: #333 !important;
+        }
+        
+        .todo-header {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .todo-content {
+            margin-bottom: 0.5rem;
+        }
+        
+        .todo-footer {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        
+        /* Styles pour les profils utilisateurs */
+        .user-profile {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .user-avatar {
+            font-size: 1.5rem;
+            margin-right: 10px;
+        }
+        
+        .user-info {
+            flex: 1;
+        }
+        
+        .user-name {
+            font-weight: bold;
+        }
+        
+        .user-date {
+            font-size: 0.8rem;
+            color: #adb5bd;
+        }
+        
+        .user-status {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: #adb5bd;
+        }
+        """
+
+        self.add_custom_style(css)
+
 
 # Créer une instance singleton du gestionnaire
 style_manager = StyleManager()
-
-
-# Exemple de CSS de base pour les allocations
-ALLOCATION_CSS = """
-.allocation-container {
-    display: flex;
-    align-items: center;
-    margin-bottom: 8px;
-}
-
-.allocation-label {
-    width: 80px;
-}
-
-.allocation-bar-bg {
-    background: #f8f9fa;
-    height: 8px;
-    width: 70%;
-    margin: 0 10px;
-}
-
-.allocation-bar {
-    height: 8px;
-}
-
-.allocation-bar.allocation-actions {
-    background: #4e79a7;
-}
-
-.allocation-bar.allocation-obligations {
-    background: #f28e2c;
-}
-
-.allocation-bar.allocation-immobilier {
-    background: #e15759;
-}
-
-.allocation-bar.allocation-cash {
-    background: #edc949;
-}
-
-.allocation-bar.allocation-crypto {
-    background: #76b7b2;
-}
-
-.allocation-bar.allocation-metaux {
-    background: #59a14f;
-}
-
-.allocation-bar.allocation-autre {
-    background: #af7aa1;
-}
-
-.allocation-total {
-    margin-top: 20px;
-}
-
-.allocation-total-label {
-    margin-bottom: 5px;
-}
-
-.allocation-total-bar-bg {
-    background: #f8f9fa;
-    height: 10px;
-    width: 100%;
-    border-radius: 5px;
-}
-
-.allocation-total-bar {
-    height: 10px;
-    border-radius: 5px;
-}
-
-.allocation-total-bar.allocation-total-valid {
-    background: #28a745;
-}
-
-.allocation-total-bar.allocation-total-warning {
-    background: #ffc107;
-}
-
-.allocation-total-bar.allocation-total-error {
-    background: #dc3545;
-}
-
-.allocation-pill {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 12px;
-    margin-right: 4px;
-    color: white;
-}
-
-.allocation-pill.actions {
-    background: #4e79a7;
-}
-
-.allocation-pill.obligations {
-    background: #f28e2c;
-}
-
-.allocation-pill.immobilier {
-    background: #e15759;
-}
-
-.allocation-pill.cash {
-    background: #edc949;
-}
-
-.allocation-pill.crypto {
-    background: #76b7b2;
-}
-
-.allocation-pill.metaux {
-    background: #59a14f;
-}
-
-.allocation-pill.autre {
-    background: #af7aa1;
-}
-"""
 
 
 def initialize_styles():
@@ -366,6 +480,6 @@ def initialize_styles():
     Cette fonction doit être appelée au début de l'application
     pour configurer tous les styles.
     """
-    # Initialiser avec le mode par défaut
-    style_manager.add_custom_style(ALLOCATION_CSS)
+    # Initialiser avec le mode par défaut et appliquer les styles des composants
+    style_manager.apply_component_styles()
     style_manager.initialize_styles()

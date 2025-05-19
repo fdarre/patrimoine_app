@@ -12,6 +12,7 @@ from services.asset_service import asset_service
 from services.data_service import DataService
 from services.template_service import template_service
 from ui.components import apply_button_styling
+from ui.components.validation import display_form_errors
 from ui.shared.allocation_forms import create_allocation_form, create_geo_allocation_form
 
 
@@ -166,7 +167,8 @@ def show_add_asset_form(db: Session, user_id: str):
                 if selected_template_id is None:
                     st.warning("Veuillez sélectionner un modèle.")
             else:
-                display_form_validation_errors(asset_info, allocation)
+                # Utiliser la fonction centralisée
+                display_form_errors(asset_info, allocation)
 
         # Styliser le bouton selon l'état de validité du formulaire
         apply_button_styling(form_valid)
@@ -314,23 +316,3 @@ def collect_basic_asset_info(db, user_id):
         "isin": asset_isin,
         "ounces": asset_ounces
     }
-
-
-def display_form_validation_errors(asset_info, allocation):
-    """
-    Affiche les erreurs de validation du formulaire
-
-    Args:
-        asset_info: Informations de base de l'actif
-        allocation: Dictionnaire d'allocation par catégorie
-    """
-    if not asset_info["name"]:
-        st.warning("Le nom de l'actif est obligatoire.")
-    if not asset_info["account_id"]:
-        st.warning("Veuillez sélectionner un compte.")
-    if asset_info["value"] <= 0:
-        st.warning("La valeur actuelle doit être supérieure à 0.")
-
-    allocation_total = sum(allocation.values()) if allocation else 0
-    if allocation_total != 100:
-        st.warning(f"Le total des allocations doit être de 100% (actuellement: {allocation_total}%).")

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 # Imports de l'application
 from database.models import Bank, Account, Asset, HistoryPoint
 from services.visualization_service import VisualizationService
+from utils.style_manager import style_manager
 
 # Customize Matplotlib
 plt.style.use('dark_background')
@@ -22,6 +23,10 @@ def show_dashboard(db: Session, user_id: str):
     Affiche le dashboard principal avec styles centralisés
     """
     st.title("Dashboard")
+
+    # Appliquer les styles des cartes et des todos
+    style_manager.add_custom_style(style_manager.create_card_style())
+    style_manager.add_custom_style(style_manager.create_info_box_style("warning"))
 
     # Récupérer les données de l'utilisateur
     assets = db.query(Asset).filter(Asset.owner_id == user_id).all()
@@ -197,16 +202,12 @@ def show_dashboard(db: Session, user_id: str):
             for i, asset in enumerate(todos):
                 account = db.query(Account).filter(Account.id == asset.account_id).first()
 
-                # Create a stylish todo container
+                # Utiliser le style de carte centralisé
                 st.markdown(f"""
-                <div style="background-color:rgba(245, 158, 11, 0.1); 
-                            border-left:4px solid #f59e0b; 
-                            border-radius:4px; 
-                            padding:15px; 
-                            margin-bottom:15px;">
-                    <h4 style="margin-top:0; color:white;">{asset.nom}</h4>
-                    <p style="color:rgba(255,255,255,0.8);">{asset.todo}</p>
-                    <div style="font-size:12px; color:rgba(255,255,255,0.6);">
+                <div class="todo-card">
+                    <h4 class="todo-header">{asset.nom}</h4>
+                    <p class="todo-content">{asset.todo}</p>
+                    <div class="todo-footer">
                         Compte: {account.libelle if account else "Non spécifié"}
                     </div>
                 </div>

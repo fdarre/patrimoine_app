@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, joinedload
 # Imports de l'application
 from database.models import Asset, Account
 from services.base_service import BaseService
+from utils.calculations import calculate_asset_performance
 from utils.decorators import handle_exceptions
 from utils.logger import get_logger
 
@@ -263,14 +264,8 @@ class AssetService(BaseService[Asset]):
         Returns:
             Dictionnaire contenant la valeur, le pourcentage et le signe de la plus-value
         """
-        pv = asset.valeur_actuelle - asset.prix_de_revient
-        pv_percent = (pv / asset.prix_de_revient * 100) if asset.prix_de_revient > 0 else 0
-
-        return {
-            "value": pv,
-            "percent": pv_percent,
-            "is_positive": pv_percent >= 0
-        }
+        # Utiliser la fonction centralisée
+        return calculate_asset_performance(asset.valeur_actuelle, asset.prix_de_revient)
 
 
 # Créer une instance singleton du service
