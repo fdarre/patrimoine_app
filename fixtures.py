@@ -207,19 +207,17 @@ def create_asset_data(idx, compte_id):
 
 def check_encryption_system():
     """Vérifie que le système de chiffrement est correctement initialisé"""
-    from database.db_config import cipher
-    from config.app_config import DATA_DIR
+    from database.db_config import cipher, verify_keys_with_existing_data
+    from config.app_config import DATA_DIR, DB_PATH
+    from utils.key_manager import KeyManager
+    from config.app_config import KEY_BACKUPS_DIR
+
+    # Utiliser le gestionnaire de clés
+    key_manager = KeyManager(DATA_DIR, KEY_BACKUPS_DIR)
 
     # Vérifier l'existence des fichiers de clés
-    salt_file = DATA_DIR / ".salt"
-    key_file = DATA_DIR / ".key"
-
-    if not salt_file.exists():
-        logger.critical("FICHIER DE SEL MANQUANT! Le chiffrement ne fonctionnera pas correctement.")
-        return False
-
-    if not key_file.exists():
-        logger.critical("FICHIER DE CLÉ MANQUANT! Le chiffrement ne fonctionnera pas correctement.")
+    if not key_manager.check_keys_exist():
+        logger.critical("FICHIERS DE CLÉ MANQUANTS! Le chiffrement ne fonctionnera pas correctement.")
         return False
 
     # Tester l'encryption avec une donnée factice
@@ -231,6 +229,14 @@ def check_encryption_system():
         if decrypted != test_data:
             logger.critical("LE SYSTÈME DE CHIFFREMENT NE FONCTIONNE PAS CORRECTEMENT!")
             return False
+
+        # Vérifier que les clés peuvent déchiffrer les données existantes
+        if not verify_keys_with_existing_data(str(DB_PATH)):
+            logger.critical("LES CLÉS ACTUELLES NE PEUVENT PAS DÉCHIFFRER LES DONNÉES EXISTANTES!")
+            return False
+
+        # Créer un backup avec version
+        key_manager.backup_keys(prefix="fixtures_check")
 
         logger.info("Système de chiffrement vérifié avec succès.")
         return True

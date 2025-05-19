@@ -1,9 +1,7 @@
 """
 Centralized application configuration
 """
-import os
-import secrets
-import shutil
+
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -78,67 +76,40 @@ SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 salt_file = DATA_DIR / ".salt"
 key_file = DATA_DIR / ".key"
 
-# Charger ou générer SECRET_KEY
-if key_file.exists():
+# Initialiser le gestionnaire de clés
+from utils.key_manager import KeyManager
+
+key_manager = KeyManager(DATA_DIR, KEY_BACKUPS_DIR)
+
+# Flag pour suivre l'état des clés
+ENCRYPTION_KEYS_MISSING = False
+
+# Charger les clés existantes ou afficher un message d'erreur
+if key_manager.check_keys_exist():
     with open(key_file, "rb") as f:
         SECRET_KEY = f.read()
-    logger.info("Clé de chiffrement chargée avec succès")
-else:
-    # Générer une nouvelle clé
-    SECRET_KEY = secrets.token_bytes(32)
-    with open(key_file, "wb") as f:
-        f.write(SECRET_KEY)
-    # Protéger le fichier (Unix seulement)
-    try:
-        os.chmod(key_file, 0o600)  # Lecture/écriture uniquement pour le propriétaire
-    except Exception:
-        pass
-
-    # Créer une copie de sauvegarde de la clé dans le dossier dédié
-    backup_key_file = KEY_BACKUPS_DIR / f"key_backup_initial"
-    shutil.copy2(key_file, backup_key_file)
-    try:
-        os.chmod(backup_key_file, 0o600)
-    except Exception:
-        pass
-
-    logger.warning(
-        "CRITIQUE: Un nouveau fichier de clé a été créé. "
-        "SAUVEGARDEZ IMMÉDIATEMENT les fichiers .key et les backups dans "
-        f"{KEY_BACKUPS_DIR} dans un endroit sécurisé. Sans ces fichiers, "
-        "vos données seront PERDUES."
-    )
-
-# Charger ou générer ENCRYPTION_SALT
-if salt_file.exists():
     with open(salt_file, "rb") as f:
         ENCRYPTION_SALT = f.read()
-    logger.info("Sel de chiffrement chargé avec succès")
+    logger.info("Clés de chiffrement chargées avec succès")
 else:
-    # Générer un nouveau sel
-    ENCRYPTION_SALT = secrets.token_bytes(16)
-    with open(salt_file, "wb") as f:
-        f.write(ENCRYPTION_SALT)
-    # Protéger le fichier (Unix seulement)
-    try:
-        os.chmod(salt_file, 0o600)
-    except Exception:
-        pass
-
-    # Créer une copie de sauvegarde du sel dans le dossier dédié
-    backup_salt_file = KEY_BACKUPS_DIR / f"salt_backup_initial"
-    shutil.copy2(salt_file, backup_salt_file)
-    try:
-        os.chmod(backup_salt_file, 0o600)
-    except Exception:
-        pass
-
-    logger.warning(
-        "CRITIQUE: Un nouveau fichier de sel a été créé. "
-        "SAUVEGARDEZ IMMÉDIATEMENT les fichiers .salt et les backups dans "
-        f"{KEY_BACKUPS_DIR} dans un endroit sécurisé. Sans ces fichiers, "
-        "vos données seront PERDUES."
+    # Ne pas générer automatiquement de nouvelles clés
+    error_msg = (
+        "ERREUR CRITIQUE: Fichiers de clés manquants. "
+        "Exécutez 'python init_keys.py' pour générer de nouvelles clés "
+        "ou restaurez les fichiers .key et .salt à partir d'une sauvegarde."
     )
+    logger.critical(error_msg)
+    print(error_msg)
+
+    # Créer une clé temporaire pour éviter le crash de l'application
+    # IMPORTANT: Cette clé ne permettra pas de déchiffrer des données existantes
+    import secrets
+
+    SECRET_KEY = secrets.token_bytes(32)
+    ENCRYPTION_SALT = secrets.token_bytes(16)
+
+    # Définir un flag global pour empêcher les opérations sensibles
+    ENCRYPTION_KEYS_MISSING = True
 
 # JWT configuration
 JWT_ALGORITHM = "HS256"

@@ -3,6 +3,8 @@ Database configuration with field-level encryption
 """
 import base64
 import json
+import os
+import sqlite3
 from contextlib import contextmanager
 from typing import Generator, Dict, Any
 
@@ -13,7 +15,7 @@ from sqlalchemy import create_engine, MetaData, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 
-from config.app_config import SQLALCHEMY_DATABASE_URL, SECRET_KEY, ENCRYPTION_SALT
+from config.app_config import SQLALCHEMY_DATABASE_URL, SECRET_KEY, ENCRYPTION_SALT, ENCRYPTION_KEYS_MISSING, DB_PATH
 from utils.logger import get_logger
 
 # Configure logger
@@ -60,17 +62,101 @@ def get_encryption_key():
         raise
 
 
+# Fonction pour vérifier que les clés peuvent déchiffrer des données existantes
+def verify_keys_with_existing_data(db_path: str) -> bool:
+    """
+    Vérifie que les clés actuelles peuvent déchiffrer des données existantes
+
+    Args:
+        db_path: Chemin vers la base de données
+
+    Returns:
+        True si les clés permettent de déchiffrer des données, False sinon
+    """
+    if not os.path.exists(db_path):
+        logger.warning(f"Base de données {db_path} inexistante, impossible de vérifier les clés")
+        return True  # Pas de données à vérifier
+
+    try:
+        # Connexion à la BDD SQLite
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Chercher une donnée chiffrée, essayer plusieurs tables
+        encrypted_data = None
+        tables_to_check = ['users', 'banks', 'assets']
+
+        for table in tables_to_check:
+            try:
+                cursor.execute(f"SELECT * FROM {table} LIMIT 1")
+                row = cursor.fetchone()
+                if row:
+                    # Trouver une colonne qui pourrait contenir des données chiffrées
+                    for i, value in enumerate(row):
+                        if isinstance(value, str) and len(value) > 64:  # Probablement chiffré
+                            encrypted_data = value
+                            break
+
+                    if encrypted_data:
+                        break
+            except sqlite3.Error:
+                continue  # Table n'existe peut-être pas
+
+        conn.close()
+
+        # Si aucune donnée chiffrée trouvée, on ne peut pas vérifier
+        if not encrypted_data:
+            logger.info("Aucune donnée chiffrée trouvée dans la base de données pour vérification")
+            return True
+
+        # Essayer de déchiffrer
+        try:
+            decrypt_data(encrypted_data)
+            logger.info("Vérification des clés réussie: déchiffrement des données existantes OK")
+
+            # Mettre à jour le timestamp de dernière vérification
+            from utils.key_manager import KeyManager
+            from config.app_config import DATA_DIR, KEY_BACKUPS_DIR
+            key_manager = KeyManager(DATA_DIR, KEY_BACKUPS_DIR)
+            key_manager.update_verification_timestamp()
+
+            return True
+        except Exception as e:
+            logger.critical(f"ERREUR: Les clés actuelles ne peuvent pas déchiffrer les données existantes: {str(e)}")
+            return False
+
+    except Exception as e:
+        logger.error(f"Erreur lors de la vérification des clés: {str(e)}")
+        return False
+
+
 # Fernet object for encrypting/decrypting sensitive data
 try:
-    ENCRYPTION_KEY = get_encryption_key()
-    cipher = Fernet(ENCRYPTION_KEY)
-    logger.info("Encryption successfully initialized")
+    if ENCRYPTION_KEYS_MISSING:
+        # Si les clés sont manquantes, avertir mais créer quand même un cipher
+        logger.critical(
+            "Initialisation du chiffrement avec des clés temporaires - LES DONNÉES NE SERONT PAS RÉCUPÉRABLES")
+        import secrets
+
+        fallback_key = base64.urlsafe_b64encode(secrets.token_bytes(32))
+        cipher = Fernet(fallback_key)
+    else:
+        # Initialisation normale
+        ENCRYPTION_KEY = get_encryption_key()
+        cipher = Fernet(ENCRYPTION_KEY)
+        logger.info("Encryption successfully initialized")
+
+        # Vérifier la compatibilité avec les données existantes si la base existe
+        if os.path.exists(DB_PATH):
+            if not verify_keys_with_existing_data(str(DB_PATH)):
+                logger.critical("AVERTISSEMENT: Les clés ne peuvent pas déchiffrer les données existantes!")
+                print("AVERTISSEMENT: Les clés ne peuvent pas déchiffrer les données existantes!")
+
 except Exception as e:
     logger.critical(f"Failed to initialize encryption: {str(e)}")
     # Create a fallback dummy cipher for emergency - THIS WILL NOT DECRYPT PROPERLY
     # but will prevent the application from crashing completely
     import os
-
     fallback_key = base64.urlsafe_b64encode(os.urandom(32))
     cipher = Fernet(fallback_key)
     logger.critical("ALERT: Using fallback encryption key. Data encrypted now WILL NOT be recoverable later!")
