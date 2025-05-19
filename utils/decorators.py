@@ -6,43 +6,14 @@ import time
 from typing import Callable
 
 import streamlit as st
-from sqlalchemy.exc import SQLAlchemyError
 
-from utils.exceptions import AppError, DatabaseError
+from utils.exceptions import AppError
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-def handle_exceptions(func: Callable) -> Callable:
-    """
-    Décorateur pour gérer uniformément les exceptions
-
-    Args:
-        func: Fonction à décorer
-
-    Returns:
-        Fonction décorée avec gestion des exceptions
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except AppError as e:
-            logger.error(f"Erreur d'application dans {func.__name__}: {e.message}")
-            raise
-        except SQLAlchemyError as e:
-            error_msg = f"Erreur de base de données dans {func.__name__}: {str(e)}"
-            logger.error(error_msg)
-            raise DatabaseError(error_msg) from e
-        except Exception as e:
-            error_msg = f"Exception non gérée dans {func.__name__}: {str(e)}"
-            logger.exception(error_msg)
-            raise AppError(error_msg) from e
-
-    return wrapper
-
+# La fonction handle_exceptions a été supprimée car remplacée par catch_exceptions dans utils.error_manager
 
 def streamlit_exception_handler(func: Callable) -> Callable:
     """
