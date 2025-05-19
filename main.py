@@ -2,13 +2,12 @@
 Point d'entrée principal de l'application de gestion patrimoniale
 """
 
-import os
 from datetime import datetime
 
 import streamlit as st
 
 from config.app_config import LOGS_DIR
-from database.db_config import get_db, engine, Base
+from database.db_config import engine, Base
 from ui.analysis import show_analysis
 from ui.assets import show_asset_management
 from ui.auth import show_auth, check_auth, logout, get_current_user_id
@@ -17,15 +16,16 @@ from ui.dashboard import show_dashboard
 from ui.settings import show_settings
 from ui.templates.template_management import show_template_management
 from ui.todos import show_todos
-from utils.decorators import streamlit_exception_handler
-from utils.exceptions import AppError
+from utils.error_manager import catch_exceptions  # Utiliser le nouveau gestionnaire d'erreurs
 from utils.logger import get_logger, setup_file_logging
+from utils.session_manager import session_manager  # Utiliser le gestionnaire de session
 from utils.style_manager import initialize_styles
 
 # Configurer le logger
 logger = get_logger(__name__)
 
-@streamlit_exception_handler
+
+@catch_exceptions  # Remplacé streamlit_exception_handler par catch_exceptions
 def main():
     """Fonction principale de l'application"""
     # Configuration de base de l'application
@@ -37,9 +37,7 @@ def main():
     )
 
     # Initialiser les styles - IMPORTANT : doit être appelé avant tout autre rendu
-    initialize_styles()  # Utilisation du gestionnaire unifié
-
-    # Ligne supprimée: create_theme_selector()
+    initialize_styles()
 
     # Vérifier l'authentification
     is_authenticated = check_auth()
@@ -84,34 +82,25 @@ def main():
     )
 
     try:
-        # Obtenir une session de base de données
-        db = next(get_db())
-
-        # Afficher la page sélectionnée
+        # Afficher la page sélectionnée - plus besoin de passer db et user_id en arguments
+        # Les pages récupèrent ces informations via get_db_session et session_manager
         if page == "Dashboard":
-            show_dashboard(db, user_id)
+            show_dashboard()
         elif page == "Gestion des actifs":
-            show_asset_management(db, user_id)
+            show_asset_management()
         elif page == "Banques & Comptes":
-            show_banks_accounts(db, user_id)
+            show_banks_accounts()
         elif page == "Modèles d'actifs":
-            show_template_management(db, user_id)
+            show_template_management()
         elif page == "Analyses":
-            show_analysis(db, user_id)
+            show_analysis()
         elif page == "Tâches (Todo)":
-            show_todos(db, user_id)
+            show_todos()
         elif page == "Paramètres":
-            show_settings(db, user_id)
-    except AppError as e:
-        st.error(f"Erreur: {e.message}")
-        logger.error(f"Erreur d'application: {e.message}")
+            show_settings()
     except Exception as e:
-        st.error(f"Une erreur inattendue s'est produite. Veuillez consulter les logs pour plus de détails.")
         logger.exception(f"Exception non gérée: {str(e)}")
-    finally:
-        # S'assurer que la session de base de données est fermée
-        if 'db' in locals():
-            db.close()
+        st.error("Une erreur inattendue s'est produite. Veuillez consulter les logs pour plus de détails.")
 
     # Afficher un message d'aide dans la barre latérale
     st.sidebar.markdown("---")
@@ -136,9 +125,9 @@ def main():
     # Afficher les informations stylisées en bas de la sidebar
     st.sidebar.markdown("---")
 
-    # Information utilisateur avec style moderne
-    if "user" in st.session_state:
-        user = st.session_state['user']
+    # Information utilisateur avec style moderne - utiliser le gestionnaire de session
+    username = session_manager.get("user")
+    if username:
         # Format de date moderne
         current_date = datetime.now().strftime("%d %b %Y")
 
@@ -146,7 +135,7 @@ def main():
         <div class="user-profile">
             <div class="user-avatar">👤</div>
             <div class="user-info">
-                <div class="user-name">{user}</div>
+                <div class="user-name">{username}</div>
                 <div class="user-date">{current_date}</div>
             </div>
         </div>
@@ -162,7 +151,7 @@ if __name__ == "__main__":
     Base.metadata.create_all(bind=engine)
 
     # S'assurer que les dossiers de logs existent
-    os.makedirs(LOGS_DIR, exist_ok=True)
+    LOGS_DIR.mkdir(exist_ok=True)  # Utiliser la méthode mkdir() de Path
 
     # Démarrer l'application
     main()
