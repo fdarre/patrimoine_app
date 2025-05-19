@@ -43,7 +43,9 @@ def initialize_database():
             # Créer le répertoire parent si nécessaire
             os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
-            # Créer toutes les tables directement avec SQLAlchemy
+            # Création des tables via SQLAlchemy (structure initiale)
+            # Note: Cette approche est utilisée uniquement pour l'initialisation à cause de contraintes
+            # spécifiques à Streamlit. Les modifications futures doivent être faites via le système de migrations.
             Base.metadata.create_all(bind=engine)
             logger.info("Tables créées avec succès.")
 
