@@ -3,11 +3,14 @@ Point d'entrée principal de l'application de gestion patrimoniale
 """
 import os
 import sys
+import uuid
 from datetime import datetime
 
 import streamlit as st
 
 from config.app_config import LOGS_DIR, DB_PATH
+from database.db_config import engine, get_db_session
+from database.models import Base, User
 from ui.analysis import show_analysis
 from ui.assets import show_asset_management
 from ui.auth import show_auth, check_auth, logout, get_current_user_id
@@ -16,16 +19,87 @@ from ui.dashboard import show_dashboard
 from ui.settings import show_settings
 from ui.templates.template_management import show_template_management
 from ui.todos import show_todos
-from utils.error_manager import catch_exceptions  # Utiliser le nouveau gestionnaire d'erreurs
+from utils.error_manager import catch_exceptions
 from utils.logger import get_logger, setup_file_logging
-from utils.session_manager import session_manager  # Utiliser le gestionnaire de session
+from utils.migration_manager import migration_manager
+from utils.password import hash_password
+from utils.session_manager import session_manager
 from utils.style_manager import initialize_styles
 
 # Configurer le logger
 logger = get_logger(__name__)
 
 
-@catch_exceptions  # Remplacé streamlit_exception_handler par catch_exceptions
+def initialize_database():
+    """
+    Initialise la base de données et crée un utilisateur admin si nécessaire
+    """
+    logger.info("Vérification de la base de données...")
+
+    # 1. Créer les tables si elles n'existent pas
+    if not os.path.exists(DB_PATH):
+        logger.info("Base de données inexistante. Création des tables...")
+        try:
+            # Créer le répertoire parent si nécessaire
+            os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
+            # Créer toutes les tables directement avec SQLAlchemy
+            Base.metadata.create_all(bind=engine)
+            logger.info("Tables créées avec succès.")
+
+            # Initialiser les migrations pour suivre les futurs changements
+            migration_manager.initialize_database()
+            logger.info("Système de migrations initialisé.")
+        except Exception as e:
+            logger.critical(f"Échec de la création des tables: {str(e)}")
+            st.error(f"Erreur critique lors de l'initialisation de la base de données: {str(e)}")
+            sys.exit(1)
+
+        # 2. Créer un utilisateur administrateur par défaut
+        try:
+            with get_db_session() as db:
+                # Vérifier si des utilisateurs existent
+                user_count = db.query(User).count()
+
+                if user_count == 0:
+                    logger.info("Création de l'utilisateur admin par défaut...")
+
+                    # Créer l'utilisateur
+                    admin_user = User(
+                        id=str(uuid.uuid4()),
+                        username="admin",
+                        email="admin@exemple.com",
+                        password_hash=hash_password("admin123"),
+                        is_active=True,
+                        created_at=datetime.now()
+                    )
+
+                    db.add(admin_user)
+                    logger.info("Utilisateur administrateur créé avec succès.")
+        except Exception as e:
+            logger.error(f"Échec de la création de l'utilisateur admin: {str(e)}")
+            # Ne pas planter l'application pour cette erreur, l'utilisateur pourra en créer un manuellement
+    else:
+        # Base existante - vérifier si elle est à jour avec les migrations
+        try:
+            # Vérifier si la base contient au moins les tables essentielles
+            from sqlalchemy import inspect
+            inspector = inspect(engine)
+
+            if "users" not in inspector.get_table_names():
+                logger.warning("Base de données existante mais incomplète. Tentative de mise à jour...")
+                Base.metadata.create_all(bind=engine)
+                migration_manager.initialize_database()
+
+            # Mettre à jour la base avec les dernières migrations (si nécessaire)
+            migration_manager.upgrade_database("head")
+            logger.info("Base de données à jour avec les dernières migrations.")
+        except Exception as e:
+            logger.error(f"Erreur lors de la vérification/mise à jour de la base de données: {str(e)}")
+            # Continuer quand même, en espérant que la base soit utilisable
+
+
+@catch_exceptions
 def main():
     """Fonction principale de l'application"""
     # Configuration de base de l'application
@@ -82,8 +156,7 @@ def main():
     )
 
     try:
-        # Afficher la page sélectionnée - plus besoin de passer db et user_id en arguments
-        # Les pages récupèrent ces informations via get_db_session et session_manager
+        # Afficher la page sélectionnée
         if page == "Dashboard":
             show_dashboard()
         elif page == "Gestion des actifs":
@@ -149,20 +222,10 @@ def main():
 # Point d'entrée
 if __name__ == "__main__":
     # S'assurer que les dossiers de logs existent
-    LOGS_DIR.mkdir(exist_ok=True)  # Utiliser la méthode mkdir() de Path
+    LOGS_DIR.mkdir(exist_ok=True)
 
-    # Initialiser la base de données avec les migrations Alembic
-    from utils.migration_manager import migration_manager
-
-    # Vérifier si la base existe déjà et est initialisée
-    if not os.path.exists(DB_PATH) or migration_manager.get_current_version() is None:
-        logger.info("Initialisation de la base de données...")
-        if not migration_manager.initialize_database():
-            logger.critical("Échec de l'initialisation de la base de données avec les migrations.")
-            sys.exit(1)
-        logger.info("Base de données initialisée avec succès.")
-    else:
-        logger.info(f"Base de données déjà initialisée, version: {migration_manager.get_current_version()}")
+    # Initialiser la base de données si nécessaire
+    initialize_database()
 
     # Démarrer l'application
     main()
