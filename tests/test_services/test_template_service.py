@@ -147,7 +147,8 @@ class TestTemplateService:
             type_produit="etf",
             categorie="actions",
             allocation={"actions": 70, "obligations": 30},
-            geo_allocation={"actions": {"amerique_nord": 70, "europe_zone_euro": 30}},
+            geo_allocation={"actions": {
+                "amerique_nord": 70, "europe_zone_euro": 30}},
             valeur_actuelle=1000.0,
             prix_de_revient=900.0,
             devise="EUR",

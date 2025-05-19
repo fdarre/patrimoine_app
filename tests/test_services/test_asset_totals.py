@@ -352,22 +352,22 @@ class TestAssetTotals:
         # Japon: ETF MSCI World: 20000 × 0.05 = 1000 EUR
         # Chine: ETF MSCI World: 20000 × 0.05 = 1000 EUR
 
-        # Vérifications (avec une marge d'erreur pour les arrondis)
+        # Vérifications avec une marge d'erreur réduite
         assert abs(geo_values_actions[
-                       "amerique_nord"] - 16500) < 100, f"Amérique du Nord {geo_values_actions['amerique_nord']} ≠ ~16500"
+                       "amerique_nord"] - 16500) < 1.0, f"Amérique du Nord {geo_values_actions['amerique_nord']} ≠ 16500"
         assert abs(geo_values_actions[
-                       "europe_zone_euro"] - 19000) < 100, f"Europe Zone Euro {geo_values_actions['europe_zone_euro']} ≠ ~19000"
+                       "europe_zone_euro"] - 19000) < 1.0, f"Europe Zone Euro {geo_values_actions['europe_zone_euro']} ≠ 19000"
         assert abs(geo_values_actions[
-                       "europe_hors_zone_euro"] - 5600) < 100, f"Europe Hors Zone Euro {geo_values_actions['europe_hors_zone_euro']} ≠ ~5600"
-        assert abs(geo_values_actions["japon"] - 1000) < 100, f"Japon {geo_values_actions['japon']} ≠ ~1000"
-        assert abs(geo_values_actions["chine"] - 1000) < 100, f"Chine {geo_values_actions['chine']} ≠ ~1000"
+                       "europe_hors_zone_euro"] - 5600) < 1.0, f"Europe Hors Zone Euro {geo_values_actions['europe_hors_zone_euro']} ≠ 5600"
+        assert abs(geo_values_actions["japon"] - 1000) < 1.0, f"Japon {geo_values_actions['japon']} ≠ 1000"
+        assert abs(geo_values_actions["chine"] - 1000) < 1.0, f"Chine {geo_values_actions['chine']} ≠ 1000"
 
         # Vérifier que la somme correspond au total des actions
         # Total des actions: 43100 EUR
         total_geo_actions = sum(geo_values_actions.values())
         expected_actions_total = 43100.0
         assert abs(
-            total_geo_actions - expected_actions_total) < 100, f"Total géo actions {total_geo_actions} ≠ ~{expected_actions_total}"
+            total_geo_actions - expected_actions_total) < 1.0, f"Total géo actions {total_geo_actions} ≠ {expected_actions_total}"
 
         # Calculer les valeurs par zone géographique pour la catégorie Cash
         geo_values_cash = VisualizationService.calculate_geo_values(
@@ -376,7 +376,7 @@ class TestAssetTotals:
 
         # Cash est totalement en Europe Zone Euro: 15000 EUR
         assert abs(geo_values_cash[
-                       "europe_zone_euro"] - 15000) < 100, f"Europe Zone Euro cash {geo_values_cash['europe_zone_euro']} ≠ ~15000"
+                       "europe_zone_euro"] - 15000) < 1.0, f"Europe Zone Euro cash {geo_values_cash['europe_zone_euro']} ≠ 15000"
 
         # Vérifier le total global (toutes catégories)
         geo_values_all = {}
@@ -389,4 +389,4 @@ class TestAssetTotals:
 
         total_all_zones = sum(geo_values_all.values())
         expected_total = 58100.0
-        assert abs(total_all_zones - expected_total) < 100, f"Total toutes zones {total_all_zones} ≠ ~{expected_total}"
+        assert abs(total_all_zones - expected_total) < 1.0, f"Total toutes zones {total_all_zones} ≠ {expected_total}"

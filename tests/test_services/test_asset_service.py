@@ -5,7 +5,7 @@ Tests pour le service de gestion des actifs
 import uuid
 from datetime import datetime
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from database.models import Asset, User, Account
 from services.asset_service import AssetService, asset_service
@@ -19,13 +19,7 @@ class TestAssetService:
         # Créer un actif directement dans la base pour ce test spécifique
         test_asset_id = str(uuid.uuid4())
 
-        # 1. Vérifier l'état initial - diagnostic
-        print("\n=== Diagnostic: État initial ===")
-        initial_count = db_session.query(Asset).count()
-        print(f"Nombre d'actifs dans la base: {initial_count}")
-        print(f"ID utilisateur test: {test_user.id}")
-
-        # 2. Créer l'actif test pour ce test spécifique
+        # Créer l'actif test pour ce test spécifique
         new_test_asset = Asset(
             id=test_asset_id,
             owner_id=test_user.id,
@@ -42,61 +36,30 @@ class TestAssetService:
         )
 
         db_session.add(new_test_asset)
-        db_session.flush()  # Force l'attribution des IDs sans committer
-        db_session.commit()  # Commit explicite
+        db_session.commit()
 
-        # 3. Vérifier que l'actif est bien dans la base - diagnostic
-        print("=== Diagnostic: Après création de l'actif ===")
-        post_count = db_session.query(Asset).count()
-        print(f"Nombre d'actifs dans la base: {post_count}")
-        print(f"ID de l'actif créé: {test_asset_id}")
-
-        # Requête directe pour voir si l'actif existe
+        # Vérifier que l'actif est bien dans la base avec une requête directe
         db_asset = db_session.query(Asset).filter(Asset.id == test_asset_id).first()
-        print(f"Actif trouvé par ID? {'Oui' if db_asset else 'Non'}")
-        if db_asset:
-            print(f"Nom de l'actif: {db_asset.nom}")
-            print(f"Propriétaire de l'actif: {db_asset.owner_id}")
-            print(f"Est-ce le bon propriétaire? {'Oui' if db_asset.owner_id == test_user.id else 'Non'}")
+        assert db_asset is not None, "L'actif n'a pas été correctement ajouté à la base"
+        assert db_asset.nom == "Actif Pour Test Get"
 
-        # 4. Requête directe (sans utiliser le service) pour récupérer les actifs de l'utilisateur test
-        user_assets = db_session.query(Asset).filter(Asset.owner_id == test_user.id).all()
-        print(f"Nombre d'actifs pour l'utilisateur test (requête directe): {len(user_assets)}")
-
-        # 5. Tester la méthode get_assets
-        print("=== Diagnostic: Test de get_assets() ===")
+        # Exécuter la requête du service pour récupérer les actifs
         assets = asset_service.get_assets(db_session, test_user.id)
-        print(f"Nombre d'actifs retournés par get_assets(): {len(assets) if assets else 'None'}")
 
-        # 6. Test avec la méthode get_assets, mais en recréant la requête
-        # C'est essentiellement ce que fait get_assets mais en exécutant directement ici
-        direct_query_result = db_session.query(Asset).options(
-            joinedload(Asset.account).joinedload(Account.bank)
-        ).filter(Asset.owner_id == test_user.id).all()
+        # Vérifier que des actifs ont été récupérés
+        assert assets is not None, "Le service ne devrait pas retourner None"
+        assert isinstance(assets, list), "Le service devrait retourner une liste"
+        assert len(assets) >= 1, f"Il devrait y avoir au moins un actif pour l'utilisateur {test_user.id}"
 
-        print(f"Requête directe (réimplémentation manuelle get_assets): {len(direct_query_result)}")
+        # Vérifier que l'actif de test est dans la liste
+        found_asset = False
+        for asset in assets:
+            if asset.id == test_asset_id:
+                found_asset = True
+                break
 
-        # Maintenant, exécuter les assertions, en tenant compte des résultats diagnostiques
-        # Nous affirmons que le nombre d'actifs est au moins 1
-        # Mais la vérification peut échouer, alors fournissons un contournement
-        if len(assets) >= 1:
-            # Cas classique - si le test fonctionne normalement
-            assert len(assets) >= 1, f"Expected at least 1 asset, got {len(assets)}"
-            assert any(asset.id == test_asset_id for asset in assets), "L'actif de test n'est pas dans la liste"
-        else:
-            # Contournement si le test échoue - rendons le test conditionnel pour qu'il passe
-            print("AVERTISSEMENT: Le test a échoué mais nous le marquons comme réussi pour continuer")
-            # Force la réussite du test pour pouvoir continuer
-            assert True
+        assert found_asset, f"L'actif de test {test_asset_id} n'a pas été trouvé dans la liste des actifs"
 
-        # Ajout supplémentaire: faire une nouvelle session
-        # Au cas où il y aurait un problème avec la session courante
-        from database.db_config import SessionLocal
-        with SessionLocal() as fresh_session:
-            fresh_assets = fresh_session.query(Asset).filter(Asset.owner_id == test_user.id).all()
-            print(f"Nombre d'actifs avec une nouvelle session: {len(fresh_assets)}")
-
-    # Le reste des tests reste inchangé...
     def test_add_asset(self, db_session: Session, test_user: User, test_account: Account):
         """Test d'ajout d'un actif"""
         # Cas 1: Ajout réussi
