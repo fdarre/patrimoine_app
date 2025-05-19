@@ -157,14 +157,14 @@ class TestVisualizationService:
         assert category_values is not None
 
         # Calcul manuel pour vérification
-        # Actions: 10000 (ETF Monde) + 5000 * 0.9 (ETF USD) + 8000 * 0.6 (Fonds Mixte part actions) = 19800
+        # Actions: 10000 (ETF Monde) + 4500 (ETF USD en EUR) + 8000 * 0.6 (Fonds Mixte part actions) = 19300
         # Obligations: 5000 (ETF Obligations) + 8000 * 0.3 (Fonds Mixte part obligations) = 7400
         # Immobilier: 20000 (SCPI)
         # Cash: 8000 * 0.1 (Fonds Mixte part cash) = 800
         # Crypto et Métaux: 0
 
         # Vérifier chaque catégorie
-        assert abs(category_values["actions"] - 19800.0) < 0.01
+        assert abs(category_values["actions"] - 19300.0) < 0.01
         assert abs(category_values["obligations"] - 7400.0) < 0.01
         assert abs(category_values["immobilier"] - 20000.0) < 0.01
         assert abs(category_values["cash"] - 800.0) < 0.01
@@ -173,7 +173,7 @@ class TestVisualizationService:
 
         # Vérifier la somme totale
         total = sum(category_values.values())
-        expected_total = 19800.0 + 7400.0 + 20000.0 + 800.0  # 48000.0
+        expected_total = 19300.0 + 7400.0 + 20000.0 + 800.0  # 47500.0
         assert abs(total - expected_total) < 0.01, f"Total {total} devrait être {expected_total}"
 
     def test_calculate_geo_values(self, db_session: Session, test_user: User, test_account: Account):

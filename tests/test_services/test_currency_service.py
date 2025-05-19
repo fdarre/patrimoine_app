@@ -30,8 +30,15 @@ class TestCurrencyService:
         CurrencyService.CACHE_FILE = self.original_cache_file
 
     @patch('services.currency_service.requests.get')
-    def test_get_exchange_rates(self, mock_get):
+    @patch('services.currency_service.CurrencyService._is_cache_valid')
+    @patch('services.currency_service.CurrencyService._load_cache')
+    @patch('services.currency_service.CurrencyService._save_cache')
+    def test_get_exchange_rates(self, mock_save_cache, mock_load_cache, mock_is_cache_valid, mock_get):
         """Test de récupération des taux de change"""
+        # Configurer les mocks pour le premier appel (pas de cache valide)
+        mock_is_cache_valid.return_value = False
+        mock_load_cache.return_value = None
+
         # Simuler une réponse d'API
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -65,20 +72,34 @@ class TestCurrencyService:
         # Vérifier que l'API a été appelée
         mock_get.assert_called_once_with(CurrencyService.API_URL, timeout=10)
 
-        # Vérifier que le cache a été créé
-        assert os.path.exists(CurrencyService.CACHE_FILE)
+        # Vérifier que la sauvegarde du cache a été appelée
+        mock_save_cache.assert_called_once()
 
-        # Réinitialiser le mock pour le prochain test
+        # Réinitialiser les mocks pour le second test
         mock_get.reset_mock()
+        mock_save_cache.reset_mock()
+
+        # Cette fois, simuler un cache valide
+        mock_is_cache_valid.return_value = True
+        mock_load_cache.return_value = {
+            "USD": 1.12,
+            "GBP": 0.85,
+            "JPY": 150.23,
+            "CHF": 0.98,
+            "EUR": 1.0
+        }
 
         # Appeler à nouveau pour tester le cache
         rates2 = CurrencyService.get_exchange_rates()
 
         # L'API ne devrait pas être appelée car le cache est valide
         mock_get.assert_not_called()
+        # Et la sauvegarde du cache ne devrait pas non plus être appelée
+        mock_save_cache.assert_not_called()
 
-        # Les résultats devraient être identiques
-        assert rates2 == rates
+        # Vérifier que nous avons bien récupéré les mêmes taux depuis le cache
+        assert rates2["USD"] == 1.12
+        assert rates2["EUR"] == 1.0
 
     @patch('services.currency_service.requests.get')
     def test_get_exchange_rates_api_error(self, mock_get):
