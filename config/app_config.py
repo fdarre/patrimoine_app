@@ -1,6 +1,7 @@
 """
 Centralized application configuration
 """
+import os
 import secrets
 from pathlib import Path
 
@@ -23,19 +24,39 @@ LOGS_DIR.mkdir(exist_ok=True)
 DB_PATH = DATA_DIR / "patrimoine.db"
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
-# Security keys and cryptography - Secure randomly generated values
-SECRET_KEY = secrets.token_urlsafe(32)
-ENCRYPTION_SALT = secrets.token_bytes(16)
-
-# If salt is not defined in environment, try to read it from .salt file
+# Fichiers pour stocker les clés de sécurité
 salt_file = DATA_DIR / ".salt"
-if salt_file.exists():
-    with open(salt_file, "r") as f:
-        ENCRYPTION_SALT = f.read().strip()
-# If file doesn't exist, create it with generated salt
+key_file = DATA_DIR / ".key"
+
+# Charger ou générer SECRET_KEY
+if key_file.exists():
+    with open(key_file, "rb") as f:
+        SECRET_KEY = f.read()
 else:
-    with open(salt_file, "w") as f:
-        f.write(ENCRYPTION_SALT.decode() if isinstance(ENCRYPTION_SALT, bytes) else ENCRYPTION_SALT)
+    # Générer une nouvelle clé
+    SECRET_KEY = secrets.token_bytes(32)
+    with open(key_file, "wb") as f:
+        f.write(SECRET_KEY)
+    # Protéger le fichier (Unix seulement)
+    try:
+        os.chmod(key_file, 0o600)  # Lecture/écriture uniquement pour le propriétaire
+    except Exception:
+        pass
+
+# Charger ou générer ENCRYPTION_SALT
+if salt_file.exists():
+    with open(salt_file, "rb") as f:
+        ENCRYPTION_SALT = f.read()
+else:
+    # Générer un nouveau sel
+    ENCRYPTION_SALT = secrets.token_bytes(16)
+    with open(salt_file, "wb") as f:
+        f.write(ENCRYPTION_SALT)
+    # Protéger le fichier (Unix seulement)
+    try:
+        os.chmod(salt_file, 0o600)
+    except Exception:
+        pass
 
 # JWT configuration
 JWT_ALGORITHM = "HS256"

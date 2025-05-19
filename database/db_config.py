@@ -30,17 +30,9 @@ engine = create_engine(
 def get_encryption_key():
     """Generate an encryption key derived from the main secret and salt"""
     try:
-        # Ensure salt is bytes - multiple ways to handle this
-        if isinstance(ENCRYPTION_SALT, str):
-            try:
-                # Try to decode as URL-safe base64
-                salt = base64.urlsafe_b64decode(ENCRYPTION_SALT.encode())
-            except Exception as e:
-                logger.warning(f"Failed to decode salt as base64: {str(e)}")
-                # Try direct encoding
-                salt = ENCRYPTION_SALT.encode()
-        else:
-            salt = ENCRYPTION_SALT
+        # Les deux valeurs devraient déjà être des bytes
+        salt = ENCRYPTION_SALT
+        key = SECRET_KEY
 
         # Create key derivation function
         kdf = PBKDF2HMAC(
@@ -49,12 +41,6 @@ def get_encryption_key():
             salt=salt,
             iterations=100000,
         )
-
-        # Ensure key is bytes
-        if isinstance(SECRET_KEY, str):
-            key = SECRET_KEY.encode()
-        else:
-            key = SECRET_KEY
 
         # Derive and encode key
         derived_key = kdf.derive(key)
