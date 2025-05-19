@@ -1,33 +1,29 @@
 """
-Service de gestion des actifs - Responsabilités de base
+Service for asset management - Core responsibilities
 """
 import uuid
 from datetime import datetime
-# Imports de la bibliothèque standard
 from typing import List, Optional, Dict, Any
 
-from sqlalchemy import func
-# Imports de bibliothèques tierces
 from sqlalchemy.orm import Session, joinedload
 
-# Imports de l'application
 from database.models import Asset, Account
 from services.base_service import BaseService
 from utils.calculations import calculate_asset_performance
-from utils.decorators import handle_exceptions
+from utils.error_manager import catch_exceptions
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 class AssetService(BaseService[Asset]):
     """
-    Service pour la gestion CRUD des actifs
+    Service for CRUD operations on assets
     """
 
     def __init__(self):
         super().__init__(Asset)
 
-    @handle_exceptions
+    @catch_exceptions
     def get_assets(
             self, db: Session,
             user_id: str,
@@ -35,18 +31,18 @@ class AssetService(BaseService[Asset]):
             category: Optional[str] = None
     ) -> List[Asset]:
         """
-        Récupère tous les actifs d'un utilisateur avec filtres optionnels
+        Get all assets for a user with optional filters
 
         Args:
-            db: Session de base de données
-            user_id: ID de l'utilisateur
-            account_id: ID du compte (optionnel)
-            category: Catégorie d'actif (optionnel)
+            db: Database session
+            user_id: User ID
+            account_id: Account ID (optional)
+            category: Asset category (optional)
 
         Returns:
-            Liste des actifs
+            List of assets
         """
-        # OPTIMISATION: Utiliser eager loading pour charger les relations en une seule requête
+        # OPTIMIZATION: Use eager loading to load relations in a single query
         query = db.query(Asset).options(
             joinedload(Asset.account).joinedload(Account.bank)
         ).filter(Asset.owner_id == user_id)
@@ -54,135 +50,134 @@ class AssetService(BaseService[Asset]):
         if account_id:
             query = query.filter(Asset.account_id == account_id)
 
-        # OPTIMISATION: Filtrage sur JSON pour les catégories au niveau SQL
+        # Category filtering with consistent approach
         if category:
-            # Pour SQLite, utiliser json_extract
-            query = query.filter(func.json_extract(Asset.allocation, f'$.{category}').isnot(None))
+            query = query.filter(Asset.allocation.has_key(category))  # Using SQLAlchemy's has_key for JSON
 
         return query.all()
 
-    @handle_exceptions
+    @catch_exceptions
     def add_asset(
             self, db: Session,
             user_id: str,
-            nom: str,
-            compte_id: str,
-            type_produit: str,
+            name: str,
+            account_id: str,
+            product_type: str,
             allocation: Dict[str, float],
             geo_allocation: Dict[str, Dict[str, float]],
-            valeur_actuelle: float,
-            prix_de_revient: Optional[float] = None,
-            devise: str = "EUR",
+            current_value: float,
+            cost_basis: Optional[float] = None,
+            currency: str = "EUR",
             notes: str = "",
             todo: str = "",
             isin: Optional[str] = None,
             ounces: Optional[float] = None
     ) -> Optional[Asset]:
         """
-        Ajoute un nouvel actif
+        Add a new asset
 
         Args:
-            db: Session de base de données
-            user_id: ID de l'utilisateur propriétaire
-            nom: Nom de l'actif
-            compte_id: ID du compte associé
-            type_produit: Type de produit
-            allocation: Répartition par catégorie
-            geo_allocation: Répartition géographique par catégorie
-            valeur_actuelle: Valeur actuelle
-            prix_de_revient: Prix de revient (si None, utilise valeur_actuelle)
-            devise: Devise
+            db: Database session
+            user_id: Owner user ID
+            name: Asset name
+            account_id: Associated account ID
+            product_type: Product type
+            allocation: Category allocation
+            geo_allocation: Geographic allocation by category
+            current_value: Current value
+            cost_basis: Cost basis (if None, uses current_value)
+            currency: Currency
             notes: Notes
-            todo: Tâche(s) à faire
-            isin: Code ISIN (optionnel)
-            ounces: Nombre d'onces pour les métaux précieux (optionnel)
+            todo: Task(s) to do
+            isin: ISIN code (optional)
+            ounces: Number of ounces for precious metals (optional)
 
         Returns:
-            Le nouvel actif créé ou None
+            The newly created asset or None
         """
-        if prix_de_revient is None:
-            prix_de_revient = valeur_actuelle
+        if cost_basis is None:
+            cost_basis = current_value
 
-        # Déterminer la catégorie principale (celle avec le pourcentage le plus élevé)
-        categorie = max(allocation.items(), key=lambda x: x[1])[0] if allocation else "autre"
+        # Determine main category (the one with the highest percentage)
+        category = max(allocation.items(), key=lambda x: x[1])[0] if allocation else "autre"
 
-        # Données pour la création
+        # Data for creation
         data = {
             "id": str(uuid.uuid4()),
             "owner_id": user_id,
-            "account_id": compte_id,
-            "nom": nom,
-            "type_produit": type_produit,
-            "categorie": categorie,
+            "account_id": account_id,
+            "nom": name,  # Keep French field names to maintain DB compatibility
+            "type_produit": product_type,
+            "categorie": category,
             "allocation": allocation,
             "geo_allocation": geo_allocation,
-            "valeur_actuelle": valeur_actuelle,
-            "prix_de_revient": prix_de_revient,
-            "devise": devise,
+            "valeur_actuelle": current_value,
+            "prix_de_revient": cost_basis,
+            "devise": currency,
             "date_maj": datetime.now().strftime("%Y-%m-%d"),
             "notes": notes,
             "todo": todo,
             "isin": isin,
             "ounces": ounces,
             "exchange_rate": 1.0,  # Default
-            "value_eur": valeur_actuelle if devise == "EUR" else None
+            "value_eur": current_value if currency == "EUR" else None
         }
 
         return self.create(db, data)
 
-    @handle_exceptions
+    @catch_exceptions
     def update_asset(
             self, db: Session,
             asset_id: str,
-            nom: str,
-            compte_id: str,
-            type_produit: str,
+            name: str,
+            account_id: str,
+            product_type: str,
             allocation: Dict[str, float],
             geo_allocation: Dict[str, Dict[str, float]],
-            valeur_actuelle: float,
-            prix_de_revient: float,
-            devise: str = "EUR",
+            current_value: float,
+            cost_basis: float,
+            currency: str = "EUR",
             notes: str = "",
             todo: str = "",
             isin: Optional[str] = None,
             ounces: Optional[float] = None
     ) -> Optional[Asset]:
         """
-        Met à jour un actif existant (sans synchronisation)
+        Update an existing asset (without synchronization)
 
         Args:
-            db: Session de base de données
-            asset_id: ID de l'actif à mettre à jour
-            nom: Nouveau nom
-            compte_id: Nouveau compte
-            type_produit: Nouveau type
-            allocation: Nouvelle allocation
-            geo_allocation: Nouvelle répartition géographique
-            valeur_actuelle: Nouvelle valeur
-            prix_de_revient: Nouveau prix de revient
-            devise: Nouvelle devise
-            notes: Nouvelles notes
-            todo: Nouvelle(s) tâche(s)
-            isin: Code ISIN (optionnel)
-            ounces: Nombre d'onces pour les métaux précieux (optionnel)
+            db: Database session
+            asset_id: ID of asset to update
+            name: New name
+            account_id: New account
+            product_type: New type
+            allocation: New allocation
+            geo_allocation: New geographic allocation
+            current_value: New value
+            cost_basis: New cost basis
+            currency: New currency
+            notes: New notes
+            todo: New task(s)
+            isin: ISIN code (optional)
+            ounces: Number of ounces for precious metals (optional)
 
         Returns:
-            L'actif mis à jour ou None
+            The updated asset or None
         """
-        # Déterminer la catégorie principale (celle avec le pourcentage le plus élevé)
-        categorie = max(allocation.items(), key=lambda x: x[1])[0] if allocation else "autre"
+        # Determine main category (the one with the highest percentage)
+        category = max(allocation.items(), key=lambda x: x[1])[0] if allocation else "autre"
 
-        # Données pour la mise à jour
+        # Data for update
         data = {
-            "nom": nom,
-            "account_id": compte_id,
-            "type_produit": type_produit,
-            "categorie": categorie,
+            "nom": name,
+            "account_id": account_id,
+            "type_produit": product_type,
+            "categorie": category,
             "allocation": allocation,
             "geo_allocation": geo_allocation,
-            "valeur_actuelle": float(valeur_actuelle),
-            "prix_de_revient": float(prix_de_revient),
-            "devise": devise,
+            "valeur_actuelle": float(current_value),
+            "prix_de_revient": float(cost_basis),
+            "devise": currency,
             "date_maj": datetime.now().strftime("%Y-%m-%d"),
             "notes": notes,
             "todo": todo,
@@ -192,81 +187,82 @@ class AssetService(BaseService[Asset]):
 
         return self.update(db, asset_id, data)
 
-    @handle_exceptions
+    @catch_exceptions
     def update_manual_price(self, db: Session, asset_id: str, new_price: float) -> bool:
         """
-        Met à jour manuellement le prix d'un actif
+        Manually update an asset's price
 
         Args:
-            db: Session de base de données
-            asset_id: ID de l'actif à mettre à jour
-            new_price: Nouveau prix
+            db: Database session
+            asset_id: ID of asset to update
+            new_price: New price
 
         Returns:
-            True si la mise à jour a réussi, False sinon
+            True if update was successful, False otherwise
         """
         asset = self.get_by_id(db, asset_id)
         if not asset:
             return False
 
         try:
-            # Mettre à jour le prix
+            # Update price
             asset.valeur_actuelle = new_price
             asset.last_price_sync = datetime.now()
             asset.sync_error = None
 
-            # Mettre à jour la date de MAJ
+            # Update modification date
             asset.date_maj = datetime.now().strftime("%Y-%m-%d")
 
-            # Mise à jour simple de la valeur en EUR si devise EUR
+            # Simple update of EUR value if EUR currency
             if asset.devise == "EUR":
                 asset.value_eur = new_price
 
-            # Sauvegarder les modifications
+            # Save changes
             db.commit()
+            logger.info(f"Manual price update for asset {asset_id}: {new_price}")
             return True
         except Exception as e:
             db.rollback()
-            logger.error(f"Erreur lors de la mise à jour manuelle du prix: {str(e)}")
+            logger.error(f"Error during manual price update: {str(e)}")
             return False
 
-    @handle_exceptions
+    @catch_exceptions
     def clear_todo(self, db: Session, asset_id: str) -> bool:
         """
-        Vide le champ todo d'un actif existant de manière directe
+        Clear the todo field of an existing asset directly
 
         Args:
-            db: Session de base de données
-            asset_id: ID de l'actif à mettre à jour
+            db: Database session
+            asset_id: ID of asset to update
 
         Returns:
-            True si la mise à jour a réussi, False sinon
+            True if update was successful, False otherwise
         """
         try:
-            # Mettre à jour directement le champ todo sans recharger tout l'actif
+            # Directly update the todo field without reloading the entire asset
             result = db.query(Asset).filter(Asset.id == asset_id).update({"todo": ""})
             db.commit()
-            logger.info(f"Todo effacé pour l'actif {asset_id}")
+            logger.info(f"Todo cleared for asset {asset_id}")
             return result > 0
         except Exception as e:
             db.rollback()
-            logger.error(f"Erreur lors de l'effacement du todo: {str(e)}")
+            logger.error(f"Error clearing todo: {str(e)}")
             return False
 
     @staticmethod
     def calculate_performance(asset: Asset) -> Dict[str, Any]:
         """
-        Calcule la performance d'un actif de manière standardisée
+        Calculate asset performance in a standardized way
 
         Args:
-            asset: Actif à évaluer
+            asset: Asset to evaluate
 
         Returns:
-            Dictionnaire contenant la valeur, le pourcentage et le signe de la plus-value
+            Dictionary containing value, percentage and sign of the gain/loss
         """
-        # Utiliser la fonction centralisée
+        # Use centralized function
         return calculate_asset_performance(asset.valeur_actuelle, asset.prix_de_revient)
 
 
-# Créer une instance singleton du service
+# Create singleton instance of the service
 asset_service = AssetService()

@@ -1,9 +1,9 @@
 """
 Gestionnaire d'erreurs centralisé pour l'application
 """
+import functools
 import traceback
-from functools import wraps
-from typing import Callable
+from typing import Callable, Dict, Type
 
 import streamlit as st
 
@@ -11,7 +11,6 @@ from utils.exceptions import AppError, DatabaseError, ValidationError, Authentic
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
-
 
 class ErrorManager:
     """
@@ -23,10 +22,10 @@ class ErrorManager:
 
     def __init__(self):
         """Initialise le gestionnaire d'erreurs"""
-        self.error_handlers = {}
+        self.error_handlers: Dict[Type[Exception], Callable] = {}
         self.register_default_handlers()
 
-    def register_handler(self, exception_type: type, handler: Callable) -> None:
+    def register_handler(self, exception_type: Type[Exception], handler: Callable) -> None:
         """
         Enregistre un gestionnaire pour un type d'exception
 
@@ -51,6 +50,9 @@ class ErrorManager:
         Args:
             e: Exception à gérer
         """
+        # Journaliser l'exception
+        logger.error(f"Exception caught: {type(e).__name__}: {str(e)}")
+
         # Trouver le gestionnaire le plus spécifique
         handler = None
         for exc_type, h in self.error_handlers.items():
@@ -65,18 +67,18 @@ class ErrorManager:
         # Appeler le gestionnaire
         handler(e)
 
-    def wrap_function(self, func: Callable) -> Callable:
+    def catch_exceptions(self, func: Callable) -> Callable:
         """
-        Enveloppe une fonction avec la gestion d'erreurs
+        Décorateur pour capturer et gérer les exceptions dans une fonction
 
         Args:
-            func: Fonction à envelopper
+            func: Fonction à décorer
 
         Returns:
-            Fonction enveloppée
+            Fonction décorée
         """
 
-        @wraps(func)
+        @functools.wraps(func)
         def wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
@@ -93,8 +95,8 @@ class ErrorManager:
         Args:
             e: Erreur de validation
         """
-        st.error(f"Erreur de validation: {e.message}")
-        logger.warning(f"Erreur de validation: {e.message}")
+        st.error(f"Validation Error: {e.message}")
+        logger.warning(f"Validation Error: {e.message}")
 
     def _handle_database_error(self, e: DatabaseError) -> None:
         """
@@ -103,8 +105,8 @@ class ErrorManager:
         Args:
             e: Erreur de base de données
         """
-        st.error(f"Erreur de base de données: {e.message}")
-        logger.error(f"Erreur de base de données: {e.message}")
+        st.error(f"Database Error: {e.message}")
+        logger.error(f"Database Error: {e.message}")
 
     def _handle_authentication_error(self, e: AuthenticationError) -> None:
         """
@@ -113,8 +115,8 @@ class ErrorManager:
         Args:
             e: Erreur d'authentification
         """
-        st.error(f"Erreur d'authentification: {e.message}")
-        logger.warning(f"Erreur d'authentification: {e.message}")
+        st.error(f"Authentication Error: {e.message}")
+        logger.warning(f"Authentication Error: {e.message}")
 
     def _handle_app_error(self, e: AppError) -> None:
         """
@@ -123,8 +125,8 @@ class ErrorManager:
         Args:
             e: Erreur d'application
         """
-        st.error(f"Erreur: {e.message}")
-        logger.error(f"Erreur d'application: {e.message}")
+        st.error(f"Application Error: {e.message}")
+        logger.error(f"Application Error: {e.message}")
 
     def _handle_generic_exception(self, e: Exception) -> None:
         """
@@ -134,14 +136,14 @@ class ErrorManager:
             e: Exception générique
         """
         # Journaliser l'erreur avec la trace complète
-        logger.exception("Exception non gérée")
+        logger.exception("Unhandled exception")
 
         # Afficher une version simplifiée dans l'interface utilisateur
-        st.error("Une erreur inattendue s'est produite. Veuillez consulter les logs pour plus de détails.")
+        st.error("An unexpected error occurred. Please check the logs for more details.")
 
         # En mode développement, afficher les détails de l'erreur
         if st.secrets.get("env", "prod") == "dev":
-            with st.expander("Détails de l'erreur (mode développement)"):
+            with st.expander("Error details (development mode)"):
                 st.code(traceback.format_exc())
 
 
@@ -149,9 +151,9 @@ class ErrorManager:
 error_manager = ErrorManager()
 
 
-def handle_ui_exceptions(func: Callable) -> Callable:
+def catch_exceptions(func: Callable) -> Callable:
     """
-    Décorateur pour gérer les exceptions dans les fonctions d'interface utilisateur
+    Décorateur pour capturer et gérer les exceptions dans une fonction
 
     Args:
         func: Fonction à décorer
@@ -159,4 +161,4 @@ def handle_ui_exceptions(func: Callable) -> Callable:
     Returns:
         Fonction décorée
     """
-    return error_manager.wrap_function(func)
+    return error_manager.catch_exceptions(func)

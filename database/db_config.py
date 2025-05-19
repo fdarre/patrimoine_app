@@ -1,36 +1,39 @@
 """
-Configuration de la base de données avec chiffrement au niveau des champs
+Database configuration with field-level encryption
 """
 import base64
 import json
+from contextlib import contextmanager
+from typing import Generator
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 
 from config.app_config import SQLALCHEMY_DATABASE_URL, SECRET_KEY, ENCRYPTION_SALT
 from utils.logger import get_logger
 
-# Configurer le logger
+# Configure logger
 logger = get_logger(__name__)
 
-# Créer le moteur SQLAlchemy
+# Create SQLAlchemy engine
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},  # Nécessaire pour SQLite
+    connect_args={"check_same_thread": False},  # Required for SQLite
 )
 
-# Fonction pour générer une clé de chiffrement à partir de la clé secrète
+
+# Function to generate encryption key from secret key
 def get_encryption_key():
-    """Génère une clé de chiffrement dérivée du secret principal et du sel"""
+    """Generate an encryption key derived from the main secret and salt"""
     try:
-        # Convertir le sel en bytes
+        # Convert salt to bytes
         salt = ENCRYPTION_SALT.encode() if isinstance(ENCRYPTION_SALT, str) else ENCRYPTION_SALT
 
-        # Créer un dérivateur de clé
+        # Create key derivation function
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
@@ -38,78 +41,106 @@ def get_encryption_key():
             iterations=100000,
         )
 
-        # Dériver la clé à partir de la clé secrète
+        # Derive key from secret key
         derived_key = kdf.derive(SECRET_KEY.encode())
         key = base64.urlsafe_b64encode(derived_key)
 
         return key
     except Exception as e:
-        logger.error(f"Erreur lors de la génération de la clé de chiffrement: {str(e)}")
+        logger.error(f"Error generating encryption key: {str(e)}")
         raise
 
-# Objet Fernet pour chiffrer/déchiffrer les données sensibles
+
+# Fernet object for encrypting/decrypting sensitive data
 ENCRYPTION_KEY = get_encryption_key()
 cipher = Fernet(ENCRYPTION_KEY)
 
-# Fonctions pour chiffrer/déchiffrer les données sensibles
+
+# Functions for encrypting/decrypting sensitive data
 def encrypt_data(data):
-    """Chiffre une donnée textuelle"""
+    """Encrypt textual data"""
     if data is None:
         return None
     try:
         return cipher.encrypt(data.encode()).decode()
     except Exception as e:
-        logger.error(f"Erreur de chiffrement: {str(e)}")
+        logger.error(f"Encryption error: {str(e)}")
         return None
 
 def decrypt_data(data):
-    """Déchiffre une donnée textuelle"""
+    """Decrypt textual data"""
     if data is None:
         return None
     try:
         return cipher.decrypt(data.encode()).decode()
     except Exception as e:
-        logger.error(f"Erreur de déchiffrement: {str(e)}")
+        logger.error(f"Decryption error: {str(e)}")
         return None
 
-# Fonctions pour chiffrer/déchiffrer des dictionnaires JSON
+
+# Functions for encrypting/decrypting JSON dictionaries
 def encrypt_json(data_dict):
-    """Chiffre un dictionnaire JSON"""
+    """Encrypt a JSON dictionary"""
     if data_dict is None:
         return None
     try:
         json_str = json.dumps(data_dict)
         return encrypt_data(json_str)
     except Exception as e:
-        logger.error(f"Erreur de chiffrement JSON: {str(e)}")
+        logger.error(f"JSON encryption error: {str(e)}")
         return None
 
 def decrypt_json(encrypted_str):
-    """Déchiffre un dictionnaire JSON"""
+    """Decrypt a JSON dictionary"""
     if encrypted_str is None:
         return None
     try:
         json_str = decrypt_data(encrypted_str)
         return json.loads(json_str)
     except Exception as e:
-        logger.error(f"Erreur de déchiffrement JSON: {str(e)}")
+        logger.error(f"JSON decryption error: {str(e)}")
         return {}
 
-# Créer une session SQLAlchemy
+
+# Create a SQLAlchemy session
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base déclarative pour les modèles
+# Declarative base for models
 Base = declarative_base()
 
-# Métadonnées pour les tables
+# Metadata for tables
 metadata = MetaData()
+
+
+@contextmanager
+def get_db_session() -> Generator[Session, None, None]:
+    """
+    Context manager for database sessions to ensure proper resource management
+
+    Usage:
+        with get_db_session() as session:
+            # Use session here
+
+    Yields:
+        SQLAlchemy session
+    """
+    db = SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Database session error: {str(e)}")
+        raise
+    finally:
+        db.close()
 
 def get_db():
     """
-    Fonction utilitaire pour obtenir une session de base de données
+    Utility function to get a database session for dependency injection
 
     Yields:
-        Session SQLAlchemy
+        SQLAlchemy session
     """
     db = SessionLocal()
     try:

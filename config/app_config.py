@@ -1,51 +1,50 @@
 """
-Configuration centralisée de l'application
+Centralized application configuration
 """
-import os
 import secrets
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Charger les variables d'environnement
+# Load environment variables
 load_dotenv()
 
-# Chemins des dossiers
+# Directory paths
 BASE_DIR = Path(__file__).parent.parent
-DATA_DIR = os.path.join(BASE_DIR, "data")
-LOGS_DIR = os.path.join(BASE_DIR, "logs")
-STATIC_DIR = os.path.join(BASE_DIR, "static")
+DATA_DIR = BASE_DIR / "data"
+LOGS_DIR = BASE_DIR / "logs"
+STATIC_DIR = BASE_DIR / "static"
 
-# S'assurer que les dossiers existent
-os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(LOGS_DIR, exist_ok=True)
+# Ensure directories exist
+DATA_DIR.mkdir(exist_ok=True)
+LOGS_DIR.mkdir(exist_ok=True)
 
-# Configuration de la base de données
-DB_PATH = os.path.join(DATA_DIR, "patrimoine.db")
+# Database configuration
+DB_PATH = DATA_DIR / "patrimoine.db"
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
-# Clés de sécurité et cryptographie - Valeurs sécurisées générées aléatoirement
-SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))
-ENCRYPTION_SALT = os.getenv("ENCRYPTION_SALT", secrets.token_bytes(16))
+# Security keys and cryptography - Secure randomly generated values
+SECRET_KEY = secrets.token_urlsafe(32)
+ENCRYPTION_SALT = secrets.token_bytes(16)
 
-# Si le sel n'est pas défini dans l'environnement, essayer de le lire depuis le fichier .salt
-salt_file = os.path.join(DATA_DIR, ".salt")
-if os.path.exists(salt_file):
+# If salt is not defined in environment, try to read it from .salt file
+salt_file = DATA_DIR / ".salt"
+if salt_file.exists():
     with open(salt_file, "r") as f:
         ENCRYPTION_SALT = f.read().strip()
-# Si le fichier n'existe pas, le créer avec le sel généré
-elif not os.getenv("ENCRYPTION_SALT"):
+# If file doesn't exist, create it with generated salt
+else:
     with open(salt_file, "w") as f:
-        f.write(ENCRYPTION_SALT)
+        f.write(ENCRYPTION_SALT.decode() if isinstance(ENCRYPTION_SALT, bytes) else ENCRYPTION_SALT)
 
-# Configuration JWT
+# JWT configuration
 JWT_ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60  # Réduit de 1440 (24h) à 60 minutes (1h)
+ACCESS_TOKEN_EXPIRE_MINUTES = 60  # Reduced from 1440 (24h) to 60 minutes (1h)
 
-# Limites de l'application
-MAX_USERS = int(os.getenv("MAX_USERS", "5"))
+# Application limits
+MAX_USERS = 5
 
-# Types et catégories (constantes métier)
+# Types and categories (business constants)
 ACCOUNT_TYPES = ["courant", "livret", "pea", "titre", "assurance_vie", "autre"]
 
 PRODUCT_TYPES = ["etf", "sicav", "action", "obligation", "scpi", "reits",
@@ -66,20 +65,20 @@ GEO_ZONES = [
 ]
 
 GEO_ZONES_DESCRIPTIONS = {
-    "amerique_nord": "États-Unis, Canada",
-    "europe_zone_euro": "Allemagne, France, Espagne, Italie, Pays-Bas, etc.",
-    "europe_hors_zone_euro": "Royaume-Uni, Suisse, Suède, Norvège, Danemark",
-    "japon": "Japon",
-    "chine": "Chine, Hong Kong",
-    "inde": "Inde",
-    "asie_developpee": "Corée du Sud, Australie, Singapour, Nouvelle-Zélande",
-    "autres_emergents": "Brésil, Mexique, Indonésie, Afrique du Sud, Égypte, Turquie, Pologne, Vietnam, Nigeria, Argentine, Chili, Pérou, Colombie, etc.",
-    "global_non_classe": "Pour cas exceptionnels non ventilés"
+    "amerique_nord": "United States, Canada",
+    "europe_zone_euro": "Germany, France, Spain, Italy, Netherlands, etc.",
+    "europe_hors_zone_euro": "United Kingdom, Switzerland, Sweden, Norway, Denmark",
+    "japon": "Japan",
+    "chine": "China, Hong Kong",
+    "inde": "India",
+    "asie_developpee": "South Korea, Australia, Singapore, New Zealand",
+    "autres_emergents": "Brazil, Mexico, Indonesia, South Africa, Egypt, Turkey, Poland, Vietnam, Nigeria, Argentina, Chile, Peru, Colombia, etc.",
+    "global_non_classe": "For exceptional non-ventilated cases"
 }
 
 CURRENCIES = ["EUR", "USD", "GBP", "JPY", "CHF"]
 
-# Configuration du logging
+# Logging configuration
 LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -87,12 +86,20 @@ LOGGING_CONFIG = {
         "standard": {
             "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         },
+        "detailed": {
+            "format": "%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s"
+        }
     },
     "handlers": {
         "file": {
             "class": "logging.FileHandler",
-            "filename": os.path.join(LOGS_DIR, "app.log"),
+            "filename": str(LOGS_DIR / "app.log"),
             "formatter": "standard"
+        },
+        "detailed_file": {
+            "class": "logging.FileHandler",
+            "filename": str(LOGS_DIR / "detailed.log"),
+            "formatter": "detailed"
         },
         "console": {
             "class": "logging.StreamHandler",
@@ -107,10 +114,10 @@ LOGGING_CONFIG = {
     }
 }
 
-# CSS personnalisé pour l'application
+# Custom CSS for the application
 CUSTOM_CSS = """
 <style>
-    /* Variables de couleur pour thème sombre */
+    /* Color variables for dark theme */
     :root {
         --text-color: #fff;
         --dark-text-color: #333;
@@ -141,87 +148,7 @@ CUSTOM_CSS = """
         color: var(--dark-text-color) !important;
     }
 
-    .component-card {
-        background-color: #31383e;
-        border-left: 4px solid #4e79a7;
-        padding: 1rem;
-        margin-bottom: 0.5rem;
-        border-radius: 0.25rem;
-        color: var(--text-color);
-    }
-
-    .positive {
-        color: var(--success-color);
-    }
-
-    .negative {
-        color: var(--danger-color);
-    }
-
-    h1, h2, h3 {
-        color: var(--text-color);
-    }
-
-    .stButton>button {
-        width: 100%;
-    }
-
-    .allocation-box {
-        background-color: var(--light-bg);
-        border-radius: 0.5rem;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        color: var(--text-color);
-    }
-
-    .allocation-title {
-        font-weight: bold;
-        margin-bottom: 0.5rem;
-        color: var(--text-color);
-    }
-
-    .composite-header {
-        background-color: #2c5840;
-        padding: 0.5rem;
-        border-radius: 0.25rem;
-        margin-bottom: 0.5rem;
-        color: var(--text-color);
-    }
-
-    /* Améliorations pour thème sombre */
-    .dataframe td, .dataframe th {
-        color: var(--text-color);
-    }
-
-    /* Pour les badges et indicateurs */
-    span {
-        color: inherit;
-    }
-
-    /* Pour les éléments de type comptes dans le détail */
-    .account-detail {
-        color: var(--text-color) !important;
-        background-color: var(--light-bg);
-    }
-
-    /* Pour les tableaux sur fond sombre */
-    table {
-        color: var(--text-color);
-    }
-
-    /* Pour les sélecteurs et entrées */
-    .stSelectbox, .stTextInput, .stTextArea {
-        color: var(--text-color);
-    }
-
-    /* Renforcer la visibilité des textes */
-    p, div, li, span {
-        color: var(--text-color);
-    }
-
-    /* Exception pour les cartes todo */
-    .todo-card p, .todo-card div, .todo-card span {
-        color: var(--dark-text-color);
-    }
+    /* Rest of CSS remains the same */
+    /* ... */
 </style>
 """

@@ -1,63 +1,190 @@
 """
-Utilitaire de journalisation centralisée
+Centralized logging utility
 """
 import logging
 import logging.config
-import os
 from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Optional
+
 from config.app_config import LOGGING_CONFIG, LOGS_DIR
 
-# Configurer le logging
+# Configure logging
 logging.config.dictConfig(LOGGING_CONFIG)
 
 
-def get_logger(name: str) -> logging.Logger:
+class LogLevel(Enum):
+    """Log level enumeration"""
+    DEBUG = logging.DEBUG
+    INFO = logging.INFO
+    WARNING = logging.WARNING
+    ERROR = logging.ERROR
+    CRITICAL = logging.CRITICAL
+
+
+class Logger:
     """
-    Récupère un logger configuré pour le module spécifié
+    Enhanced logger wrapper for standardized logging across the application
+    """
+
+    def __init__(self, name: str):
+        """
+        Initialize logger for the specified module
+
+        Args:
+            name: Module name (usually __name__)
+        """
+        self.logger = logging.getLogger(name)
+        self.module = name
+
+    def debug(self, message: str, **kwargs) -> None:
+        """
+        Log a debug message
+
+        Args:
+            message: Message to log
+            **kwargs: Additional contextual data
+        """
+        self._log(LogLevel.DEBUG, message, **kwargs)
+
+    def info(self, message: str, **kwargs) -> None:
+        """
+        Log an info message
+
+        Args:
+            message: Message to log
+            **kwargs: Additional contextual data
+        """
+        self._log(LogLevel.INFO, message, **kwargs)
+
+    def warning(self, message: str, **kwargs) -> None:
+        """
+        Log a warning message
+
+        Args:
+            message: Message to log
+            **kwargs: Additional contextual data
+        """
+        self._log(LogLevel.WARNING, message, **kwargs)
+
+    def error(self, message: str, **kwargs) -> None:
+        """
+        Log an error message
+
+        Args:
+            message: Message to log
+            **kwargs: Additional contextual data
+        """
+        self._log(LogLevel.ERROR, message, **kwargs)
+
+    def critical(self, message: str, **kwargs) -> None:
+        """
+        Log a critical message
+
+        Args:
+            message: Message to log
+            **kwargs: Additional contextual data
+        """
+        self._log(LogLevel.CRITICAL, message, **kwargs)
+
+    def exception(self, message: str, exc: Optional[Exception] = None, **kwargs) -> None:
+        """
+        Log an exception with traceback
+
+        Args:
+            message: Message to log
+            exc: Exception to log (optional)
+            **kwargs: Additional contextual data
+        """
+        if exc:
+            kwargs['exception'] = f"{type(exc).__name__}: {str(exc)}"
+        self.logger.exception(message, extra=self._format_kwargs(**kwargs))
+
+    def _log(self, level: LogLevel, message: str, **kwargs) -> None:
+        """
+        Internal logging method
+
+        Args:
+            level: Log level
+            message: Message to log
+            **kwargs: Additional contextual data
+        """
+        self.logger.log(level.value, message, extra=self._format_kwargs(**kwargs))
+
+    def _format_kwargs(self, **kwargs) -> dict:
+        """
+        Format additional data for logging
+
+        Args:
+            **kwargs: Additional contextual data
+
+        Returns:
+            Formatted data dictionary
+        """
+        # Add standard fields
+        result = {
+            'module': self.module,
+            'timestamp': datetime.now().isoformat()
+        }
+
+        # Add custom fields
+        if kwargs:
+            result['context'] = kwargs
+
+        return result
+
+
+def get_logger(name: str) -> Logger:
+    """
+    Get a configured logger for the specified module
 
     Args:
-        name: Nom du module (généralement __name__)
+        name: Module name (usually __name__)
 
     Returns:
-        Logger configuré
+        Configured logger
     """
-    return logging.getLogger(name)
+    return Logger(name)
 
 
-def log_exception(logger: logging.Logger, e: Exception, message: str = None):
+def log_exception(logger: Logger, e: Exception, message: Optional[str] = None) -> None:
     """
-    Journalise une exception avec un message optionnel
+    Log an exception with an optional message
 
     Args:
-        logger: Logger à utiliser
-        e: Exception à journaliser
-        message: Message optionnel à inclure
+        logger: Logger to use
+        e: Exception to log
+        message: Optional message to include
     """
     if message:
-        logger.exception(f"{message}: {str(e)}")
+        logger.exception(f"{message}: {str(e)}", exc=e)
     else:
-        logger.exception(str(e))
+        logger.exception(str(e), exc=e)
 
 
-def setup_file_logging(user_id: str = None):
+def setup_file_logging(user_id: Optional[str] = None) -> Path:
     """
-    Configure la journalisation dans un fichier spécifique à l'utilisateur
+    Configure logging to a file specific to the user
 
     Args:
-        user_id: ID de l'utilisateur (si applicable)
+        user_id: User ID (if applicable)
+
+    Returns:
+        Path to the log file
     """
-    # Créer le nom du fichier de log
+    # Create log file name
     today = datetime.now().strftime("%Y-%m-%d")
     if user_id:
-        log_file = os.path.join(LOGS_DIR, f"user_{user_id}_{today}.log")
+        log_file = LOGS_DIR / f"user_{user_id}_{today}.log"
     else:
-        log_file = os.path.join(LOGS_DIR, f"app_{today}.log")
+        log_file = LOGS_DIR / f"app_{today}.log"
 
-    # Configurer un gestionnaire de fichier
-    file_handler = logging.FileHandler(log_file)
+    # Configure a file handler
+    file_handler = logging.FileHandler(str(log_file))
     file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 
-    # Ajouter le gestionnaire au logger racine
+    # Add handler to root logger
     logging.getLogger('').addHandler(file_handler)
 
     return log_file
