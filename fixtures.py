@@ -250,8 +250,31 @@ def create_fixtures(reset_db=False):
             print("Opération annulée.")
             return
 
+    # Sauvegarder les clés existantes avant toute opération si elles existent
+    # Cette sauvegarde supplémentaire permet de conserver les clés même en cas d'erreur
+    from config.app_config import DATA_DIR, KEY_BACKUPS_DIR
+
+    salt_file = DATA_DIR / ".salt"
+    key_file = DATA_DIR / ".key"
+
+    # S'assurer que le dossier de backups existe
+    KEY_BACKUPS_DIR.mkdir(exist_ok=True)
+
+    # Faire une copie des clés existantes avant toute opération, nommée spécifiquement pour fixtures
+    if salt_file.exists() and key_file.exists():
+        import shutil
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Backup avant fixtures
+        fixtures_key_backup = KEY_BACKUPS_DIR / f"key_backup_fixtures_{timestamp}"
+        fixtures_salt_backup = KEY_BACKUPS_DIR / f"salt_backup_fixtures_{timestamp}"
+
+        shutil.copy2(key_file, fixtures_key_backup)
+        shutil.copy2(salt_file, fixtures_salt_backup)
+        logger.info(f"Sauvegarde des clés avant fixtures: {fixtures_key_backup}, {fixtures_salt_backup}")
+
     if reset_db:
-        # Supprimer la base de données existante
+        # Supprimer la base de données existante mais garder les clés
         from config.app_config import DB_PATH
         if os.path.exists(DB_PATH):
             print(f"Suppression de la base de données existante: {DB_PATH}")
