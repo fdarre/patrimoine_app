@@ -1,6 +1,8 @@
 """
-Script de création de données de test (fixtures)
+Script de création de données de test (fixtures) avec gestion améliorée lancer avec python fixtures.py --reset
 """
+import argparse
+import os
 import random
 import uuid
 from datetime import datetime, timedelta
@@ -9,10 +11,11 @@ from sqlalchemy import func
 
 from database.db_config import get_db_session, Base, engine
 from database.models import User, Bank, Account, Asset, HistoryPoint
+from services.account_service import account_service
+from services.asset_service import asset_service
+from services.bank_service import bank_service
+from services.data_service import DataService
 from utils.password import hash_password
-
-# Créer les tables si elles n'existent pas
-Base.metadata.create_all(bind=engine)
 
 # Configuration des fixtures
 USERNAME = "fredo"
@@ -35,7 +38,7 @@ ACCOUNTS = [
 ]
 
 
-def create_asset_data(idx, compte_id, owner_id):
+def create_asset_data(idx, compte_id):
     """Génère des données aléatoires pour un actif"""
     # Liste d'ETF connus
     etfs = [
@@ -180,31 +183,36 @@ def create_asset_data(idx, compte_id, owner_id):
 
     # Créer les données de l'actif
     asset_data = {
-        "id": str(uuid.uuid4()),
-        "owner_id": owner_id,
+        "name": asset_template["nom"],
         "account_id": compte_id,
-        "nom": asset_template["nom"],
-        "type_produit": asset_template["type"],
-        "categorie": list(allocation.keys())[0],  # Catégorie principale
+        "product_type": asset_template["type"],
         "allocation": allocation,
         "geo_allocation": geo_allocation,
-        "valeur_actuelle": value,
-        "prix_de_revient": cost,
-        "devise": currency,
-        "date_maj": datetime.now().strftime("%Y-%m-%d"),
+        "current_value": value,
+        "cost_basis": cost,
+        "currency": currency,
         "notes": notes,
         "todo": todo,
         "isin": asset_template.get("isin"),
-        "ounces": asset_template.get("ounces"),
-        "exchange_rate": 1.0 if currency == "EUR" else 0.85,
-        "value_eur": value if currency == "EUR" else value * 0.85
+        "ounces": asset_template.get("ounces")
     }
 
     return asset_data
 
 
-def create_fixtures():
+def create_fixtures(reset_db=False):
     """Crée les données de test"""
+    if reset_db:
+        # Supprimer la base de données existante
+        from config.app_config import DB_PATH
+        if os.path.exists(DB_PATH):
+            print(f"Suppression de la base de données existante: {DB_PATH}")
+            os.remove(DB_PATH)
+
+        # Recréer les tables
+        Base.metadata.create_all(bind=engine)
+        print("Base de données réinitialisée.")
+
     with get_db_session() as db:
         # Vérifier si l'utilisateur existe déjà
         existing_user = db.query(User).filter(User.username == USERNAME).first()
@@ -227,51 +235,62 @@ def create_fixtures():
             user_id = user.id
             print(f"Utilisateur {USERNAME} créé avec l'ID {user_id}")
 
-        # Créer les banques
+        # Créer les banques en utilisant le service
         bank_ids = []
         for bank_data in BANKS:
             existing_bank = db.query(Bank).filter(Bank.id == bank_data["id"]).first()
 
             if existing_bank:
                 print(f"La banque {bank_data['nom']} existe déjà.")
+                bank_ids.append(bank_data["id"])
             else:
-                bank = Bank(
-                    id=bank_data["id"],
-                    owner_id=user_id,
-                    nom=bank_data["nom"],
-                    notes=bank_data["notes"]
-                )
-                db.add(bank)
-                print(f"Banque {bank_data['nom']} créée.")
+                try:
+                    # Utiliser le service pour créer la banque
+                    bank = bank_service.add_bank(
+                        db,
+                        user_id=user_id,
+                        bank_id=bank_data["id"],
+                        nom=bank_data["nom"],
+                        notes=bank_data["notes"]
+                    )
+                    if bank:
+                        print(f"Banque {bank_data['nom']} créée.")
+                        bank_ids.append(bank_data["id"])
+                    else:
+                        print(f"Échec de création de la banque {bank_data['nom']}")
+                except Exception as e:
+                    print(f"Erreur lors de la création de la banque {bank_data['nom']}: {str(e)}")
 
-            bank_ids.append(bank_data["id"])
-
-        # Créer les comptes
+        # Créer les comptes en utilisant le service
         account_ids = []
         for account_data in ACCOUNTS:
             existing_account = db.query(Account).filter(Account.id == account_data["id"]).first()
 
             if existing_account:
                 print(f"Le compte {account_data['libelle']} existe déjà.")
+                account_ids.append(account_data["id"])
             else:
-                account = Account(
-                    id=account_data["id"],
-                    bank_id=account_data["bank_id"],
-                    type=account_data["type"],
-                    libelle=account_data["libelle"]
-                )
-                db.add(account)
-                print(f"Compte {account_data['libelle']} créé.")
-
-            account_ids.append(account_data["id"])
-
-        # Valider les changements jusqu'ici
-        db.commit()
+                try:
+                    # Utiliser le service pour créer le compte
+                    account = account_service.add_account(
+                        db,
+                        account_id=account_data["id"],
+                        bank_id=account_data["bank_id"],
+                        account_type=account_data["type"],
+                        account_label=account_data["libelle"]
+                    )
+                    if account:
+                        print(f"Compte {account_data['libelle']} créé.")
+                        account_ids.append(account_data["id"])
+                    else:
+                        print(f"Échec de création du compte {account_data['libelle']}")
+                except Exception as e:
+                    print(f"Erreur lors de la création du compte {account_data['libelle']}: {str(e)}")
 
         # Créer les actifs (30 actifs)
         asset_count = db.query(Asset).filter(Asset.owner_id == user_id).count()
 
-        if asset_count >= 30:
+        if asset_count >= 30 and not reset_db:
             print(f"L'utilisateur a déjà {asset_count} actifs. Aucun nouvel actif créé.")
         else:
             assets_to_create = 30 - asset_count
@@ -281,40 +300,54 @@ def create_fixtures():
                 # Sélectionner un compte aléatoire
                 compte_id = random.choice(account_ids)
 
-                # Générer des données pour l'actif
-                asset_data = create_asset_data(i, compte_id, user_id)
+                try:
+                    # Générer des données pour l'actif
+                    asset_data = create_asset_data(i, compte_id)
 
-                # Créer l'actif
-                asset = Asset(**asset_data)
-                db.add(asset)
+                    # Créer l'actif en utilisant le service
+                    new_asset = asset_service.add_asset(
+                        db=db,
+                        user_id=user_id,
+                        **asset_data
+                    )
 
-                print(f"Actif {i + 1}/{assets_to_create}: {asset_data['nom']}")
+                    if new_asset:
+                        print(f"Actif {i + 1}/{assets_to_create}: {asset_data['name']}")
+                    else:
+                        print(f"Échec de création de l'actif {asset_data['name']}")
+                except Exception as e:
+                    print(f"Erreur lors de la création de l'actif {i + 1}: {str(e)}")
 
-        # Créer un point d'historique
-        total_value = db.query(Asset).filter(Asset.owner_id == user_id).with_entities(
-            func.sum(func.coalesce(Asset.value_eur, 0.0))
-        ).scalar() or 0.0
+            # Créer un point d'historique actuel
+            DataService.record_history_entry(db, user_id)
 
         # Créer plusieurs points d'historique sur les 12 derniers mois
-        for i in range(12):
+        current_total = db.query(func.sum(func.coalesce(Asset.value_eur, 0.0))).filter(
+            Asset.owner_id == user_id
+        ).scalar() or 0.0
+
+        for i in range(1, 12):  # Skip current month (already created above)
             date = (datetime.now() - timedelta(days=30 * i)).strftime("%Y-%m-%d")
 
             # Vérifier si un point existe déjà pour cette date
             existing_point = db.query(HistoryPoint).filter(HistoryPoint.date == date).first()
 
             if not existing_point:
-                # Calculer une valeur historique simulée (variation de +/- 3%)
-                historic_value = total_value * (1 + random.uniform(-0.03, 0.03) * i)
+                try:
+                    # Calculer une valeur historique simulée (variation de +/- 3%)
+                    historic_value = current_total * (1 - random.uniform(0.005, 0.03) * i)
 
-                # Créer le point d'historique
-                history_point = HistoryPoint(
-                    id=str(uuid.uuid4()),
-                    date=date,
-                    assets={},  # Simplifié pour les fixtures
-                    total=historic_value
-                )
-                db.add(history_point)
-                print(f"Point d'historique créé pour {date}: {historic_value:.2f} €")
+                    # Créer le point d'historique
+                    history_point = HistoryPoint(
+                        id=str(uuid.uuid4()),
+                        date=date,
+                        assets={},  # Simplifié pour les fixtures
+                        total=historic_value
+                    )
+                    db.add(history_point)
+                    print(f"Point d'historique créé pour {date}: {historic_value:.2f} €")
+                except Exception as e:
+                    print(f"Erreur lors de la création du point d'historique pour {date}: {str(e)}")
 
         # Valider tous les changements
         db.commit()
@@ -322,4 +355,9 @@ def create_fixtures():
 
 
 if __name__ == "__main__":
-    create_fixtures()
+    parser = argparse.ArgumentParser(description="Créer des données de test pour l'application")
+    parser.add_argument('--reset', action='store_true',
+                        help='Réinitialiser la base de données avant de créer les fixtures')
+    args = parser.parse_args()
+
+    create_fixtures(reset_db=args.reset)

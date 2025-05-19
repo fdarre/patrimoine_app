@@ -4,9 +4,9 @@ Database configuration with field-level encryption
 import base64
 import json
 from contextlib import contextmanager
-from typing import Generator
+from typing import Generator, Dict, Any
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from sqlalchemy import create_engine, MetaData
@@ -30,12 +30,14 @@ engine = create_engine(
 def get_encryption_key():
     """Generate an encryption key derived from the main secret and salt"""
     try:
-        # Ensure salt is bytes
+        # Ensure salt is bytes - multiple ways to handle this
         if isinstance(ENCRYPTION_SALT, str):
             try:
+                # Try to decode as URL-safe base64
                 salt = base64.urlsafe_b64decode(ENCRYPTION_SALT.encode())
-            except:
-                # Si la décodage échoue, garder la valeur originale
+            except Exception as e:
+                logger.warning(f"Failed to decode salt as base64: {str(e)}")
+                # Try direct encoding
                 salt = ENCRYPTION_SALT.encode()
         else:
             salt = ENCRYPTION_SALT
@@ -65,8 +67,17 @@ def get_encryption_key():
 
 
 # Fernet object for encrypting/decrypting sensitive data
-ENCRYPTION_KEY = get_encryption_key()
-cipher = Fernet(ENCRYPTION_KEY)
+try:
+    ENCRYPTION_KEY = get_encryption_key()
+    cipher = Fernet(ENCRYPTION_KEY)
+except Exception as e:
+    logger.critical(f"Failed to initialize encryption: {str(e)}")
+    # Create a fallback dummy cipher for emergency - THIS WILL NOT DECRYPT PROPERLY
+    # but will prevent the application from crashing completely
+    import os
+
+    fallback_key = base64.urlsafe_b64encode(os.urandom(32))
+    cipher = Fernet(fallback_key)
 
 
 # Functions for encrypting/decrypting sensitive data
@@ -82,15 +93,19 @@ def encrypt_data(data):
         logger.error(f"Encryption error: {str(e)}")
         return None
 
+
 def decrypt_data(data):
     """Decrypt textual data"""
     if data is None:
         return None
     try:
         return cipher.decrypt(data.encode()).decode()
+    except InvalidToken:
+        logger.error(f"Invalid token during decryption - data might be corrupted")
+        return "[Decryption Error]"
     except Exception as e:
         logger.error(f"Decryption error: {str(e)}")
-        return None
+        return "[Decryption Error]"
 
 
 # Functions for encrypting/decrypting JSON dictionaries
@@ -105,14 +120,33 @@ def encrypt_json(data_dict):
         logger.error(f"JSON encryption error: {str(e)}")
         return None
 
-def decrypt_json(encrypted_str):
-    """Decrypt a JSON dictionary"""
+
+def decrypt_json(encrypted_str) -> Dict[str, Any]:
+    """Decrypt a JSON dictionary with error handling"""
     if encrypted_str is None:
-        return None
+        return {}
+
     try:
+        # Attempt to decrypt
         json_str = decrypt_data(encrypted_str)
+
+        # Handle decryption failure
+        if json_str == "[Decryption Error]":
+            return {}
+
+        # Try to parse JSON
         if json_str:
-            return json.loads(json_str)
+            try:
+                result = json.loads(json_str)
+                # Ensure we got a dictionary
+                if isinstance(result, dict):
+                    return result
+                else:
+                    logger.error(f"Decrypted JSON is not a dictionary, got {type(result)}")
+                    return {}
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON decode error: {str(e)}")
+                return {}
         return {}
     except Exception as e:
         logger.error(f"JSON decryption error: {str(e)}")
@@ -151,6 +185,7 @@ def get_db_session() -> Generator[Session, None, None]:
         raise
     finally:
         db.close()
+
 
 def get_db():
     """
