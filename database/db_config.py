@@ -30,8 +30,11 @@ engine = create_engine(
 def get_encryption_key():
     """Generate an encryption key derived from the main secret and salt"""
     try:
-        # Convert salt to bytes
-        salt = ENCRYPTION_SALT.encode() if isinstance(ENCRYPTION_SALT, str) else ENCRYPTION_SALT
+        # Ensure salt is bytes
+        if isinstance(ENCRYPTION_SALT, str):
+            salt = base64.urlsafe_b64decode(ENCRYPTION_SALT.encode())
+        else:
+            salt = ENCRYPTION_SALT
 
         # Create key derivation function
         kdf = PBKDF2HMAC(
@@ -41,11 +44,17 @@ def get_encryption_key():
             iterations=100000,
         )
 
-        # Derive key from secret key
-        derived_key = kdf.derive(SECRET_KEY.encode())
-        key = base64.urlsafe_b64encode(derived_key)
+        # Ensure key is bytes
+        if isinstance(SECRET_KEY, str):
+            key = SECRET_KEY.encode()
+        else:
+            key = SECRET_KEY
 
-        return key
+        # Derive and encode key
+        derived_key = kdf.derive(key)
+        result_key = base64.urlsafe_b64encode(derived_key)
+
+        return result_key
     except Exception as e:
         logger.error(f"Error generating encryption key: {str(e)}")
         raise
@@ -62,6 +71,8 @@ def encrypt_data(data):
     if data is None:
         return None
     try:
+        if not isinstance(data, str):
+            data = str(data)
         return cipher.encrypt(data.encode()).decode()
     except Exception as e:
         logger.error(f"Encryption error: {str(e)}")
@@ -96,7 +107,9 @@ def decrypt_json(encrypted_str):
         return None
     try:
         json_str = decrypt_data(encrypted_str)
-        return json.loads(json_str)
+        if json_str:
+            return json.loads(json_str)
+        return {}
     except Exception as e:
         logger.error(f"JSON decryption error: {str(e)}")
         return {}
