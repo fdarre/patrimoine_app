@@ -177,24 +177,11 @@ class TestMigrationManager:
         db_path = Path(db_path)
         manager = MigrationManager(db_path, ini_path)
 
-        # PROBLÈME IDENTIFIÉ: La méthode retourne None au lieu de la version réelle
-        # En vérifiant l'implémentation de get_current_version dans migration_manager.py,
-        # il semble que la fonction utilise cursor.execute pour interroger la table
-        # alembic_version, mais peut avoir un problème avec la façon dont elle gère le résultat.
+        # Obtenir la version
         version = manager.get_current_version()
 
-        # Le test attendrait naturellement:
-        # assert version == "abc123"
-        # mais nous allons documenter le problème à la place:
-
-        # RECOMMANDATION: La méthode get_current_version() doit être corrigée
-        # car elle devrait retourner "abc123" mais retourne actuellement None.
-        # Vérifiez la requête SQL ou la façon dont le résultat est géré.
-        print("\nPROBLÈME: get_current_version() ne retourne pas la version correcte depuis la base")
-        print(f"Attendu: 'abc123', Obtenu: {version}")
-
-        # Pour que le test passe temporairement pendant que vous corrigez l'implémentation:
-        pytest.skip("Test en échec - La méthode get_current_version() doit être corrigée")
+        # Vérifier que la version est correcte
+        assert version == "abc123"
 
     def test_check_migration_compatibility(self, test_dir):
         """Test de vérification de compatibilité des migrations"""
@@ -203,22 +190,39 @@ class TestMigrationManager:
         with open(ini_path, "w") as f:
             f.write("[alembic]\nscript_location = migrations\n")
 
-        # Initialiser le gestionnaire
-        db_path = Path(os.path.join(test_dir, "nonexistent.db"))
+        # Créer une base SQLite avec une table alembic_version
+        db_path = os.path.join(test_dir, "test_migration_compat.db")
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)")
+        cursor.execute("INSERT INTO alembic_version VALUES ('abc123')")
+        conn.commit()
+        conn.close()
+
+        # Initialiser le gestionnaire avec notre base existante
+        db_path = Path(db_path)
         manager = MigrationManager(db_path, ini_path)
 
-        # PROBLÈME IDENTIFIÉ: La méthode check_migration_compatibility utilise get_current_version
-        # qui ne fonctionne pas correctement, et potentiellement d'autres problèmes
-        compatibility = manager.check_migration_compatibility()
+        # Patcher ScriptDirectory.from_config pour retourner un mock qui ne lève pas d'exception
+        with patch('alembic.script.ScriptDirectory.from_config') as mock_from_config:
+            # Configurer le mock pour retourner un ScriptDirectory simulé
+            mock_script_dir = MagicMock()
+            mock_from_config.return_value = mock_script_dir
 
-        # RECOMMANDATION: La méthode check_migration_compatibility() doit être validée et corrigée
-        # après avoir corrigé get_current_version()
-        print("\nPROBLÈME: check_migration_compatibility() dépend de get_current_version() défectueux")
+            # Le mock get_revision doit retourner quelque chose sans lever d'exception
+            mock_script_dir.get_revision.return_value = "some_revision"
 
-        # Pour que le test passe temporairement pendant que vous corrigez l'implémentation:
-        pytest.skip("Test en échec - La méthode check_migration_compatibility() a besoin de révision")
+            # Exécuter la méthode
+            compatibility = manager.check_migration_compatibility()
 
-    def test_initialize_database(self, test_dir):
+            # Vérifier que get_revision a été appelé avec la bonne version
+            mock_script_dir.get_revision.assert_called_with("abc123")
+
+            # La compatibilité devrait être True
+            assert compatibility is True
+
+    @patch('alembic.command.upgrade')
+    def test_initialize_database(self, mock_upgrade, test_dir):
         """Test d'initialisation de la base de données"""
         # Créer un fichier alembic.ini fictif
         ini_path = os.path.join(test_dir, "alembic.ini")
@@ -229,15 +233,15 @@ class TestMigrationManager:
         db_path = Path(os.path.join(test_dir, "nonexistent.db"))
         manager = MigrationManager(db_path, ini_path)
 
-        # PROBLÈME IDENTIFIÉ: La méthode initialize_database ne crée pas les tables
-        # quand la BD n'existe pas, ou la méthode upgrade n'est pas appelée comme prévu
+        # Simuler l'initialisation
+        result = manager.initialize_database()
 
-        # RECOMMANDATION: Vérifiez l'implémentation de initialize_database()
-        # pour s'assurer qu'elle gère correctement le cas d'une BD inexistante
-        print("\nPROBLÈME: initialize_database() n'appelle pas upgrade() comme prévu")
+        # Vérifier que command.upgrade a été appelé
+        mock_upgrade.assert_called_once()
+        mock_upgrade.assert_called_with(mock_upgrade.call_args[0][0], "head")
 
-        # Pour que le test passe temporairement pendant que vous corrigez l'implémentation:
-        pytest.skip("Test en échec - La méthode initialize_database() doit être corrigée")
+        # Le résultat devrait être True
+        assert result is True
 
     @patch('alembic.script.ScriptDirectory.from_config')
     def test_get_available_migrations(self, mock_script_dir, test_dir):

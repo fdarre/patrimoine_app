@@ -137,7 +137,7 @@ class MigrationManager:
                 # Récupérer la version
                 cursor.execute("SELECT version_num FROM alembic_version")
                 row = cursor.fetchone()
-                # CORRECTION: Utiliser row[0] au lieu de row
+                # Correction ici : utiliser row[0] au lieu de row
                 version = row[0] if row else None
 
                 conn.close()

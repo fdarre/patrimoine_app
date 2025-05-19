@@ -62,14 +62,26 @@ class AssetSyncService:
         # Récupérer les actifs
         assets = query.all()
         updated_count = 0
+        error_updated = False  # Pour suivre si des erreurs ont été mises à jour
 
         # Appliquer la fonction de mise à jour à chaque actif
         for asset in assets:
-            if update_func(asset):
-                updated_count += 1
+            try:
+                if update_func(asset):
+                    updated_count += 1
+                else:
+                    # Une erreur a peut-être été définie, nous devons aussi commit dans ce cas
+                    if asset.sync_error is not None:
+                        error_updated = True
+            except Exception as e:
+                logger.error(f"Exception lors de la mise à jour de l'actif {asset.id}: {str(e)}")
+                # Définir l'erreur directement ici aussi au cas où
+                asset.sync_error = str(e)
+                error_updated = True
 
         # Sauvegarder toutes les modifications en une seule fois
-        if updated_count > 0:
+        # Commit si des actifs ont été mis à jour ou si des erreurs ont été définies
+        if updated_count > 0 or error_updated:
             db.commit()
 
         return updated_count
@@ -122,6 +134,9 @@ class AssetSyncService:
                 asset.sync_error = str(e)  # CORRECTION: Ajout de mise à jour du champ sync_error
                 logger.error(f"Erreur lors de la mise à jour du taux de change pour {asset.id}: {str(e)}")
                 return False
+
+        # CORRECTION: Ajouter l'appel à _sync_assets qui manquait
+        return self._sync_assets(db, filter_assets, update_asset, asset_id)
 
     @catch_exceptions  # Changé de handle_exceptions
     def sync_price_by_isin(self, db: Session, asset_id: Optional[str] = None) -> int:

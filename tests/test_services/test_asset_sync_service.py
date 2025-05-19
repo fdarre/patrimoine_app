@@ -4,7 +4,6 @@ Tests pour le service de synchronisation des prix des actifs
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-import pytest
 from sqlalchemy.orm import Session
 
 from database.models import Asset, User, Account
@@ -67,23 +66,14 @@ class TestAssetSyncService:
             db_session.refresh(usd_asset)
             db_session.refresh(eur_asset)
 
-            # PROBLÈME IDENTIFIÉ: L'actif en USD n'a pas sa valeur en EUR mise à jour correctement
-            # En vérifiant l'implémentation de sync_currency_rates, il semble que value_eur n'est
-            # pas correctement défini ou mis à jour pour les actifs en devises étrangères
-
             # Vérifiez que le taux de change est bien défini
             assert usd_asset.exchange_rate == 0.85
 
             # Valeur attendue en EUR
             expected_eur_value = 1000.0 / 0.85  # ~1176.47 EUR
 
-            # RECOMMANDATION: La méthode sync_currency_rates doit être corrigée pour
-            # définir correctement value_eur
-            print("\nPROBLÈME: La synchronisation des taux de change ne met pas à jour value_eur correctement")
-            print(f"Attendu: ~{expected_eur_value}, Obtenu: {usd_asset.value_eur}")
-
-            # Pour que le test passe temporairement pendant que vous corrigez l'implémentation:
-            pytest.skip("Test en échec - La méthode sync_currency_rates() doit être corrigée")
+            # Vérifier que la valeur en EUR a été correctement calculée
+            assert abs(usd_asset.value_eur - expected_eur_value) < 0.01
 
     def test_sync_price_by_isin(self, db_session: Session, test_user: User, test_account: Account):
         """Test de synchronisation des prix par code ISIN"""
@@ -262,13 +252,6 @@ class TestAssetSyncService:
             # Vérifier l'actif après la synchronisation
             db_session.refresh(error_asset)
 
-            # PROBLÈME IDENTIFIÉ: L'actif n'a pas son champ sync_error mis à jour correctement
-            # en cas d'erreur de synchronisation
-
-            # RECOMMANDATION: La méthode sync_price_by_isin doit être corrigée pour
-            # définir correctement sync_error en cas d'exception
-            print("\nPROBLÈME: Le champ sync_error n'est pas défini après une erreur")
-            print(f"Attendu: 'API Error' dans sync_error, Obtenu: {error_asset.sync_error}")
-
-            # Pour que le test passe temporairement pendant que vous corrigez l'implémentation:
-            pytest.skip("Test en échec - La méthode sync_price_by_isin() doit être corrigée pour la gestion d'erreurs")
+            # Vérifier que le champ sync_error contient le message d'erreur
+            assert error_asset.sync_error is not None
+            assert "API Error" in error_asset.sync_error
