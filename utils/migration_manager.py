@@ -147,36 +147,36 @@ class MigrationManager:
                 logger.info("La base de données n'existe pas encore")
                 return None
 
-            # Connexion directe à SQLite sans SQLAlchemy
-            import sqlite3
+            # Utiliser SQLAlchemy pour accéder à la table alembic_version
+            from sqlalchemy import create_engine, text, inspect
+            from sqlalchemy.exc import SQLAlchemyError
+
+            # Créer un moteur connecté à la base existante
+            engine = create_engine(f"sqlite:///{self.db_path}")
+
             try:
-                conn = sqlite3.connect(str(self.db_path))
-                cursor = conn.cursor()
+                with engine.connect() as connection:
+                    # Vérifier si la table alembic_version existe
+                    inspector = inspect(engine)
+                    if "alembic_version" not in inspector.get_table_names():
+                        logger.info("La table alembic_version n'existe pas")
+                        return None
 
-                # Vérifier si la table alembic_version existe
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='alembic_version'")
-                if not cursor.fetchone():
-                    logger.info("La table alembic_version n'existe pas")
-                    conn.close()
-                    return None
+                    # Récupérer la version
+                    result = connection.execute(text("SELECT version_num FROM alembic_version"))
+                    row = result.fetchone()
 
-                # Récupérer la version
-                cursor.execute("SELECT version_num FROM alembic_version")
-                row = cursor.fetchone()
-                # Correction ici : utiliser row[0] au lieu de row
-                version = row[0] if row else None
+                    version = row[0] if row else None
 
-                conn.close()
+                    if version:
+                        logger.info(f"Version actuelle de la migration: {version}")
+                    else:
+                        logger.info("La table alembic_version existe mais est vide")
 
-                if version:
-                    logger.info(f"Version actuelle de la migration: {version}")
-                else:
-                    logger.info("La table alembic_version existe mais est vide")
+                    return version
 
-                return version
-
-            except sqlite3.Error as e:
-                logger.error(f"Erreur SQLite: {str(e)}")
+            except SQLAlchemyError as e:
+                logger.error(f"Erreur SQLAlchemy: {str(e)}")
                 return None
 
         except Exception as e:

@@ -267,82 +267,82 @@ class TestMigrationManager:
         mock_script_dir_instance.get_revisions.assert_called_once_with("head")
         assert revs == mock_revs
 
-        @patch('services.backup_service.BackupService.create_backup')
-        @patch('alembic.command.upgrade')
-        def test_upgrade_database_with_backup(self, mock_upgrade, mock_backup, test_dir):
-            """Test de mise à jour avec sauvegarde automatique"""
-            # Créer un fichier alembic.ini fictif
-            ini_path = os.path.join(test_dir, "alembic.ini")
-            with open(ini_path, "w") as f:
-                f.write("[alembic]\nscript_location = migrations\n")
+    @patch('services.backup_service.BackupService.create_backup')
+    @patch('alembic.command.upgrade')
+    def test_upgrade_database_with_backup(self, mock_upgrade, mock_backup, test_dir):
+        """Test de mise à jour avec sauvegarde automatique"""
+        # Créer un fichier alembic.ini fictif
+        ini_path = os.path.join(test_dir, "alembic.ini")
+        with open(ini_path, "w") as f:
+            f.write("[alembic]\nscript_location = migrations\n")
 
-            # Initialiser le gestionnaire
-            db_path = Path(os.path.join(test_dir, "test.db"))
-            manager = MigrationManager(db_path, ini_path)
+        # Initialiser le gestionnaire
+        db_path = Path(os.path.join(test_dir, "test.db"))
+        manager = MigrationManager(db_path, ini_path)
 
-            # Configurer le mock
-            mock_backup.return_value = os.path.join(test_dir, "pre_migration_backup.zip.enc")
+        # Configurer le mock
+        mock_backup.return_value = os.path.join(test_dir, "pre_migration_backup.zip.enc")
 
-            # Tester la mise à jour
-            result = manager.upgrade_database("head")
+        # Tester la mise à jour
+        result = manager.upgrade_database("head")
 
-            # Vérifier que les fonctions ont été appelées
-            mock_backup.assert_called_once()
-            assert "pre_migration_" in mock_backup.call_args[1]['output_path']
-            mock_upgrade.assert_called_once()
+        # Vérifier que les fonctions ont été appelées
+        mock_backup.assert_called_once()
+        assert "pre_migration_" in mock_backup.call_args[1]['output_path']
+        mock_upgrade.assert_called_once()
 
-            # Vérifier le résultat
-            assert result is True
+        # Vérifier le résultat
+        assert result is True
 
-        @patch('services.backup_service.BackupService.create_backup')
-        @patch('alembic.command.downgrade')
-        def test_downgrade_database_with_backup(self, mock_downgrade, mock_backup, test_dir):
-            """Test de rétrogradation avec sauvegarde automatique"""
-            # Créer un fichier alembic.ini fictif
-            ini_path = os.path.join(test_dir, "alembic.ini")
-            with open(ini_path, "w") as f:
-                f.write("[alembic]\nscript_location = migrations\n")
+    @patch('services.backup_service.BackupService.create_backup')
+    @patch('alembic.command.downgrade')
+    def test_downgrade_database_with_backup(self, mock_downgrade, mock_backup, test_dir):
+        """Test de rétrogradation avec sauvegarde automatique"""
+        # Créer un fichier alembic.ini fictif
+        ini_path = os.path.join(test_dir, "alembic.ini")
+        with open(ini_path, "w") as f:
+            f.write("[alembic]\nscript_location = migrations\n")
 
-            # Initialiser le gestionnaire
-            db_path = Path(os.path.join(test_dir, "test.db"))
-            manager = MigrationManager(db_path, ini_path)
+        # Initialiser le gestionnaire
+        db_path = Path(os.path.join(test_dir, "test.db"))
+        manager = MigrationManager(db_path, ini_path)
 
-            # Configurer le mock
-            mock_backup.return_value = os.path.join(test_dir, "pre_downgrade_backup.zip.enc")
+        # Configurer le mock
+        mock_backup.return_value = os.path.join(test_dir, "pre_downgrade_backup.zip.enc")
 
-            # Tester la rétrogradation
-            result = manager.downgrade_database("base")
+        # Tester la rétrogradation
+        result = manager.downgrade_database("base")
 
-            # Vérifier que les fonctions ont été appelées
-            mock_backup.assert_called_once()
-            assert "pre_downgrade_" in mock_backup.call_args[1]['output_path']
-            mock_downgrade.assert_called_once()
+        # Vérifier que les fonctions ont été appelées
+        mock_backup.assert_called_once()
+        assert "pre_downgrade_" in mock_backup.call_args[1]['output_path']
+        mock_downgrade.assert_called_once()
 
-            # Vérifier le résultat
-            assert result is True
+        # Vérifier le résultat
+        assert result is True
 
-        @patch('services.backup_service.BackupService.create_backup')
-        @patch('alembic.command.upgrade')
-        def test_upgrade_database_backup_failure(self, mock_upgrade, mock_backup, test_dir):
-            """Test de mise à jour avec échec de sauvegarde"""
-            # Créer un fichier alembic.ini fictif
-            ini_path = os.path.join(test_dir, "alembic.ini")
-            with open(ini_path, "w") as f:
-                f.write("[alembic]\nscript_location = migrations\n")
+    @patch('services.backup_service.BackupService.create_backup')
+    @patch('alembic.command.upgrade')
+    def test_upgrade_database_backup_failure(self, mock_upgrade, mock_backup, test_dir):
+        """Test de mise à jour avec échec de sauvegarde"""
+        # Créer un fichier alembic.ini fictif
+        ini_path = os.path.join(test_dir, "alembic.ini")
+        with open(ini_path, "w") as f:
+            f.write("[alembic]\nscript_location = migrations\n")
 
-            # Initialiser le gestionnaire
-            db_path = Path(os.path.join(test_dir, "test.db"))
-            manager = MigrationManager(db_path, ini_path)
+        # Initialiser le gestionnaire
+        db_path = Path(os.path.join(test_dir, "test.db"))
+        manager = MigrationManager(db_path, ini_path)
 
-            # Configurer le mock pour simuler un échec de sauvegarde
-            mock_backup.return_value = None
+        # Configurer le mock pour simuler un échec de sauvegarde
+        mock_backup.return_value = None
 
-            # Tester la mise à jour
-            result = manager.upgrade_database("head")
+        # Tester la mise à jour
+        result = manager.upgrade_database("head")
 
-            # Vérifier que les fonctions ont été appelées
-            mock_backup.assert_called_once()
-            mock_upgrade.assert_called_once()
+        # Vérifier que les fonctions ont été appelées
+        mock_backup.assert_called_once()
+        mock_upgrade.assert_called_once()
 
-            # La migration doit quand même réussir même si le backup échoue
-            assert result is True
+        # La migration doit quand même réussir même si le backup échoue
+        assert result is True
