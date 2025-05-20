@@ -61,17 +61,18 @@ class AssetService(BaseService[Asset]):
             return []  # Always return a list, even empty, never None
 
     @catch_exceptions
+    @catch_exceptions
     def add_asset(
             self, db: Session,
             user_id: str,
-            name: str,
-            account_id: str,
-            product_type: str,
+            nom: str,  # Changé de name à nom
+            compte_id: str,  # Changé de account_id à compte_id
+            type_produit: str,  # Changé de product_type à type_produit
             allocation: Dict[str, float],
             geo_allocation: Dict[str, Dict[str, float]],
-            current_value: float,
-            cost_basis: Optional[float] = None,
-            currency: str = "EUR",
+            valeur_actuelle: float,  # Changé de current_value à valeur_actuelle
+            prix_de_revient: Optional[float] = None,  # Changé de cost_basis à prix_de_revient
+            devise: str = "EUR",  # Changé de currency à devise
             notes: str = "",
             todo: str = "",
             isin: Optional[str] = None,
@@ -83,14 +84,14 @@ class AssetService(BaseService[Asset]):
         Args:
             db: Database session
             user_id: Owner user ID
-            name: Asset name
-            account_id: Associated account ID
-            product_type: Product type
+            nom: Asset name
+            compte_id: Associated account ID
+            type_produit: Product type
             allocation: Category allocation
             geo_allocation: Geographic allocation by category
-            current_value: Current value
-            cost_basis: Cost basis (if None, uses current_value)
-            currency: Currency
+            valeur_actuelle: Current value
+            prix_de_revient: Cost basis (if None, uses valeur_actuelle)
+            devise: Currency
             notes: Notes
             todo: Task(s) to do
             isin: ISIN code (optional)
@@ -99,8 +100,8 @@ class AssetService(BaseService[Asset]):
         Returns:
             The newly created asset or None
         """
-        if cost_basis is None:
-            cost_basis = current_value
+        if prix_de_revient is None:
+            prix_de_revient = valeur_actuelle
 
         # Determine main category (the one with the highest percentage)
         category = max(allocation.items(), key=lambda x: x[1])[0] if allocation else "autre"
@@ -109,22 +110,22 @@ class AssetService(BaseService[Asset]):
         data = {
             "id": str(uuid.uuid4()),
             "owner_id": user_id,
-            "account_id": account_id,
-            "nom": name,  # Keep French field names to maintain DB compatibility
-            "type_produit": product_type,
+            "account_id": compte_id,  # Changé pour correspondre au modèle de BDD
+            "nom": nom,  # Keep French field names to maintain DB compatibility
+            "type_produit": type_produit,
             "categorie": category,
             "allocation": allocation,
             "geo_allocation": geo_allocation,
-            "valeur_actuelle": current_value,
-            "prix_de_revient": cost_basis,
-            "devise": currency,
+            "valeur_actuelle": valeur_actuelle,
+            "prix_de_revient": prix_de_revient,
+            "devise": devise,
             "date_maj": datetime.now().strftime("%Y-%m-%d"),
             "notes": notes,
             "todo": todo,
             "isin": isin,
             "ounces": ounces,
             "exchange_rate": 1.0,  # Default
-            "value_eur": current_value if currency == "EUR" else None
+            "value_eur": valeur_actuelle if devise == "EUR" else None
         }
 
         return self.create(db, data)
@@ -133,14 +134,14 @@ class AssetService(BaseService[Asset]):
     def update_asset(
             self, db: Session,
             asset_id: str,
-            name: str,
-            account_id: str,
-            product_type: str,
+            nom: str,  # Changé de name à nom
+            compte_id: str,  # Changé de account_id à compte_id
+            type_produit: str,  # Changé de product_type à type_produit
             allocation: Dict[str, float],
             geo_allocation: Dict[str, Dict[str, float]],
-            current_value: float,
-            cost_basis: float,
-            currency: str = "EUR",
+            valeur_actuelle: float,  # Changé de current_value à valeur_actuelle
+            prix_de_revient: float,  # Changé de cost_basis à prix_de_revient
+            devise: str = "EUR",  # Changé de currency à devise
             notes: str = "",
             todo: str = "",
             isin: Optional[str] = None,
@@ -152,14 +153,14 @@ class AssetService(BaseService[Asset]):
         Args:
             db: Database session
             asset_id: ID of asset to update
-            name: New name
-            account_id: New account
-            product_type: New type
+            nom: New name
+            compte_id: New account
+            type_produit: New type
             allocation: New allocation
             geo_allocation: New geographic allocation
-            current_value: New value
-            cost_basis: New cost basis
-            currency: New currency
+            valeur_actuelle: New value
+            prix_de_revient: New cost basis
+            devise: New currency
             notes: New notes
             todo: New task(s)
             isin: ISIN code (optional)
@@ -173,15 +174,15 @@ class AssetService(BaseService[Asset]):
 
         # Data for update
         data = {
-            "nom": name,
-            "account_id": account_id,
-            "type_produit": product_type,
+            "nom": nom,
+            "account_id": compte_id,  # Assurez-vous que cela correspond à la colonne dans la BDD
+            "type_produit": type_produit,
             "categorie": category,
             "allocation": allocation,
             "geo_allocation": geo_allocation,
-            "valeur_actuelle": float(current_value),
-            "prix_de_revient": float(cost_basis),
-            "devise": currency,
+            "valeur_actuelle": float(valeur_actuelle),
+            "prix_de_revient": float(prix_de_revient),
+            "devise": devise,
             "date_maj": datetime.now().strftime("%Y-%m-%d"),
             "notes": notes,
             "todo": todo,

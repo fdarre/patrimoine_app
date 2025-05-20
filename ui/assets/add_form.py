@@ -211,14 +211,27 @@ def show_add_asset_form(db: Session, user_id: str):
 
                     # Mettre à jour l'historique
                     DataService.record_history_entry(db, user_id)
-                    st.success(f"Actif '{asset_info['name']}' ajouté avec succès.")
+
+                    # Ajouter un message de succès visible
+                    st.success(f"✅ Actif '{asset_info['name']}' ajouté avec succès!")
+
+                    # Ajouter un délai pour que le message soit visible
+                    import time
+                    time.sleep(1.5)
+
+                    # Option 1: Vider le formulaire en rechargeant la page
                     st.rerun()
+
+                    # Option 2 (alternative): Rediriger vers la liste des actifs
+                    # session_manager.set("navigation", "Actifs")
+                    # st.rerun()
                 else:
-                    st.error("Erreur lors de l'ajout de l'actif.")
+                    # Message d'erreur explicite
+                    st.error("❌ Erreur lors de l'ajout de l'actif. Veuillez vérifier les informations saisies.")
             except ValueError as e:
-                st.error(f"Les valeurs numériques sont invalides: {str(e)}")
+                st.error(f"❌ Les valeurs numériques sont invalides: {str(e)}")
             except Exception as e:
-                st.error(f"Erreur inattendue: {str(e)}")
+                st.error(f"❌ Erreur inattendue: {str(e)}")
 
 
 def collect_basic_asset_info(db, user_id):
