@@ -73,13 +73,13 @@ def initialize_database():
                         id=str(uuid.uuid4()),
                         username="admin",
                         email="admin@exemple.com",
-                        password_hash=hash_password("admin123"),
+                        password_hash=hash_password("adminMDP++"),
                         is_active=True,
                         created_at=datetime.now()
                     )
 
                     db.add(admin_user)
-                    logger.info("Utilisateur administrateur créé avec succès.")
+                    logger.info("Utilisateur administrateur créé avec succès. Modifiez son mot de passe dès maintenant")
         except Exception as e:
             logger.error(f"Échec de la création de l'utilisateur admin: {str(e)}")
             # Ne pas planter l'application pour cette erreur, l'utilisateur pourra en créer un manuellement
@@ -186,41 +186,8 @@ def main():
         elif page == "Tâches (Todo)":
             show_todos()
         elif page == "Paramètres":
-            # Ajouter le bouton de vérification d'intégrité dans la page Paramètres
-            if page == "Paramètres":
-                show_settings()
-
-                # Ajouter une section pour la vérification d'intégrité
-                st.subheader("Vérification d'intégrité des données")
-                col1, col2 = st.columns(2)
-
-                with col1:
-                    if st.button("🔍 Vérification rapide d'intégrité", key="quick_integrity_check"):
-                        with st.spinner("Vérification en cours..."):
-                            with get_db_session() as db:
-                                integrity_check = integrity_service.verify_database_integrity(db)
-                                if integrity_check:
-                                    st.success("✅ Vérification d'intégrité réussie!")
-                                else:
-                                    st.error(
-                                        "❌ La vérification d'intégrité a échoué. Consultez les logs pour plus de détails.")
-
-                with col2:
-                    if st.button("🔬 Analyse complète d'intégrité", key="full_integrity_scan"):
-                        with st.spinner("Analyse complète en cours... Cela peut prendre du temps."):
-                            with get_db_session() as db:
-                                results = integrity_service.perform_complete_integrity_scan(db)
-                                if results["passed"]:
-                                    st.success(
-                                        f"✅ Analyse complète réussie! {results['total_scanned']} éléments analysés.")
-                                else:
-                                    st.error(
-                                        f"❌ Analyse d'intégrité échouée: {results['corrupted']} éléments corrompus sur {results['total_scanned']}.")
-                                    # Afficher des détails sur les éléments corrompus
-                                    if results["corrupted"] > 0:
-                                        with st.expander("Détails des éléments corrompus"):
-                                            for item in results["corrupted_items"]:
-                                                st.markdown(f"**{item['type']}** (ID: `{item['id']}`): {item['error']}")
+            # Afficher la page des paramètres (qui contient déjà les contrôles d'intégrité)
+            show_settings()
     except Exception as e:
         logger.exception(f"Exception non gérée: {str(e)}")
         st.error("Une erreur inattendue s'est produite. Veuillez consulter les logs pour plus de détails.")
