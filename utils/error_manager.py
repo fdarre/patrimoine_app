@@ -2,6 +2,7 @@
 Gestionnaire d'erreurs centralisé pour l'application
 """
 import functools
+import os
 import traceback
 from typing import Callable, Dict, Type
 
@@ -11,6 +12,9 @@ from utils.exceptions import AppError, DatabaseError, ValidationError, Authentic
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Définir la variable d'environnement ici au lieu d'utiliser st.secrets
+ENV = os.environ.get("APP_ENV", "prod")
 
 class ErrorManager:
     """
@@ -142,7 +146,7 @@ class ErrorManager:
         st.error("An unexpected error occurred. Please check the logs for more details.")
 
         # En mode développement, afficher les détails de l'erreur
-        if st.secrets.get("env", "prod") == "dev":
+        if ENV == "dev":
             with st.expander("Error details (development mode)"):
                 st.code(traceback.format_exc())
 

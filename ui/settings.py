@@ -12,9 +12,11 @@ from database.models import User, Bank, Asset
 from services.backup_service import BackupService
 # Import du service d'intégrité
 from services.integrity_service import integrity_service
+from utils.error_manager import catch_exceptions  # Ajout de ce décorateur pour gérer les exceptions
 from utils.session_manager import session_manager  # Utilisation du gestionnaire de session
 
 
+@catch_exceptions
 def show_settings():
     """
     Affiche l'interface des paramètres
@@ -50,16 +52,22 @@ def show_settings():
                 if st.button("Créer une sauvegarde maintenant"):
                     with st.spinner("Création de la sauvegarde en cours..."):
                         db_path = DATA_DIR / "patrimoine.db"  # Utilisation de Path
-                        backup_path = BackupService.create_backup(str(db_path))  # Conversion en string
-                        st.success(f"Sauvegarde créée avec succès: {Path(backup_path).name}")  # Utilisation de Path
-                        # Téléchargement de la sauvegarde
-                        with open(backup_path, "rb") as f:
-                            st.download_button(
-                                "Télécharger la sauvegarde",
-                                data=f.read(),
-                                file_name=Path(backup_path).name,  # Utilisation de Path
-                                mime="application/octet-stream"
-                            )
+                        try:
+                            backup_path = BackupService.create_backup(str(db_path))  # Conversion en string
+                            if backup_path:
+                                st.success(f"Sauvegarde créée avec succès: {Path(backup_path).name}")
+                                # Téléchargement de la sauvegarde
+                                with open(backup_path, "rb") as f:
+                                    st.download_button(
+                                        "Télécharger la sauvegarde",
+                                        data=f.read(),
+                                        file_name=Path(backup_path).name,
+                                        mime="application/octet-stream"
+                                    )
+                            else:
+                                st.error("Erreur lors de la création de la sauvegarde")
+                        except Exception as e:
+                            st.error(f"Erreur lors de la création de la sauvegarde: {str(e)}")
 
             with col2:
                 st.write("Restaurer une sauvegarde")
@@ -75,85 +83,100 @@ def show_settings():
 
                         if st.button("Restaurer la sauvegarde"):
                             with st.spinner("Restauration en cours..."):
-                                # Déconnecter la base de données actuelle
-                                db.close()  # Fermer la session actuelle
-                                from database.db_config import engine
-                                engine.dispose()  # Fermer toutes les connexions du pool
+                                try:
+                                    # Déconnecter la base de données actuelle
+                                    db.close()  # Fermer la session actuelle
+                                    from database.db_config import engine
+                                    engine.dispose()  # Fermer toutes les connexions du pool
 
-                                # Restaurer la sauvegarde
-                                db_path = DATA_DIR / "patrimoine.db"  # Utilisation de Path
-                                success = BackupService.restore_backup(str(temp_path),
-                                                                       str(db_path))  # Conversion en string
+                                    # Restaurer la sauvegarde
+                                    db_path = DATA_DIR / "patrimoine.db"  # Utilisation de Path
+                                    success = BackupService.restore_backup(str(temp_path),
+                                                                           str(db_path))  # Conversion en string
 
-                                if success:
-                                    st.success("Sauvegarde restaurée avec succès. Veuillez rafraîchir la page.")
-                                else:
-                                    st.error("Erreur lors de la restauration de la sauvegarde.")
+                                    if success:
+                                        st.success("Sauvegarde restaurée avec succès. Veuillez rafraîchir la page.")
+                                    else:
+                                        st.error("Erreur lors de la restauration de la sauvegarde.")
+                                except Exception as e:
+                                    st.error(f"Erreur lors du processus de restauration: {str(e)}")
                     except Exception as e:
-                        st.error(f"Erreur lors de la restauration: {str(e)}")
+                        st.error(f"Erreur lors de la préparation de la restauration: {str(e)}")
 
         with tab2:
             st.subheader("Gestion des utilisateurs")
 
-            # Récupérer l'utilisateur actuel
-            current_user = db.query(User).filter(User.id == user_id).first()
+            try:
+                # Récupérer l'utilisateur actuel
+                current_user = db.query(User).filter(User.id == user_id).first()
 
-            # Vérifier si l'utilisateur est admin (le premier utilisateur est admin)
-            is_admin = current_user.username == "admin"
+                if not current_user:
+                    st.error("Utilisateur non trouvé")
+                    return
 
-            if is_admin:
-                # Récupérer tous les utilisateurs
-                users = db.query(User).all()
+                # Vérifier si l'utilisateur est admin (le premier utilisateur est admin)
+                is_admin = current_user.username == "admin"
 
-                st.write(f"Nombre d'utilisateurs: {len(users)} (maximum: {MAX_USERS})")
+                if is_admin:
+                    # Récupérer tous les utilisateurs
+                    users = db.query(User).all()
 
-                for user in users:
-                    st.markdown(f"""
-                    **Utilisateur:** {user.username}  
-                    **Email:** {user.email}  
-                    **Actif:** {"✓" if user.is_active else "✗"}  
-                    **Créé le:** {user.created_at}
-                    """)
+                    st.write(f"Nombre d'utilisateurs: {len(users)} (maximum: {MAX_USERS})")
 
-                    # Ne pas permettre de désactiver l'admin
-                    if user.username != "admin":
-                        col1, col2 = st.columns(2)
+                    for user in users:
+                        st.markdown(f"""
+                        **Utilisateur:** {user.username}  
+                        **Email:** {user.email}  
+                        **Actif:** {"✓" if user.is_active else "✗"}  
+                        **Créé le:** {user.created_at}
+                        """)
 
-                        with col1:
-                            if user.is_active:
-                                if st.button(f"Désactiver {user.username}", key=f"disable_{user.id}"):
-                                    # Désactiver l'utilisateur
-                                    user.is_active = False
-                                    db.commit()
-                                    st.success(f"Utilisateur {user.username} désactivé")
-                                    st.rerun()
-                            else:
-                                if st.button(f"Activer {user.username}", key=f"enable_{user.id}"):
-                                    # Activer l'utilisateur
-                                    user.is_active = True
-                                    db.commit()
-                                    st.success(f"Utilisateur {user.username} activé")
-                                    st.rerun()
+                        # Ne pas permettre de désactiver l'admin
+                        if user.username != "admin":
+                            col1, col2 = st.columns(2)
 
-                        with col2:
-                            if st.button(f"Supprimer {user.username}", key=f"delete_{user.id}"):
-                                # Vérifier si l'utilisateur a des données
-                                has_data = (
-                                        db.query(Bank).filter(Bank.owner_id == user.id).first() is not None or
-                                        db.query(Asset).filter(Asset.owner_id == user.id).first() is not None
-                                )
+                            with col1:
+                                btn_key = f"disable_{user.id}" if user.is_active else f"enable_{user.id}"
+                                btn_txt = f"Désactiver {user.username}" if user.is_active else f"Activer {user.username}"
 
-                                if has_data:
-                                    st.error(f"Impossible de supprimer {user.username} car il possède des données")
-                                else:
-                                    db.delete(user)
-                                    db.commit()
-                                    st.success(f"Utilisateur {user.username} supprimé")
-                                    st.rerun()
+                                if st.button(btn_txt, key=btn_key):
+                                    try:
+                                        # Basculer l'état actif de l'utilisateur
+                                        user.is_active = not user.is_active
+                                        db.commit()
+                                        action = "désactivé" if not user.is_active else "activé"
+                                        st.success(f"Utilisateur {user.username} {action}")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Erreur lors de la modification de l'utilisateur: {str(e)}")
+                                        db.rollback()
 
-                    st.markdown("---")
-            else:
-                st.info("Vous devez être administrateur pour gérer les utilisateurs.")
+                            with col2:
+                                if st.button(f"Supprimer {user.username}", key=f"delete_{user.id}"):
+                                    try:
+                                        # Vérifier si l'utilisateur a des données
+                                        has_data = (
+                                                db.query(Bank).filter(Bank.owner_id == user.id).first() is not None or
+                                                db.query(Asset).filter(Asset.owner_id == user.id).first() is not None
+                                        )
+
+                                        if has_data:
+                                            st.error(
+                                                f"Impossible de supprimer {user.username} car il possède des données")
+                                        else:
+                                            db.delete(user)
+                                            db.commit()
+                                            st.success(f"Utilisateur {user.username} supprimé")
+                                            st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Erreur lors de la suppression de l'utilisateur: {str(e)}")
+                                        db.rollback()
+
+                        st.markdown("---")
+                else:
+                    st.info("Vous devez être administrateur pour gérer les utilisateurs.")
+            except Exception as e:
+                st.error(f"Erreur lors du chargement des informations utilisateur: {str(e)}")
 
         # Nouvel onglet pour la sécurité et vérification d'intégrité
         with tab3:
@@ -170,76 +193,99 @@ def show_settings():
             col1, col2 = st.columns(2)
 
             with col1:
-                if st.button("🔍 Vérification rapide", key="integrity_check"):
+                if st.button("🔍 Vérification rapide", key="integrity_check_btn"):
                     with st.spinner("Vérification en cours..."):
-                        integrity_check = integrity_service.verify_database_integrity(db)
-                        if integrity_check:
-                            st.success("✅ Vérification d'intégrité réussie!")
-                        else:
-                            st.error("❌ La vérification d'intégrité a échoué. Consultez les logs pour plus de détails.")
+                        try:
+                            integrity_check = integrity_service.verify_database_integrity(db)
+                            if integrity_check:
+                                st.success("✅ Vérification d'intégrité réussie!")
+                            else:
+                                st.error(
+                                    "❌ La vérification d'intégrité a échoué. Consultez les logs pour plus de détails.")
+                        except Exception as e:
+                            st.error(f"Erreur pendant la vérification: {str(e)}")
 
             with col2:
                 # Option pour activer la vérification périodique d'intégrité
+                # Utiliser une clé différente pour le session_state et le widget
+                current_check_status = session_manager.get("integrity_check_enabled", False)
+
+                # Renommer la clé du widget pour éviter le conflit
                 enable_periodic_check = st.checkbox(
                     "Activer la vérification périodique d'intégrité",
-                    value=session_manager.get("enable_integrity_check", False),
-                    key="enable_integrity_check"
+                    value=current_check_status,
+                    key="integrity_check_widget"
                 )
 
-                session_manager.set("enable_integrity_check", enable_periodic_check)
+                # Ne mettre à jour le session_state que si la valeur a changé
+                if enable_periodic_check != current_check_status:
+                    session_manager.set("integrity_check_enabled", enable_periodic_check)
 
                 if enable_periodic_check:
+                    # Aussi modifier les clés pour éviter des conflits similaires
+                    current_interval = session_manager.get("integrity_interval", "Hebdomadaire")
                     check_interval = st.select_slider(
                         "Intervalle de vérification",
                         options=["Quotidien", "Hebdomadaire", "Mensuel"],
-                        value=session_manager.get("integrity_check_interval", "Hebdomadaire"),
-                        key="integrity_check_interval"
+                        value=current_interval,
+                        key="integrity_interval_widget"
                     )
 
-                    session_manager.set("integrity_check_interval", check_interval)
+                    # Ne mettre à jour que si la valeur a changé
+                    if check_interval != current_interval:
+                        session_manager.set("integrity_interval", check_interval)
 
                     # Afficher la prochaine vérification programmée
                     last_check = session_manager.get("last_integrity_check")
 
                     if last_check:
-                        last_check_date = datetime.fromisoformat(last_check)
+                        try:
+                            last_check_date = datetime.fromisoformat(last_check)
 
-                        # Calculer la prochaine vérification
-                        if check_interval == "Quotidien":
-                            next_check = last_check_date + timedelta(days=1)
-                        elif check_interval == "Hebdomadaire":
-                            next_check = last_check_date + timedelta(days=7)
-                        else:  # Mensuel
-                            next_check = last_check_date + timedelta(days=30)
+                            # Calculer la prochaine vérification
+                            if check_interval == "Quotidien":
+                                next_check = last_check_date + timedelta(days=1)
+                            elif check_interval == "Hebdomadaire":
+                                next_check = last_check_date + timedelta(days=7)
+                            else:  # Mensuel
+                                next_check = last_check_date + timedelta(days=30)
 
-                        st.info(f"Prochaine vérification: {next_check.strftime('%d/%m/%Y')}")
+                            st.info(f"Prochaine vérification: {next_check.strftime('%d/%m/%Y')}")
+                        except Exception as e:
+                            st.error(f"Erreur lors du calcul de la prochaine vérification: {str(e)}")
                     else:
                         # Première exécution si aucune vérification n'a été faite
-                        integrity_check = integrity_service.verify_database_integrity(db)
-                        session_manager.set("last_integrity_check", datetime.now().isoformat())
+                        try:
+                            integrity_check = integrity_service.verify_database_integrity(db)
+                            session_manager.set("last_integrity_check", datetime.now().isoformat())
 
-                        if integrity_check:
-                            st.success("✅ Vérification initiale d'intégrité réussie!")
-                        else:
-                            st.error("❌ La vérification initiale d'intégrité a échoué.")
+                            if integrity_check:
+                                st.success("✅ Vérification initiale d'intégrité réussie!")
+                            else:
+                                st.error("❌ La vérification initiale d'intégrité a échoué.")
+                        except Exception as e:
+                            st.error(f"Erreur lors de la vérification initiale: {str(e)}")
 
             # Scan complet
             st.markdown("### Analyse complète d'intégrité")
             st.warning("⚠️ Cette opération peut prendre du temps sur de grandes bases de données.")
 
-            if st.button("🔬 Analyse complète", key="full_integrity_scan"):
+            if st.button("🔬 Analyse complète", key="full_integrity_scan_btn"):
                 with st.spinner("Analyse complète en cours... Cela peut prendre du temps."):
-                    results = integrity_service.perform_complete_integrity_scan(db)
-                    if results["passed"]:
-                        st.success(f"✅ Analyse complète réussie! {results['total_scanned']} éléments analysés.")
-                    else:
-                        st.error(
-                            f"❌ Analyse d'intégrité échouée: {results['corrupted']} éléments corrompus sur {results['total_scanned']}.")
-                        # Afficher des détails sur les éléments corrompus
-                        if results["corrupted"] > 0:
-                            with st.expander("Détails des éléments corrompus"):
-                                for item in results["corrupted_items"]:
-                                    st.markdown(f"**{item['type']}** (ID: `{item['id']}`): {item['error']}")
+                    try:
+                        results = integrity_service.perform_complete_integrity_scan(db)
+                        if results["passed"]:
+                            st.success(f"✅ Analyse complète réussie! {results['total_scanned']} éléments analysés.")
+                        else:
+                            st.error(
+                                f"❌ Analyse d'intégrité échouée: {results['corrupted']} éléments corrompus sur {results['total_scanned']}.")
+                            # Afficher des détails sur les éléments corrompus
+                            if results["corrupted"] > 0:
+                                with st.expander("Détails des éléments corrompus"):
+                                    for item in results["corrupted_items"]:
+                                        st.markdown(f"**{item['type']}** (ID: `{item['id']}`): {item['error']}")
+                    except Exception as e:
+                        st.error(f"Erreur lors de l'analyse complète: {str(e)}")
 
             # Section pour les sauvegardes avant migration
             st.markdown("### Sauvegardes automatiques avant migration")

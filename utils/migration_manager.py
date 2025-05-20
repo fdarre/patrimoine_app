@@ -82,7 +82,25 @@ class MigrationManager:
             True si la mise à jour a réussi, False sinon
         """
         try:
-            # Créer un backup avant migration
+            # Vérifier d'abord s'il y a des migrations à appliquer
+            current_version = self.get_current_version()
+
+            # Obtenir la version cible
+            cfg = self.get_alembic_config()
+            script_directory = ScriptDirectory.from_config(cfg)
+
+            if target == "head":
+                target_revision = script_directory.get_current_head()
+            else:
+                target_revision = target
+
+            # Vérifier si la migration est nécessaire
+            if current_version == target_revision:
+                logger.info(
+                    f"La base de données est déjà à jour (version: {current_version}). Aucune migration nécessaire.")
+                return True
+
+            # Créer un backup avant migration seulement si des migrations sont nécessaires
             from services.backup_service import BackupService
             backup_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             backup_path = BackupService.create_backup(
@@ -95,7 +113,6 @@ class MigrationManager:
                 logger.info(f"Backup avant migration créé: {backup_path}")
 
             # Procéder à la migration
-            cfg = self.get_alembic_config()
             command.upgrade(cfg, target)
             logger.info(f"Base de données mise à jour vers la version: {target}")
             return True
