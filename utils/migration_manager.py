@@ -2,6 +2,7 @@
 Gestionnaire de migrations pour l'application
 """
 import os
+from datetime import datetime  # Ajout de cet import manquant
 from pathlib import Path
 
 from alembic import command
@@ -81,6 +82,19 @@ class MigrationManager:
             True si la mise à jour a réussi, False sinon
         """
         try:
+            # Créer un backup avant migration
+            from services.backup_service import BackupService
+            backup_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = BackupService.create_backup(
+                str(self.db_path),
+                output_path=str(self.db_path.parent / f"pre_migration_{backup_timestamp}.zip.enc")
+            )
+            if not backup_path:
+                logger.warning("Impossible de créer un backup avant migration")
+            else:
+                logger.info(f"Backup avant migration créé: {backup_path}")
+
+            # Procéder à la migration
             cfg = self.get_alembic_config()
             command.upgrade(cfg, target)
             logger.info(f"Base de données mise à jour vers la version: {target}")
@@ -100,6 +114,18 @@ class MigrationManager:
             True si la rétrogradation a réussi, False sinon
         """
         try:
+            # Créer un backup avant downgrade (encore plus important que pour upgrade)
+            from services.backup_service import BackupService
+            backup_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = BackupService.create_backup(
+                str(self.db_path),
+                output_path=str(self.db_path.parent / f"pre_downgrade_{backup_timestamp}.zip.enc")
+            )
+            if not backup_path:
+                logger.warning("Impossible de créer un backup avant downgrade")
+            else:
+                logger.info(f"Backup avant downgrade créé: {backup_path}")
+
             cfg = self.get_alembic_config()
             command.downgrade(cfg, target)
             logger.info(f"Base de données rétrogradée vers la version: {target}")

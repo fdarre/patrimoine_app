@@ -11,6 +11,8 @@ import streamlit as st
 from config.app_config import LOGS_DIR, DB_PATH
 from database.db_config import engine, get_db_session
 from database.models import Base, User
+# Import du nouveau service d'intégrité
+from services.integrity_service import integrity_service
 from ui.analysis import show_analysis
 from ui.assets import show_asset_management
 from ui.auth import show_auth, check_auth, logout, get_current_user_id
@@ -96,6 +98,18 @@ def initialize_database():
             # Mettre à jour la base avec les dernières migrations (si nécessaire)
             migration_manager.upgrade_database("head")
             logger.info("Base de données à jour avec les dernières migrations.")
+
+            # Vérifier l'intégrité de la base de données
+            with get_db_session() as db:
+                integrity_check = integrity_service.verify_database_integrity(db)
+                if integrity_check:
+                    logger.info("Vérification d'intégrité de la base de données réussie.")
+                else:
+                    logger.warning(
+                        "Vérification d'intégrité de la base de données échouée. Consultez les logs pour plus de détails.")
+                    st.warning(
+                        "⚠️ La vérification d'intégrité de la base de données a échoué. Certaines données pourraient être corrompues.")
+
         except Exception as e:
             logger.error(f"Erreur lors de la vérification/mise à jour de la base de données: {str(e)}")
             # Continuer quand même, en espérant que la base soit utilisable
@@ -172,7 +186,41 @@ def main():
         elif page == "Tâches (Todo)":
             show_todos()
         elif page == "Paramètres":
-            show_settings()
+            # Ajouter le bouton de vérification d'intégrité dans la page Paramètres
+            if page == "Paramètres":
+                show_settings()
+
+                # Ajouter une section pour la vérification d'intégrité
+                st.subheader("Vérification d'intégrité des données")
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    if st.button("🔍 Vérification rapide d'intégrité", key="quick_integrity_check"):
+                        with st.spinner("Vérification en cours..."):
+                            with get_db_session() as db:
+                                integrity_check = integrity_service.verify_database_integrity(db)
+                                if integrity_check:
+                                    st.success("✅ Vérification d'intégrité réussie!")
+                                else:
+                                    st.error(
+                                        "❌ La vérification d'intégrité a échoué. Consultez les logs pour plus de détails.")
+
+                with col2:
+                    if st.button("🔬 Analyse complète d'intégrité", key="full_integrity_scan"):
+                        with st.spinner("Analyse complète en cours... Cela peut prendre du temps."):
+                            with get_db_session() as db:
+                                results = integrity_service.perform_complete_integrity_scan(db)
+                                if results["passed"]:
+                                    st.success(
+                                        f"✅ Analyse complète réussie! {results['total_scanned']} éléments analysés.")
+                                else:
+                                    st.error(
+                                        f"❌ Analyse d'intégrité échouée: {results['corrupted']} éléments corrompus sur {results['total_scanned']}.")
+                                    # Afficher des détails sur les éléments corrompus
+                                    if results["corrupted"] > 0:
+                                        with st.expander("Détails des éléments corrompus"):
+                                            for item in results["corrupted_items"]:
+                                                st.markdown(f"**{item['type']}** (ID: `{item['id']}`): {item['error']}")
     except Exception as e:
         logger.exception(f"Exception non gérée: {str(e)}")
         st.error("Une erreur inattendue s'est produite. Veuillez consulter les logs pour plus de détails.")

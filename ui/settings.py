@@ -1,6 +1,7 @@
 """
 Interface des paramètres de l'application
 """
+from datetime import datetime, timedelta
 from pathlib import Path  # Utiliser pathlib au lieu de os.path
 
 import streamlit as st
@@ -9,6 +10,8 @@ from config.app_config import DATA_DIR, MAX_USERS
 from database.db_config import get_db_session  # Au lieu de get_db
 from database.models import User, Bank, Asset
 from services.backup_service import BackupService
+# Import du service d'intégrité
+from services.integrity_service import integrity_service
 from utils.session_manager import session_manager  # Utilisation du gestionnaire de session
 
 
@@ -25,7 +28,8 @@ def show_settings():
 
     st.header("Paramètres", anchor=False)
 
-    tab1, tab2, tab3 = st.tabs(["Sauvegarde", "Utilisateurs", "À propos"])
+    # Ajouter l'onglet "Sécurité" pour les vérifications d'intégrité
+    tab1, tab2, tab3, tab4 = st.tabs(["Sauvegarde", "Utilisateurs", "Sécurité", "À propos"])
 
     # Utiliser le gestionnaire de contexte pour la session DB
     with get_db_session() as db:
@@ -151,7 +155,101 @@ def show_settings():
             else:
                 st.info("Vous devez être administrateur pour gérer les utilisateurs.")
 
+        # Nouvel onglet pour la sécurité et vérification d'intégrité
         with tab3:
+            st.subheader("Sécurité et Intégrité des données")
+
+            st.markdown("""
+            La vérification d'intégrité permet de s'assurer que vos données chiffrées sont correctement accessibles
+            et qu'aucune corruption n'est survenue. Cette fonctionnalité est particulièrement importante avant et
+            après les mises à jour ou les migrations de base de données.
+            """)
+
+            st.markdown("### Vérification d'intégrité")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                if st.button("🔍 Vérification rapide", key="integrity_check"):
+                    with st.spinner("Vérification en cours..."):
+                        integrity_check = integrity_service.verify_database_integrity(db)
+                        if integrity_check:
+                            st.success("✅ Vérification d'intégrité réussie!")
+                        else:
+                            st.error("❌ La vérification d'intégrité a échoué. Consultez les logs pour plus de détails.")
+
+            with col2:
+                # Option pour activer la vérification périodique d'intégrité
+                enable_periodic_check = st.checkbox(
+                    "Activer la vérification périodique d'intégrité",
+                    value=session_manager.get("enable_integrity_check", False),
+                    key="enable_integrity_check"
+                )
+
+                session_manager.set("enable_integrity_check", enable_periodic_check)
+
+                if enable_periodic_check:
+                    check_interval = st.select_slider(
+                        "Intervalle de vérification",
+                        options=["Quotidien", "Hebdomadaire", "Mensuel"],
+                        value=session_manager.get("integrity_check_interval", "Hebdomadaire"),
+                        key="integrity_check_interval"
+                    )
+
+                    session_manager.set("integrity_check_interval", check_interval)
+
+                    # Afficher la prochaine vérification programmée
+                    last_check = session_manager.get("last_integrity_check")
+
+                    if last_check:
+                        last_check_date = datetime.fromisoformat(last_check)
+
+                        # Calculer la prochaine vérification
+                        if check_interval == "Quotidien":
+                            next_check = last_check_date + timedelta(days=1)
+                        elif check_interval == "Hebdomadaire":
+                            next_check = last_check_date + timedelta(days=7)
+                        else:  # Mensuel
+                            next_check = last_check_date + timedelta(days=30)
+
+                        st.info(f"Prochaine vérification: {next_check.strftime('%d/%m/%Y')}")
+                    else:
+                        # Première exécution si aucune vérification n'a été faite
+                        integrity_check = integrity_service.verify_database_integrity(db)
+                        session_manager.set("last_integrity_check", datetime.now().isoformat())
+
+                        if integrity_check:
+                            st.success("✅ Vérification initiale d'intégrité réussie!")
+                        else:
+                            st.error("❌ La vérification initiale d'intégrité a échoué.")
+
+            # Scan complet
+            st.markdown("### Analyse complète d'intégrité")
+            st.warning("⚠️ Cette opération peut prendre du temps sur de grandes bases de données.")
+
+            if st.button("🔬 Analyse complète", key="full_integrity_scan"):
+                with st.spinner("Analyse complète en cours... Cela peut prendre du temps."):
+                    results = integrity_service.perform_complete_integrity_scan(db)
+                    if results["passed"]:
+                        st.success(f"✅ Analyse complète réussie! {results['total_scanned']} éléments analysés.")
+                    else:
+                        st.error(
+                            f"❌ Analyse d'intégrité échouée: {results['corrupted']} éléments corrompus sur {results['total_scanned']}.")
+                        # Afficher des détails sur les éléments corrompus
+                        if results["corrupted"] > 0:
+                            with st.expander("Détails des éléments corrompus"):
+                                for item in results["corrupted_items"]:
+                                    st.markdown(f"**{item['type']}** (ID: `{item['id']}`): {item['error']}")
+
+            # Section pour les sauvegardes avant migration
+            st.markdown("### Sauvegardes automatiques avant migration")
+            st.info("""
+            Les migrations de la base de données sont automatiquement précédées d'une sauvegarde de sécurité.
+            Vous pouvez trouver ces sauvegardes dans le répertoire "data" avec le préfixe "pre_migration_" ou 
+            "pre_downgrade_".
+            """)
+
+        with tab4:
             st.subheader("À propos de l'application")
 
             st.markdown("""
@@ -177,9 +275,12 @@ def show_settings():
             - Base de données sécurisée
             - Sauvegardes et restaurations chiffrées
             - Isolation des données par utilisateur
+            - Vérification d'intégrité des données
+            - Sauvegardes automatiques avant migration
 
             **Sécurité**:
             Toutes vos données sensibles sont chiffrées dans la base de données.
             Les mots de passe sont hachés et ne sont jamais stockés en clair.
             Les sauvegardes sont également chiffrées pour plus de sécurité.
+            La vérification d'intégrité permet de s'assurer que vos données ne sont pas corrompues.
             """)
