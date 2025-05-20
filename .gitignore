@@ -19,6 +19,8 @@ build/
 
 # Environnements virtuels
 venv/
+venv_dev/
+venv_prod/
 env/
 ENV/
 
